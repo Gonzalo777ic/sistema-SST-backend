@@ -115,24 +115,36 @@ export class UsuariosService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    // Validación: Protección de sesión propia
-    if (currentUserId && currentUserId === id && dto.roles !== undefined) {
-      throw new PreconditionFailedException(
-        'No puedes cambiar tus propios roles por seguridad',
-      );
-    }
-
-    // Validación: Último administrador del sistema
     const isCurrentlySuperAdmin = usuario.roles.includes(UsuarioRol.SUPER_ADMIN);
-    const willRemainSuperAdmin =
-      dto.roles !== undefined
-        ? dto.roles.includes(UsuarioRol.SUPER_ADMIN)
-        : isCurrentlySuperAdmin;
-    const willBeActive = dto.activo !== undefined ? dto.activo : usuario.activo;
+    
+    // Solo ejecutar validaciones críticas si se intenta modificar roles o activo
+    const isModifyingRoles = dto.roles !== undefined;
+    const isModifyingActivo = dto.activo !== undefined;
 
-    // Si el usuario es SUPER_ADMIN y se intenta quitar el rol o desactivar
-    if (isCurrentlySuperAdmin && (!willRemainSuperAdmin || !willBeActive)) {
+    if (currentUserId && currentUserId === id && isModifyingRoles) {
+      // Solo bloqueamos si el SUPER_ADMIN intenta QUITARSE el rol a sí mismo
+      const stillHasAdminRole = dto.roles?.includes(UsuarioRol.SUPER_ADMIN);
+      if (!stillHasAdminRole) {
+        throw new PreconditionFailedException(
+          'No puedes eliminar tu propio rol de administrador por seguridad',
+        );
+      }
+  // Si el rol SUPER_ADMIN se mantiene en el array, permitimos que pase 
+  // para que pueda actualizar su trabajadorId o empresaId
+}
+
+    // Validación específica: PreconditionFailedException (412) solo para casos críticos
+    // Solo se dispara si el usuario es el último SUPER_ADMIN activo Y el DTO recibido:
+    // a) No incluye el rol SUPER_ADMIN en el arreglo roles (intento de degradación)
+    // b) Tiene el campo activo en false (intento de desactivación)
+    if (isCurrentlySuperAdmin && (isModifyingRoles || isModifyingActivo)) {
+      const willRemainSuperAdmin = isModifyingRoles
+        ? dto.roles!.includes(UsuarioRol.SUPER_ADMIN)
+        : isCurrentlySuperAdmin;
+      const willBeActive = isModifyingActivo ? dto.activo! : usuario.activo;
+
       // Contar cuántos SUPER_ADMIN activos existen
+      // La búsqueda considera tanto el rol SUPER_ADMIN como el estado activo: true
       const superAdminCount = await this.usuarioRepository.count({
         where: {
           roles: ArrayContains([UsuarioRol.SUPER_ADMIN]),
@@ -140,20 +152,27 @@ export class UsuariosService {
         },
       });
 
-      // Si es el único SUPER_ADMIN activo, bloquear la operación
+      // Si es el único SUPER_ADMIN activo, validar operaciones críticas
       if (superAdminCount === 1) {
-        if (!willRemainSuperAdmin) {
+        // Caso a): Intentar quitarse el rol de SUPER_ADMIN (degradación)
+        if (isModifyingRoles && !willRemainSuperAdmin) {
           throw new PreconditionFailedException(
             'No se puede eliminar el rol del único administrador del sistema',
           );
         }
-        if (!willBeActive) {
+        // Caso b): Intentar desactivar su cuenta
+        if (isModifyingActivo && !willBeActive) {
           throw new PreconditionFailedException(
             'No se puede desactivar la cuenta del único administrador del sistema',
           );
         }
       }
     }
+
+    // PERMITIR VINCULACIÓN: El SUPER_ADMIN puede asignarse trabajador_id y empresa_id
+    // Esto permite que el usuario con más privilegios tenga un perfil de trabajador completo
+    // Nota: Un SUPER_ADMIN vinculado a un Trabajador mantiene todos sus permisos globales
+    // independientemente de la empresa asignada, ya que los permisos se basan en roles, no en empresa_id
 
     // Actualizar solo los campos proporcionados
     if (dto.roles !== undefined) {
@@ -164,10 +183,12 @@ export class UsuariosService {
       usuario.activo = dto.activo;
     }
 
+    // Permitir actualización de empresaId sin restricciones para SUPER_ADMIN
     if (dto.empresaId !== undefined) {
       usuario.empresaId = dto.empresaId || null;
     }
 
+    // Permitir actualización de trabajadorId sin restricciones para SUPER_ADMIN
     if (dto.trabajadorId !== undefined) {
       // Si se pasa null o undefined, desvincular el trabajador
       if (dto.trabajadorId) {
