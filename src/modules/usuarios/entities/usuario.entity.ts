@@ -51,13 +51,10 @@ export class Usuario {
   providerId: string | null;
 
   @Column({
-    type: 'simple-array',
-    transformer: {
-      to: (value: UsuarioRol[]) => (Array.isArray(value) ? value.join(',') : ''),
-      from: (value: string) =>
-        value ? value.split(',').filter(Boolean) : [],
-    },
-    default: '',
+    type: 'enum',
+    enum: UsuarioRol,
+    array: true,
+    default: [UsuarioRol.TRABAJADOR], 
   })
   roles: UsuarioRol[];
 
