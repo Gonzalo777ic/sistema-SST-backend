@@ -59,7 +59,8 @@ export class SolicitudEPP {
   @Column({ type: 'int', default: 1 })
   cantidad: number;
 
-  @Column({ type: 'varchar', length: 20 })  talla: string;
+  @Column({ type: 'varchar', length: 20 })
+  talla: string;
 
   @Column({
     type: 'enum',

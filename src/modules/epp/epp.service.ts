@@ -64,7 +64,7 @@ export class EppService {
 
     const solicitudes = await this.solicitudRepository.find({
       where,
-      relations: ['trabajador', 'supervisorAprobador', 'entregadoPor'],
+      relations: ['trabajador', 'supervisorAprobador', 'entregadoPor', 'area'],
       order: { createdAt: 'DESC' },
     });
 
@@ -74,7 +74,7 @@ export class EppService {
   async findOne(id: string): Promise<ResponseSolicitudEppDto> {
     const solicitud = await this.solicitudRepository.findOne({
       where: { id },
-      relations: ['trabajador', 'supervisorAprobador', 'entregadoPor'],
+      relations: ['trabajador', 'supervisorAprobador', 'entregadoPor', 'area'],
     });
 
     if (!solicitud) {
@@ -175,6 +175,55 @@ export class EppService {
         `No se puede cambiar de ${estadoActual} a ${estadoNuevo}`,
       );
     }
+  }
+
+  async updateEstado(
+    id: string,
+    nuevoEstado: EstadoSolicitudEPP,
+    usuarioId?: string,
+    comentariosAprobacion?: string,
+    firmaRecepcionUrl?: string,
+  ): Promise<ResponseSolicitudEppDto> {
+    const solicitud = await this.solicitudRepository.findOne({ where: { id } });
+
+    if (!solicitud) {
+      throw new NotFoundException(`Solicitud EPP con ID ${id} no encontrada`);
+    }
+
+    // Validar transición de estado
+    this.validateEstadoTransition(solicitud.estado, nuevoEstado);
+
+    // Actualizar estado
+    solicitud.estado = nuevoEstado;
+
+    // Lógica de aprobación
+    if (nuevoEstado === EstadoSolicitudEPP.Aprobada) {
+      if (usuarioId) {
+        solicitud.supervisorAprobadorId = usuarioId;
+      }
+      if (!solicitud.fechaAprobacion) {
+        solicitud.fechaAprobacion = new Date();
+      }
+      if (comentariosAprobacion) {
+        solicitud.comentariosAprobacion = comentariosAprobacion;
+      }
+    }
+
+    // Lógica de entrega automática
+    if (nuevoEstado === EstadoSolicitudEPP.Entregada) {
+      if (usuarioId) {
+        solicitud.entregadoPorId = usuarioId;
+      }
+      if (!solicitud.fechaEntrega) {
+        solicitud.fechaEntrega = new Date();
+      }
+      if (firmaRecepcionUrl) {
+        solicitud.firmaRecepcionUrl = firmaRecepcionUrl;
+      }
+    }
+
+    await this.solicitudRepository.save(solicitud);
+    return this.findOne(id);
   }
 
   async remove(id: string): Promise<void> {
