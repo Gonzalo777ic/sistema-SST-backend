@@ -47,7 +47,9 @@ export class UsuariosService {
       providerId: dto.providerId ?? null,
       roles: dto.roles,
       empresaId: dto.empresaId ?? null,
-      trabajadorId: dto.trabajadorId ?? null,
+      trabajador: dto.trabajadorId
+        ? ({ id: dto.trabajadorId } as any)
+        : undefined,
       activo: true,
     });
 

@@ -6,9 +6,11 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
   ManyToOne,
+  OneToOne,
   JoinColumn,
 } from 'typeorm';
 import { Empresa } from '../../empresas/entities/empresa.entity';
+import type { Trabajador } from '../../trabajadores/entities/trabajador.entity';
 
 export enum AuthProvider {
   LOCAL = 'LOCAL',
@@ -68,15 +70,16 @@ export class Usuario {
   @Column({ name: 'refresh_token_hash', nullable: true })
   refreshTokenHash: string | null;
 
-  @Column({ name: 'trabajador_id', type: 'uuid', nullable: true })
-  trabajadorId: string | null;
-
   @Column({ name: 'empresa_id', type: 'uuid', nullable: true })
   empresaId: string | null;
 
-  @ManyToOne(() => Empresa, { nullable: true })
+  @ManyToOne(() => Empresa, (empresa) => empresa.usuarios, { nullable: true })
   @JoinColumn({ name: 'empresa_id' })
   empresa: Empresa | null;
+
+  @OneToOne('Trabajador', 'usuario', { nullable: true })
+  @JoinColumn({ name: 'trabajador_id' })
+  trabajador: Trabajador | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

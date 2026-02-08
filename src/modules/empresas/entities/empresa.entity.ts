@@ -4,7 +4,10 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
+import { Usuario } from '../../usuarios/entities/usuario.entity';
+import { Area } from './area.entity';
 
 @Entity('empresas')
 export class Empresa {
@@ -22,6 +25,15 @@ export class Empresa {
 
   @Column({ default: true })
   activo: boolean;
+
+  @OneToMany(() => Usuario, (usuario) => usuario.empresa)
+  usuarios: Usuario[];
+
+  @OneToMany('Trabajador', 'empresa')
+  trabajadores: import('../../trabajadores/entities/trabajador.entity').Trabajador[];
+
+  @OneToMany(() => Area, (area) => area.empresa)
+  areas: Area[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

@@ -19,7 +19,7 @@ export class ResponseUsuarioDto {
     activo: boolean;
     ultimoAcceso: Date | null;
     empresaId: string | null;
-    trabajadorId: string | null;
+    trabajador?: { id: string } | null;
     createdAt: Date;
   }): ResponseUsuarioDto {
     const dto = new ResponseUsuarioDto();
@@ -30,7 +30,7 @@ export class ResponseUsuarioDto {
     dto.activo = usuario.activo;
     dto.ultimoAcceso = usuario.ultimoAcceso;
     dto.empresaId = usuario.empresaId;
-    dto.trabajadorId = usuario.trabajadorId;
+    dto.trabajadorId = usuario.trabajador?.id ?? null;
     dto.createdAt = usuario.createdAt;
     return dto;
   }
