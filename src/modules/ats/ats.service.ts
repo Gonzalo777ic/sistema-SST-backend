@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ATS, EstadoATS } from './entities/ats.entity';
+import { Area } from '../empresas/entities/area.entity';
 import { AtsPersonalInvolucrado } from './entities/ats-personal-involucrado.entity';
 import { AtsPasoTrabajo } from './entities/ats-paso-trabajo.entity';
 import { CreateAtsDto } from './dto/create-ats.dto';
@@ -18,6 +19,8 @@ export class AtsService {
   constructor(
     @InjectRepository(ATS)
     private readonly atsRepository: Repository<ATS>,
+    @InjectRepository(Area)
+    private readonly areaRepository: Repository<Area>,
     @InjectRepository(AtsPersonalInvolucrado)
     private readonly personalRepository: Repository<AtsPersonalInvolucrado>,
     @InjectRepository(AtsPasoTrabajo)
@@ -49,10 +52,19 @@ export class AtsService {
       );
     }
 
+    // Verificar que el área existe
+    const area = await this.areaRepository.findOne({
+      where: { id: dto.area_id },
+    });
+
+    if (!area) {
+      throw new NotFoundException(`Área con ID ${dto.area_id} no encontrada`);
+    }
+
     const ats = this.atsRepository.create({
       numeroAts,
       fecha: new Date(dto.fecha),
-      area: dto.area,
+      areaId: dto.area_id,
       ubicacion: dto.ubicacion ?? null,
       trabajoARealizar: dto.trabajo_a_realizar,
       horaInicio: dto.hora_inicio ?? null,
@@ -125,7 +137,7 @@ export class AtsService {
 
     const atsList = await this.atsRepository.find({
       where,
-      relations: ['elaboradoPor', 'supervisor', 'aprobadoPor', 'personalInvolucrado', 'pasosTrabajo'],
+      relations: ['elaboradoPor', 'supervisor', 'aprobadoPor', 'area', 'personalInvolucrado', 'pasosTrabajo'],
       order: { createdAt: 'DESC' },
     });
 
@@ -135,7 +147,7 @@ export class AtsService {
   async findOne(id: string): Promise<ResponseAtsDto> {
     const ats = await this.atsRepository.findOne({
       where: { id },
-      relations: ['elaboradoPor', 'supervisor', 'aprobadoPor', 'personalInvolucrado', 'pasosTrabajo'],
+      relations: ['elaboradoPor', 'supervisor', 'aprobadoPor', 'area', 'personalInvolucrado', 'pasosTrabajo'],
     });
 
     if (!ats) {
@@ -171,7 +183,15 @@ export class AtsService {
 
     // Actualizar campos principales
     if (dto.fecha) ats.fecha = new Date(dto.fecha);
-    if (dto.area) ats.area = dto.area;
+    if (dto.area_id) {
+      const area = await this.areaRepository.findOne({
+        where: { id: dto.area_id },
+      });
+      if (!area) {
+        throw new NotFoundException(`Área con ID ${dto.area_id} no encontrada`);
+      }
+      ats.areaId = dto.area_id;
+    }
     if (dto.ubicacion !== undefined) ats.ubicacion = dto.ubicacion;
     if (dto.trabajo_a_realizar) ats.trabajoARealizar = dto.trabajo_a_realizar;
     if (dto.hora_inicio !== undefined) ats.horaInicio = dto.hora_inicio;

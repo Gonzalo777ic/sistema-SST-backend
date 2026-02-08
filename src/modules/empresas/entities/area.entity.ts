@@ -14,8 +14,14 @@ export class Area {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'varchar' })
   nombre: string;
+
+  @Column({ type: 'text', nullable: true })
+  descripcion: string | null;
+
+  @Column({ type: 'boolean', default: true })
+  activo: boolean;
 
   @Column({ name: 'empresa_id', type: 'uuid' })
   empresaId: string;

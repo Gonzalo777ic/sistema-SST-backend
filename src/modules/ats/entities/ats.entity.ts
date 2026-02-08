@@ -10,6 +10,7 @@ import {
   Index,
 } from 'typeorm';
 import { Empresa } from '../../empresas/entities/empresa.entity';
+import { Area } from '../../empresas/entities/area.entity';
 import { Usuario } from '../../usuarios/entities/usuario.entity';
 import { AtsPersonalInvolucrado } from './ats-personal-involucrado.entity';
 import { AtsPasoTrabajo } from './ats-paso-trabajo.entity';
@@ -33,8 +34,12 @@ export class ATS {
   @Column({ type: 'date' })
   fecha: Date;
 
-  @Column({ type: 'varchar' })
-  area: string;
+  @Column({ name: 'area_id', type: 'uuid' })
+  areaId: string;
+
+  @ManyToOne(() => Area, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'area_id' })
+  area: Area;
 
   @Column({ type: 'varchar', nullable: true })
   ubicacion: string | null;

@@ -19,6 +19,7 @@ export class ResponseAtsDto {
   numero_ats: string;
   fecha: string;
   area: string;
+  area_id: string;
   ubicacion: string | null;
   estado: EstadoATS;
   hora_inicio: string | null;
@@ -54,7 +55,8 @@ export class ResponseAtsDto {
     id: string;
     numeroAts: string;
     fecha: Date;
-    area: string;
+    areaId: string;
+    area?: { nombre: string } | null;
     ubicacion: string | null;
     estado: EstadoATS;
     horaInicio: string | null;
@@ -102,7 +104,8 @@ export class ResponseAtsDto {
     dto.fecha = ats.fecha instanceof Date
       ? ats.fecha.toISOString().split('T')[0]
       : String(ats.fecha);
-    dto.area = ats.area;
+    dto.area = ats.area?.nombre || '';
+    dto.area_id = ats.areaId;
     dto.ubicacion = ats.ubicacion;
     dto.estado = ats.estado;
     dto.hora_inicio = ats.horaInicio;

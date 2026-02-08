@@ -73,8 +73,8 @@ export class CreateAtsDto {
   @IsDateString()
   fecha: string;
 
-  @IsString()
-  area: string;
+  @IsUUID('all', { message: 'El área es obligatoria' })
+  area_id: string;
 
   @IsOptional()
   @IsString()

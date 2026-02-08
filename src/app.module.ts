@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EmpresasModule } from './modules/empresas/empresas.module';
+import { AreasModule } from './modules/areas/areas.module';
 import { UsuariosModule } from './modules/usuarios/usuarios.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TrabajadoresModule } from './modules/trabajadores/trabajadores.module';
@@ -40,6 +41,7 @@ import { CommonModule } from './common/common.module';
       synchronize: process.env.NODE_ENV !== 'production',
     }),
     EmpresasModule,
+    AreasModule,
     UsuariosModule,
     TrabajadoresModule,
     AuthModule,
