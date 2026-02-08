@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { IPERC, EstadoIPERC } from './entities/iperc.entity';
 import { LineaIPERC, NivelRiesgo } from './entities/linea-iperc.entity';
+import { Empresa } from '../empresas/entities/empresa.entity';
 import { CreateIpercDto } from './dto/create-iperc.dto';
 import { UpdateIpercDto } from './dto/update-iperc.dto';
 import { ResponseIpercDto } from './dto/response-iperc.dto';
@@ -18,6 +19,8 @@ export class IpercService {
     private readonly ipercRepository: Repository<IPERC>,
     @InjectRepository(LineaIPERC)
     private readonly lineaRepository: Repository<LineaIPERC>,
+    @InjectRepository(Empresa)
+    private readonly empresaRepository: Repository<Empresa>,
   ) {}
 
   calculateIndiceProbabilidad(
@@ -45,8 +48,29 @@ export class IpercService {
   }
 
   async create(dto: CreateIpercDto): Promise<ResponseIpercDto> {
+    // Obtener razón social automáticamente si no viene en el DTO
+    let razonSocial = dto.razon_social;
+    if (!razonSocial && dto.empresa_id) {
+      const empresa = await this.empresaRepository.findOne({
+        where: { id: dto.empresa_id },
+      });
+      if (empresa) {
+        razonSocial = empresa.nombre;
+      } else {
+        throw new NotFoundException(
+          `Empresa con ID ${dto.empresa_id} no encontrada`,
+        );
+      }
+    }
+
+    if (!razonSocial) {
+      throw new BadRequestException(
+        'La razón social es obligatoria. Debe venir en el DTO o estar vinculada a una empresa válida.',
+      );
+    }
+
     const iperc = this.ipercRepository.create({
-      razonSocial: dto.razon_social,
+      razonSocial,
       areaId: dto.area_id ?? null,
       proceso: dto.proceso,
       fechaElaboracion: new Date(dto.fecha_elaboracion),

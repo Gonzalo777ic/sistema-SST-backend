@@ -74,7 +74,11 @@ export class ResponseEvaluacionRiesgoDto {
     dto.actividad = evaluacion.actividad;
     dto.peligro_identificado = evaluacion.peligroIdentificado;
     dto.tipo_peligro = evaluacion.tipoPeligro;
-    dto.fecha_evaluacion = evaluacion.fechaEvaluacion.toISOString().split('T')[0];
+    fecha_evaluacion: evaluacion.fechaEvaluacion 
+  ? (typeof evaluacion.fechaEvaluacion === 'string' 
+      ? evaluacion.fechaEvaluacion 
+      : evaluacion.fechaEvaluacion.toISOString().split('T')[0])
+  : null,
     dto.probabilidad = evaluacion.probabilidad;
     dto.consecuencia = evaluacion.consecuencia;
     dto.nivel_riesgo = evaluacion.nivelRiesgo;

@@ -94,8 +94,9 @@ export class LineaIpercDto {
 }
 
 export class CreateIpercDto {
+  @IsOptional()
   @IsString()
-  razon_social: string;
+  razon_social?: string;
 
   @IsOptional()
   @IsUUID()
@@ -117,7 +118,7 @@ export class CreateIpercDto {
   estado?: EstadoIPERC;
 
   @IsOptional()
-  @IsUrl()
+  @IsString()
   firma_elaborador?: string;
 
   @IsOptional()
@@ -125,7 +126,7 @@ export class CreateIpercDto {
   aprobado_por?: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsString()
   firma_aprobador?: string;
 
   @IsOptional()
