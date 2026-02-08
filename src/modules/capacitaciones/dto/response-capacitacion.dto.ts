@@ -69,7 +69,7 @@ export class ResponseCapacitacionDto {
       activo: boolean;
       preguntas: any[];
     }>;
-    creadoPor?: { nombreCompleto?: string; email?: string } | null;
+    creadoPor?: { nombreCompleto?: string; dni?: string } | null;
     createdAt: Date;
     updatedAt: Date;
   }): ResponseCapacitacionDto {
@@ -118,7 +118,7 @@ export class ResponseCapacitacionDto {
     dto.empresa_id = capacitacion.empresaId;
     dto.creado_por =
       capacitacion.creadoPor?.nombreCompleto ||
-      capacitacion.creadoPor?.email ||
+      capacitacion.creadoPor?.dni ||
       null;
     dto.createdAt = capacitacion.createdAt;
     dto.updatedAt = capacitacion.updatedAt;

@@ -79,6 +79,21 @@ export class Trabajador {
   })
   grupoSanguineo: GrupoSanguineo | null;
 
+  @Column({ name: 'talla_casco', type: 'varchar', nullable: true })
+  tallaCasco: string | null;
+
+  @Column({ name: 'talla_camisa', type: 'varchar', nullable: true })
+  tallaCamisa: string | null;
+
+  @Column({ name: 'talla_pantalon', type: 'varchar', nullable: true })
+  tallaPantalon: string | null;
+
+  @Column({ name: 'talla_calzado', type: 'int', nullable: true })
+  tallaCalzado: number | null;
+
+  @Column({ name: 'perfil_completado', type: 'boolean', default: false })
+  perfilCompletado: boolean;
+
   @Column({ name: 'empresa_id', type: 'uuid' })
   empresaId: string;
 

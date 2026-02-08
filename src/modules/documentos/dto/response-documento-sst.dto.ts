@@ -32,7 +32,7 @@ export class ResponseDocumentoSstDto {
     descargasCount: number;
     empresaId: string;
     subidoPorId: string;
-    subidoPor?: { nombreCompleto?: string; email?: string } | null;
+    subidoPor?: { nombreCompleto?: string; dni?: string } | null;
     createdAt: Date;
     updatedAt: Date;
   }): ResponseDocumentoSstDto {
@@ -50,7 +50,7 @@ export class ResponseDocumentoSstDto {
     dto.descargas_count = documento.descargasCount;
     dto.empresa_id = documento.empresaId;
     dto.subido_por =
-      documento.subidoPor?.nombreCompleto || documento.subidoPor?.email || null;
+      documento.subidoPor?.nombreCompleto || documento.subidoPor?.dni || null;
     dto.subido_por_id = documento.subidoPorId;
     dto.createdAt = documento.createdAt;
     dto.updatedAt = documento.updatedAt;

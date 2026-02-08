@@ -1,18 +1,22 @@
 import {
-  IsEmail,
   IsEnum,
   IsOptional,
   IsString,
   IsUUID,
   IsArray,
   MinLength,
+  MaxLength,
+  Matches,
   ValidateIf,
 } from 'class-validator';
 import { AuthProvider, UsuarioRol } from '../entities/usuario.entity';
 
 export class CreateUsuarioDto {
-  @IsEmail({}, { message: 'El email debe ser un correo corporativo válido' })
-  email: string;
+  @IsString()
+  @MinLength(8, { message: 'El DNI debe tener 8 dígitos' })
+  @MaxLength(8, { message: 'El DNI debe tener 8 dígitos' })
+  @Matches(/^\d+$/, { message: 'El DNI debe contener solo números' })
+  dni: string;
 
   @ValidateIf((o) => o.authProvider === AuthProvider.LOCAL)
   @IsString()

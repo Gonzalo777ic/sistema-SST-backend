@@ -93,8 +93,8 @@ export class ResponsePetarDto {
     empresaContratistaId: string | null;
     empresaId: string;
     creadoPorId: string;
-    supervisorResponsable?: { nombreCompleto?: string; email?: string } | null;
-    aprobadorSst?: { nombreCompleto?: string; email?: string } | null;
+    supervisorResponsable?: { nombreCompleto?: string; dni?: string } | null;
+    aprobadorSst?: { nombreCompleto?: string; dni?: string } | null;
     trabajadores?: Array<{
       nombreSnapshot: string;
       documentoSnapshot: string;
@@ -123,14 +123,14 @@ export class ResponsePetarDto {
     dto.observaciones = petar.observaciones;
     dto.supervisor_responsable =
       petar.supervisorResponsable?.nombreCompleto ||
-      petar.supervisorResponsable?.email ||
+      petar.supervisorResponsable?.dni ||
       null;
     dto.firma_supervisor_url = petar.firmaSupervisorUrl;
     dto.fecha_firma_supervisor = petar.fechaFirmaSupervisor
       ? petar.fechaFirmaSupervisor.toISOString()
       : null;
     dto.aprobador_sst =
-      petar.aprobadorSst?.nombreCompleto || petar.aprobadorSst?.email || null;
+      petar.aprobadorSst?.nombreCompleto || petar.aprobadorSst?.dni || null;
     dto.firma_sst_url = petar.firmaSstUrl;
     dto.fecha_firma_sst = petar.fechaFirmaSst
       ? petar.fechaFirmaSst.toISOString()

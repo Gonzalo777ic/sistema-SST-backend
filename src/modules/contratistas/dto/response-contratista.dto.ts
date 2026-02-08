@@ -46,7 +46,7 @@ export class ResponseContratistaDto {
     observaciones: string | null;
     supervisorAsignadoId: string | null;
     empresaId: string;
-    supervisorAsignado?: { nombreCompleto?: string; email?: string } | null;
+    supervisorAsignado?: { nombreCompleto?: string; dni?: string } | null;
     documentos?: Array<{
       id: string;
       tipoDocumento: TipoDocumentoContratista;
@@ -73,7 +73,7 @@ export class ResponseContratistaDto {
     dto.supervisor_asignado_id = contratista.supervisorAsignadoId;
     dto.supervisor_asignado_nombre =
       contratista.supervisorAsignado?.nombreCompleto ||
-      contratista.supervisorAsignado?.email ||
+      contratista.supervisorAsignado?.dni ||
       null;
     dto.empresa_id = contratista.empresaId;
     dto.documentos =

@@ -41,7 +41,7 @@ export class ResponseInspeccionDto {
     inspectorId: string;
     areaId: string | null;
     empresaId: string;
-    inspector?: { nombreCompleto?: string; email?: string } | null;
+    inspector?: { nombreCompleto?: string; dni?: string } | null;
     area?: { nombre: string } | null;
     hallazgos?: Array<{
       id: string;
@@ -67,7 +67,7 @@ export class ResponseInspeccionDto {
     dto.estado = inspeccion.estado;
     dto.inspector_id = inspeccion.inspectorId;
     dto.inspector_nombre =
-      inspeccion.inspector?.nombreCompleto || inspeccion.inspector?.email || null;
+      inspeccion.inspector?.nombreCompleto || inspeccion.inspector?.dni || null;
     dto.area_id = inspeccion.areaId;
     dto.area_nombre = inspeccion.area?.nombre || null;
     dto.empresa_id = inspeccion.empresaId;

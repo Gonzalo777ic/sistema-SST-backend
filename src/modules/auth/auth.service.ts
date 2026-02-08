@@ -8,7 +8,7 @@ import { ResponseUsuarioDto } from '../usuarios/dto/response-usuario.dto';
 
 export interface JwtPayload {
   sub: string;
-  email: string;
+  dni: string;
 }
 
 export interface LoginResponse {
@@ -23,8 +23,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<Usuario | null> {
-    const usuario = await this.usuariosService.findByEmail(email);
+  async validateUser(dni: string, password: string): Promise<Usuario | null> {
+    const usuario = await this.usuariosService.findByDni(dni);
 
     if (!usuario) {
       return null;
@@ -49,14 +49,14 @@ export class AuthService {
     return usuario;
   }
 
-  async login(email: string, password: string): Promise<LoginResponse> {
-    const usuario = await this.validateUser(email, password);
+  async login(dni: string, password: string): Promise<LoginResponse> {
+    const usuario = await this.validateUser(dni, password);
 
     if (!usuario) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const payload: JwtPayload = { sub: usuario.id, email: usuario.email };
+    const payload: JwtPayload = { sub: usuario.id, dni: usuario.dni };
     const access_token = this.jwtService.sign(payload);
 
     return {

@@ -59,7 +59,7 @@ export class EppController {
     @Body('estado', new ParseEnumPipe(EstadoSolicitudEPP)) estado: EstadoSolicitudEPP,
     @Body('comentarios_aprobacion') comentariosAprobacion?: string,
     @Body('firma_recepcion_url') firmaRecepcionUrl?: string,
-    @CurrentUser() currentUser?: { id: string; email: string },
+    @CurrentUser() currentUser?: { id: string; dni: string },
   ): Promise<ResponseSolicitudEppDto> {
     return this.eppService.updateEstado(
       id,

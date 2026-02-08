@@ -23,12 +23,12 @@ export class UsuariosService {
 
   async create(dto: CreateUsuarioDto): Promise<ResponseUsuarioDto> {
     const existing = await this.usuarioRepository.findOne({
-      where: { email: dto.email.toLowerCase() },
+      where: { dni: dto.dni },
     });
 
     if (existing) {
       throw new ConflictException(
-        'Ya existe un usuario registrado con este email',
+        'Ya existe un usuario registrado con este DNI',
       );
     }
 
@@ -44,7 +44,7 @@ export class UsuariosService {
     }
 
     const usuario = this.usuarioRepository.create({
-      email: dto.email.toLowerCase(),
+      dni: dto.dni,
       passwordHash,
       authProvider: dto.authProvider ?? AuthProvider.LOCAL,
       providerId: dto.providerId ?? null,
@@ -54,6 +54,7 @@ export class UsuariosService {
         ? ({ id: dto.trabajadorId } as any)
         : undefined,
       activo: true,
+      debeCambiarPassword: true, // Por defecto debe cambiar contraseña
     });
 
     const saved = await this.usuarioRepository.save(usuario);
@@ -63,11 +64,13 @@ export class UsuariosService {
     });
   }
 
-  async findByEmail(email: string): Promise<Usuario | null> {
+  async findByDni(dni: string): Promise<Usuario | null> {
     return this.usuarioRepository.findOne({
-      where: { email: email.toLowerCase() },
+      where: { dni },
+      relations: ['trabajador'],
     });
   }
+
 
   async findById(id: string): Promise<Usuario | null> {
     return this.usuarioRepository.findOne({ where: { id } });
@@ -183,6 +186,10 @@ export class UsuariosService {
       usuario.activo = dto.activo;
     }
 
+    if (dto.debe_cambiar_password !== undefined) {
+      usuario.debeCambiarPassword = dto.debe_cambiar_password;
+    }
+
     // Permitir actualización de empresaId sin restricciones para SUPER_ADMIN
     if (dto.empresaId !== undefined) {
       usuario.empresaId = dto.empresaId || null;
@@ -214,5 +221,59 @@ export class UsuariosService {
       ...reloaded,
       roles: reloaded.roles as typeof reloaded.roles,
     });
+  }
+
+  async changePassword(id: string, nuevaPassword: string): Promise<void> {
+    const usuario = await this.usuarioRepository.findOne({ where: { id } });
+
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(nuevaPassword, saltRounds);
+
+    usuario.passwordHash = passwordHash;
+    usuario.debeCambiarPassword = false; // Ya cambió la contraseña
+
+    await this.usuarioRepository.save(usuario);
+  }
+
+  async resetPassword(id: string): Promise<void> {
+    const usuario = await this.usuarioRepository.findOne({
+      where: { id },
+      relations: ['trabajador'],
+    });
+
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    // Obtener DNI del trabajador vinculado o del usuario mismo
+    let dniParaPassword: string;
+    if (usuario.trabajador) {
+      // Buscar el trabajador para obtener su DNI
+      const trabajadorRepo = this.usuarioRepository.manager.getRepository(
+        'Trabajador',
+      );
+      const trabajador = await trabajadorRepo.findOne({
+        where: { id: usuario.trabajador.id },
+      });
+      if (trabajador) {
+        dniParaPassword = (trabajador as any).documentoIdentidad;
+      } else {
+        dniParaPassword = usuario.dni; // Fallback al DNI del usuario
+      }
+    } else {
+      dniParaPassword = usuario.dni;
+    }
+
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(dniParaPassword, saltRounds);
+
+    usuario.passwordHash = passwordHash;
+    usuario.debeCambiarPassword = true; // Debe cambiar la contraseña después del reset
+
+    await this.usuarioRepository.save(usuario);
   }
 }

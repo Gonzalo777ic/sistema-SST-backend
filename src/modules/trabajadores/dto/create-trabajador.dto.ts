@@ -50,6 +50,26 @@ export class CreateTrabajadorDto {
   @IsUrl()
   foto_url?: string;
 
+  @IsOptional()
+  @IsString()
+  talla_casco?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_camisa?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_pantalon?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_calzado?: string;
+
+  @IsOptional()
+  @IsString()
+  perfil_completado?: boolean;
+
   @IsUUID()
   empresa_id: string;
 }

@@ -43,8 +43,8 @@ export class ResponseSolicitudEppDto {
     areaId: string | null;
     empresaId: string;
     trabajador?: { nombreCompleto: string } | null;
-    supervisorAprobador?: { nombreCompleto?: string; email?: string } | null;
-    entregadoPor?: { nombreCompleto?: string; email?: string } | null;
+    supervisorAprobador?: { nombreCompleto?: string; dni?: string } | null;
+    entregadoPor?: { nombreCompleto?: string; dni?: string } | null;
     createdAt: Date;
     updatedAt: Date;
   }): ResponseSolicitudEppDto {
@@ -59,7 +59,7 @@ export class ResponseSolicitudEppDto {
     dto.estado = solicitud.estado;
     dto.supervisor_aprobador =
       solicitud.supervisorAprobador?.nombreCompleto ||
-      solicitud.supervisorAprobador?.email ||
+      solicitud.supervisorAprobador?.dni ||
       null;
     dto.supervisor_aprobador_id = solicitud.supervisorAprobadorId;
     dto.fecha_aprobacion = solicitud.fechaAprobacion
@@ -68,7 +68,7 @@ export class ResponseSolicitudEppDto {
     dto.comentarios_aprobacion = solicitud.comentariosAprobacion;
     dto.entregado_por =
       solicitud.entregadoPor?.nombreCompleto ||
-      solicitud.entregadoPor?.email ||
+      solicitud.entregadoPor?.dni ||
       null;
     dto.entregado_por_id = solicitud.entregadoPorId;
     dto.fecha_entrega = solicitud.fechaEntrega

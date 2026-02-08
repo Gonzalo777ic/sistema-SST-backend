@@ -22,7 +22,7 @@ export class ResponseHorarioDoctorDto {
     activo: boolean;
     doctorId: string;
     empresaId: string;
-    doctor?: { nombreCompleto?: string; email?: string } | null;
+    doctor?: { nombreCompleto?: string; dni?: string } | null;
     createdAt: Date;
     updatedAt: Date;
   }): ResponseHorarioDoctorDto {
@@ -35,7 +35,7 @@ export class ResponseHorarioDoctorDto {
     dto.activo = horario.activo;
     dto.doctor_id = horario.doctorId;
     dto.doctor_nombre =
-      horario.doctor?.nombreCompleto || horario.doctor?.email || null;
+      horario.doctor?.nombreCompleto || horario.doctor?.dni || null;
     dto.empresa_id = horario.empresaId;
     dto.createdAt = horario.createdAt;
     dto.updatedAt = horario.updatedAt;

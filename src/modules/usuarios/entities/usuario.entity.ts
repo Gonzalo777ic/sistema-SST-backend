@@ -33,11 +33,14 @@ export class Usuario {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', unique: true })
-  email: string;
+  @Column({ type: 'varchar', length: 8, unique: true })
+  dni: string;
 
   @Column({ name: 'password_hash', type: 'varchar', nullable: true })
   passwordHash: string | null;
+
+  @Column({ name: 'debe_cambiar_password', type: 'boolean', default: true })
+  debeCambiarPassword: boolean;
 
   @Column({
     name: 'auth_provider',

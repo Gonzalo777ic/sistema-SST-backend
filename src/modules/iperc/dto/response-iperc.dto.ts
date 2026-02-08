@@ -86,8 +86,8 @@ export class ResponseIpercDto {
     elaboradoPorId: string;
     aprobadoPorId: string | null;
     area?: { nombre: string } | null;
-    elaboradoPor?: { nombreCompleto?: string; email?: string } | null;
-    aprobadoPor?: { nombreCompleto?: string; email?: string } | null;
+    elaboradoPor?: { nombreCompleto?: string; dni?: string } | null;
+    aprobadoPor?: { nombreCompleto?: string; dni?: string } | null;
     lineasIperc?: Array<{
       numero: number;
       actividad: string;
@@ -128,9 +128,9 @@ export class ResponseIpercDto {
     dto.historial_versiones = iperc.historialVersiones;
     dto.firma_elaborador = iperc.firmaElaborador;
     dto.elaborado_por =
-      iperc.elaboradoPor?.nombreCompleto || iperc.elaboradoPor?.email || null;
+      iperc.elaboradoPor?.nombreCompleto || iperc.elaboradoPor?.dni || null;
     dto.aprobado_por =
-      iperc.aprobadoPor?.nombreCompleto || iperc.aprobadoPor?.email || null;
+      iperc.aprobadoPor?.nombreCompleto || iperc.aprobadoPor?.dni || null;
     dto.firma_aprobador = iperc.firmaAprobador;
     dto.lineas_iperc =
       iperc.lineasIperc?.map((l) => ({

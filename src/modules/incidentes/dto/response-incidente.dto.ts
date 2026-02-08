@@ -58,8 +58,8 @@ export class ResponseIncidenteDto {
     empresaId: string;
     reportadoPorId: string;
     trabajadorAfectado?: { nombreCompleto: string } | null;
-    responsableInvestigacion?: { nombreCompleto?: string; email?: string } | null;
-    reportadoPor?: { nombreCompleto?: string; email?: string } | null;
+    responsableInvestigacion?: { nombreCompleto?: string; dni?: string } | null;
+    reportadoPor?: { nombreCompleto?: string; dni?: string } | null;
     createdAt: Date;
     updatedAt: Date;
   }): ResponseIncidenteDto {
@@ -86,13 +86,13 @@ export class ResponseIncidenteDto {
     dto.area_id = incidente.areaId;
     dto.responsable_investigacion =
       incidente.responsableInvestigacion?.nombreCompleto ||
-      incidente.responsableInvestigacion?.email ||
+      incidente.responsableInvestigacion?.dni ||
       null;
     dto.responsable_investigacion_id = incidente.responsableInvestigacionId;
     dto.empresa_id = incidente.empresaId;
     dto.reportado_por =
       incidente.reportadoPor?.nombreCompleto ||
-      incidente.reportadoPor?.email ||
+      incidente.reportadoPor?.dni ||
       null;
     dto.reportado_por_id = incidente.reportadoPorId;
     dto.createdAt = incidente.createdAt;

@@ -14,6 +14,11 @@ export class ResponseTrabajadorDto {
   contacto_emergencia_nombre: string | null;
   contacto_emergencia_telefono: string | null;
   foto_url: string | null;
+  talla_casco: string | null;
+  talla_camisa: string | null;
+  talla_pantalon: string | null;
+  talla_calzado: number | null;
+  perfil_completado: boolean;
   empresa_id: string;
   usuario_id: string | null;
   createdAt: Date;
@@ -33,6 +38,11 @@ export class ResponseTrabajadorDto {
     contactoEmergenciaNombre: string | null;
     contactoEmergenciaTelefono: string | null;
     fotoUrl: string | null;
+    tallaCasco: string | null;
+    tallaCamisa: string | null;
+    tallaPantalon: string | null;
+    tallaCalzado: number | null;
+    perfilCompletado: boolean;
     empresaId: string;
     usuario?: { id: string } | null;
     createdAt: Date;
@@ -54,6 +64,11 @@ export class ResponseTrabajadorDto {
     dto.contacto_emergencia_nombre = t.contactoEmergenciaNombre;
     dto.contacto_emergencia_telefono = t.contactoEmergenciaTelefono;
     dto.foto_url = t.fotoUrl;
+    dto.talla_casco = t.tallaCasco;
+    dto.talla_camisa = t.tallaCamisa;
+    dto.talla_pantalon = t.tallaPantalon;
+    dto.talla_calzado = t.tallaCalzado;
+    dto.perfil_completado = t.perfilCompletado;
     dto.empresa_id = t.empresaId;
     dto.usuario_id = t.usuario?.id ?? null;
     dto.createdAt = t.createdAt;

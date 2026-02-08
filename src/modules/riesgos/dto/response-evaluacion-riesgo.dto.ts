@@ -56,7 +56,7 @@ export class ResponseEvaluacionRiesgoDto {
     ipercPadreId: string | null;
     empresaId: string;
     area?: { nombre: string } | null;
-    evaluador?: { nombreCompleto?: string; email?: string } | null;
+    evaluador?: { nombreCompleto?: string; dni?: string } | null;
     medidasControl?: Array<{
       id: string;
       jerarquia: JerarquiaControl;
@@ -89,7 +89,7 @@ export class ResponseEvaluacionRiesgoDto {
     dto.area_nombre = evaluacion.area?.nombre || null;
     dto.evaluador_id = evaluacion.evaluadorId;
     dto.evaluador_nombre =
-      evaluacion.evaluador?.nombreCompleto || evaluacion.evaluador?.email || null;
+      evaluacion.evaluador?.nombreCompleto || evaluacion.evaluador?.dni || null;
     dto.iperc_padre_id = evaluacion.ipercPadreId;
     dto.empresa_id = evaluacion.empresaId;
     dto.medidas_control =

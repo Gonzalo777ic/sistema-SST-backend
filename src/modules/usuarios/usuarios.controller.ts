@@ -48,8 +48,24 @@ export class UsuariosController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUsuarioDto,
-    @CurrentUser() currentUser: { id: string; email: string; roles: UsuarioRol[] },
+    @CurrentUser() currentUser: { id: string; dni: string; roles: UsuarioRol[] },
   ): Promise<ResponseUsuarioDto> {
     return this.usuariosService.update(id, dto, currentUser.id);
+  }
+
+  @Post(':id/change-password')
+  async changePassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { nueva_password: string; confirmacion_password: string },
+  ): Promise<void> {
+    return this.usuariosService.changePassword(id, dto.nueva_password);
+  }
+
+  @Post(':id/reset-password')
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  async resetPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    return this.usuariosService.resetPassword(id);
   }
 }

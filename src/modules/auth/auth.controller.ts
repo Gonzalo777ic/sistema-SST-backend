@@ -10,7 +10,7 @@ export class AuthController {
 
   @Post('login')
   async login(@Body() dto: LoginDto): Promise<LoginResponse> {
-    return this.authService.login(dto.email, dto.password);
+    return this.authService.login(dto.dni, dto.password);
   }
 
   @Post('register')

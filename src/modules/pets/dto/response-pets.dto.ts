@@ -61,9 +61,9 @@ export class ResponsePetsDto {
     revisorId: string | null;
     aprobadorId: string | null;
     empresaId: string;
-    elaborador?: { nombreCompleto?: string; email?: string } | null;
-    revisor?: { nombreCompleto?: string; email?: string } | null;
-    aprobador?: { nombreCompleto?: string; email?: string } | null;
+    elaborador?: { nombreCompleto?: string; dni?: string } | null;
+    revisor?: { nombreCompleto?: string; dni?: string } | null;
+    aprobador?: { nombreCompleto?: string; dni?: string } | null;
     pasos?: Array<{
       numero: number;
       descripcion: string;
@@ -99,13 +99,13 @@ export class ResponsePetsDto {
       : null;
     dto.elaborador_id = pets.elaboradorId;
     dto.elaborador_nombre =
-      pets.elaborador?.nombreCompleto || pets.elaborador?.email || null;
+      pets.elaborador?.nombreCompleto || pets.elaborador?.dni || null;
     dto.revisor_id = pets.revisorId;
     dto.revisor_nombre =
-      pets.revisor?.nombreCompleto || pets.revisor?.email || null;
+      pets.revisor?.nombreCompleto || pets.revisor?.dni || null;
     dto.aprobador_id = pets.aprobadorId;
     dto.aprobador_nombre =
-      pets.aprobador?.nombreCompleto || pets.aprobador?.email || null;
+      pets.aprobador?.nombreCompleto || pets.aprobador?.dni || null;
     dto.empresa_id = pets.empresaId;
     dto.pasos =
       pets.pasos?.map((p) => ({

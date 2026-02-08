@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { TrabajadoresService } from './trabajadores.service';
 import { CreateTrabajadorDto } from './dto/create-trabajador.dto';
-import { UpdateTrabajadorDto } from './dto/update-trabajador.dto';
+import { UpdateTrabajadorDto, UpdatePersonalDataDto } from './dto/update-trabajador.dto';
 import { ResponseTrabajadorDto } from './dto/response-trabajador.dto';
 
 @Controller('trabajadores')
@@ -48,5 +48,13 @@ export class TrabajadoresController {
   @Delete(':id')
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.trabajadoresService.remove(id);
+  }
+
+  @Patch(':id/personal-data')
+  async updatePersonalData(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePersonalDataDto,
+  ): Promise<ResponseTrabajadorDto> {
+    return this.trabajadoresService.updatePersonalData(id, dto);
   }
 }

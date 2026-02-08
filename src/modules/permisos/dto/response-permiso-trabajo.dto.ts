@@ -71,8 +71,8 @@ export class ResponsePermisoTrabajoDto {
     empresaId: string;
     areaTrabajoId: string | null;
     creadoPorId: string;
-    supervisorResponsable?: { nombreCompleto?: string; email?: string } | null;
-    aprobadorSst?: { nombreCompleto?: string; email?: string } | null;
+    supervisorResponsable?: { nombreCompleto?: string; dni?: string } | null;
+    aprobadorSst?: { nombreCompleto?: string; dni?: string } | null;
     areaTrabajo?: { nombre: string } | null;
     trabajadores?: Array<{
       trabajadorId: string;
@@ -102,7 +102,7 @@ export class ResponsePermisoTrabajoDto {
     dto.supervisor_responsable_id = permiso.supervisorResponsableId;
     dto.supervisor_responsable_nombre =
       permiso.supervisorResponsable?.nombreCompleto ||
-      permiso.supervisorResponsable?.email ||
+      permiso.supervisorResponsable?.dni ||
       null;
     dto.firma_supervisor_url = permiso.firmaSupervisorUrl;
     dto.fecha_firma_supervisor = permiso.fechaFirmaSupervisor
@@ -110,7 +110,7 @@ export class ResponsePermisoTrabajoDto {
       : null;
     dto.aprobador_sst_id = permiso.aprobadorSstId;
     dto.aprobador_sst_nombre =
-      permiso.aprobadorSst?.nombreCompleto || permiso.aprobadorSst?.email || null;
+      permiso.aprobadorSst?.nombreCompleto || permiso.aprobadorSst?.dni || null;
     dto.firma_aprobador_url = permiso.firmaAprobadorUrl;
     dto.fecha_aprobacion = permiso.fechaAprobacion
       ? permiso.fechaAprobacion.toISOString()

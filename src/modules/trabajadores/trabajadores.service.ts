@@ -7,7 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Trabajador, EstadoTrabajador } from './entities/trabajador.entity';
 import { CreateTrabajadorDto } from './dto/create-trabajador.dto';
-import { UpdateTrabajadorDto } from './dto/update-trabajador.dto';
+import { UpdateTrabajadorDto, UpdatePersonalDataDto } from './dto/update-trabajador.dto';
 import { ResponseTrabajadorDto } from './dto/response-trabajador.dto';
 
 @Injectable()
@@ -119,6 +119,11 @@ export class TrabajadoresService {
           ? dto.contacto_emergencia
           : trabajador.contactoEmergenciaNombre,
       fotoUrl: dto.foto_url !== undefined ? dto.foto_url : trabajador.fotoUrl,
+      tallaCasco: dto.talla_casco !== undefined ? dto.talla_casco : trabajador.tallaCasco,
+      tallaCamisa: dto.talla_camisa !== undefined ? dto.talla_camisa : trabajador.tallaCamisa,
+      tallaPantalon: dto.talla_pantalon !== undefined ? dto.talla_pantalon : trabajador.tallaPantalon,
+      tallaCalzado: dto.talla_calzado !== undefined ? dto.talla_calzado : trabajador.tallaCalzado,
+      perfilCompletado: dto.perfil_completado !== undefined ? dto.perfil_completado : trabajador.perfilCompletado,
     });
 
     await this.trabajadorRepository.save(trabajador);
@@ -135,5 +140,31 @@ export class TrabajadoresService {
     if (result.affected === 0) {
       throw new NotFoundException(`Trabajador con ID ${id} no encontrado`);
     }
+  }
+
+  async updatePersonalData(
+    id: string,
+    dto: UpdatePersonalDataDto,
+  ): Promise<ResponseTrabajadorDto> {
+    const trabajador = await this.trabajadorRepository.findOne({ where: { id } });
+
+    if (!trabajador) {
+      throw new NotFoundException(`Trabajador con ID ${id} no encontrado`);
+    }
+
+    Object.assign(trabajador, {
+      tallaCasco: dto.talla_casco !== undefined ? dto.talla_casco : trabajador.tallaCasco,
+      tallaCamisa: dto.talla_camisa !== undefined ? dto.talla_camisa : trabajador.tallaCamisa,
+      tallaPantalon: dto.talla_pantalon !== undefined ? dto.talla_pantalon : trabajador.tallaPantalon,
+      tallaCalzado: dto.talla_calzado !== undefined ? parseInt(dto.talla_calzado) : trabajador.tallaCalzado,
+      perfilCompletado: true, // Al actualizar datos personales, marcar perfil como completado
+    });
+
+    await this.trabajadorRepository.save(trabajador);
+    const updated = await this.trabajadorRepository.findOne({
+      where: { id },
+      relations: ['usuario'],
+    });
+    return ResponseTrabajadorDto.fromEntity(updated!);
   }
 }

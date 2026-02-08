@@ -1,8 +1,11 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsString, MinLength, MaxLength, Matches } from 'class-validator';
 
 export class LoginDto {
-  @IsEmail({}, { message: 'El email debe ser válido' })
-  email: string;
+  @IsString()
+  @MinLength(8, { message: 'El DNI debe tener 8 dígitos' })
+  @MaxLength(8, { message: 'El DNI debe tener 8 dígitos' })
+  @Matches(/^\d+$/, { message: 'El DNI debe contener solo números' })
+  dni: string;
 
   @IsString()
   @MinLength(1, { message: 'La contraseña es obligatoria' })

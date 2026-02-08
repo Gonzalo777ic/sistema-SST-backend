@@ -20,24 +20,24 @@ export class AdminSeederService implements OnApplicationBootstrap {
   }
 
   private async seedAdmin(): Promise<void> {
-    const adminEmail = this.configService.get<string>('ADMIN_EMAIL');
+    const adminDni = this.configService.get<string>('ADMIN_DNI');
     const adminPassword = this.configService.get<string>('ADMIN_PASSWORD');
 
-    if (!adminEmail || !adminPassword) {
+    if (!adminDni || !adminPassword) {
       this.logger.warn(
-        'ADMIN_EMAIL o ADMIN_PASSWORD no están configuradas. Seeder de administrador omitido.',
+        'ADMIN_DNI o ADMIN_PASSWORD no están configuradas. Seeder de administrador omitido.',
       );
       return;
     }
 
     try {
       const existingAdmin = await this.usuarioRepository.findOne({
-        where: { email: adminEmail.toLowerCase() },
+        where: { dni: adminDni },
       });
 
       if (existingAdmin) {
         this.logger.log(
-          `Usuario administrador ya existe: ${adminEmail}`,
+          `Usuario administrador ya existe: DNI ${adminDni}`,
         );
         return;
       }
@@ -46,19 +46,20 @@ export class AdminSeederService implements OnApplicationBootstrap {
       const passwordHash = await bcrypt.hash(adminPassword, saltRounds);
 
       const admin = this.usuarioRepository.create({
-        email: adminEmail.toLowerCase(),
+        dni: adminDni,
         passwordHash,
         authProvider: AuthProvider.LOCAL,
         providerId: null,
         roles: [UsuarioRol.SUPER_ADMIN],
         empresaId: null,
         activo: true,
+        debeCambiarPassword: true, // Por defecto debe cambiar contraseña
       });
 
       await this.usuarioRepository.save(admin);
 
       this.logger.log(
-        `Usuario administrador creado exitosamente: ${adminEmail}`,
+        `Usuario administrador creado exitosamente: DNI ${adminDni}`,
       );
     } catch (error) {
       this.logger.error(

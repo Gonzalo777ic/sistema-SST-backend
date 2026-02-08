@@ -80,9 +80,9 @@ export class ResponseAtsDto {
     elaboradoPorId: string;
     supervisorId: string | null;
     aprobadoPorId: string | null;
-    elaboradoPor?: { nombreCompleto?: string; email?: string } | null;
-    supervisor?: { nombreCompleto?: string; email?: string } | null;
-    aprobadoPor?: { nombreCompleto?: string; email?: string } | null;
+    elaboradoPor?: { nombreCompleto?: string; dni?: string } | null;
+    supervisor?: { nombreCompleto?: string; dni?: string } | null;
+    aprobadoPor?: { nombreCompleto?: string; dni?: string } | null;
     personalInvolucrado?: Array<{
       nombre: string;
       documento: string;
@@ -128,11 +128,11 @@ export class ResponseAtsDto {
     dto.pdf_url = ats.pdfUrl;
     dto.historial_versiones = ats.historialVersiones;
     dto.elaborado_por =
-      ats.elaboradoPor?.nombreCompleto || ats.elaboradoPor?.email || null;
+      ats.elaboradoPor?.nombreCompleto || ats.elaboradoPor?.dni || null;
     dto.supervisor =
-      ats.supervisor?.nombreCompleto || ats.supervisor?.email || null;
+      ats.supervisor?.nombreCompleto || ats.supervisor?.dni || null;
     dto.aprobado_por =
-      ats.aprobadoPor?.nombreCompleto || ats.aprobadoPor?.email || null;
+      ats.aprobadoPor?.nombreCompleto || ats.aprobadoPor?.dni || null;
     dto.personal_involucrado =
       ats.personalInvolucrado?.map((p) => ({
         nombre: p.nombre,

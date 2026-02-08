@@ -46,7 +46,7 @@ export class ResponseExamenMedicoDto {
     fechaRevisionDoctor: Date | null;
     cargadoPorId: string;
     trabajador?: { nombreCompleto: string } | null;
-    cargadoPor?: { nombreCompleto?: string; email?: string } | null;
+    cargadoPor?: { nombreCompleto?: string; dni?: string } | null;
     createdAt: Date;
     updatedAt: Date;
   }): ResponseExamenMedicoDto {
@@ -75,7 +75,7 @@ export class ResponseExamenMedicoDto {
       ? examen.fechaRevisionDoctor.toISOString()
       : null;
     dto.cargado_por =
-      examen.cargadoPor?.nombreCompleto || examen.cargadoPor?.email || null;
+      examen.cargadoPor?.nombreCompleto || examen.cargadoPor?.dni || null;
     dto.cargado_por_id = examen.cargadoPorId;
     dto.createdAt = examen.createdAt;
     dto.updatedAt = examen.updatedAt;

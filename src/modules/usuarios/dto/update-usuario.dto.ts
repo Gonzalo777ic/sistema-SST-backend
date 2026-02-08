@@ -18,6 +18,10 @@ export class UpdateUsuarioDto {
   activo?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  debe_cambiar_password?: boolean;
+
+  @IsOptional()
   @IsUUID()
   empresaId?: string;
 
