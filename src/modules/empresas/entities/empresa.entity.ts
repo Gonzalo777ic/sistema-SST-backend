@@ -14,16 +14,16 @@ export class Empresa {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'varchar' })
   nombre: string;
 
-  @Column({ unique: true, length: 11 })
+  @Column({ type: 'varchar', unique: true, length: 11 })
   ruc: string;
 
-  @Column({ name: 'logo_url', nullable: true })
+  @Column({ name: 'logo_url', type: 'varchar', nullable: true })
   logoUrl: string | null;
 
-  @Column({ default: true })
+  @Column({ type: 'boolean', default: true })
   activo: boolean;
 
   @OneToMany(() => Usuario, (usuario) => usuario.empresa)

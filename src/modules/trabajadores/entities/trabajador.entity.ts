@@ -43,22 +43,22 @@ export class Trabajador {
   @Column({ name: 'documento_identidad' })
   documentoIdentidad: string;
 
-  @Column({ name: 'foto_url', nullable: true })
+  @Column({ name: 'foto_url', type: 'varchar', nullable: true })
   fotoUrl: string | null;
 
-  @Column({ name: 'email_personal', nullable: true })
+  @Column({ name: 'email_personal', type: 'varchar', nullable: true })
   emailPersonal: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   telefono: string | null;
 
-  @Column({ name: 'contacto_emergencia_nombre', nullable: true })
+  @Column({ name: 'contacto_emergencia_nombre', type: 'varchar', nullable: true })
   contactoEmergenciaNombre: string | null;
 
-  @Column({ name: 'contacto_emergencia_telefono', nullable: true })
+  @Column({ name: 'contacto_emergencia_telefono', type: 'varchar', nullable: true })
   contactoEmergenciaTelefono: string | null;
 
-  @Column()
+  @Column({ type: 'varchar' })
   cargo: string;
 
   @Column({ name: 'fecha_ingreso', type: 'date' })

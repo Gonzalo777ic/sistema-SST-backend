@@ -1,0 +1,166 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  ParseUUIDPipe,
+} from '@nestjs/common';
+import { SaludService } from './salud.service';
+import { CreateExamenMedicoDto } from './dto/create-examen-medico.dto';
+import { UpdateExamenMedicoDto } from './dto/update-examen-medico.dto';
+import { ResponseExamenMedicoDto } from './dto/response-examen-medico.dto';
+import { CreateCitaMedicaDto } from './dto/create-cita-medica.dto';
+import { UpdateCitaMedicaDto } from './dto/update-cita-medica.dto';
+import { ResponseCitaMedicaDto } from './dto/response-cita-medica.dto';
+import { CreateComentarioMedicoDto } from './dto/create-comentario-medico.dto';
+import { UpdateComentarioMedicoDto } from './dto/update-comentario-medico.dto';
+import { ResponseComentarioMedicoDto } from './dto/response-comentario-medico.dto';
+import { CreateHorarioDoctorDto } from './dto/create-horario-doctor.dto';
+import { UpdateHorarioDoctorDto } from './dto/update-horario-doctor.dto';
+import { ResponseHorarioDoctorDto } from './dto/response-horario-doctor.dto';
+
+@Controller('salud')
+export class SaludController {
+  constructor(private readonly saludService: SaludService) {}
+
+  // ========== EXÁMENES MÉDICOS ==========
+  @Post('examenes')
+  async createExamen(@Body() dto: CreateExamenMedicoDto): Promise<ResponseExamenMedicoDto> {
+    return this.saludService.createExamen(dto);
+  }
+
+  @Get('examenes')
+  async findAllExamenes(
+    @Query('trabajador_id') trabajadorId?: string,
+  ): Promise<ResponseExamenMedicoDto[]> {
+    return this.saludService.findAllExamenes(trabajadorId);
+  }
+
+  @Get('examenes/:id')
+  async findOneExamen(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ResponseExamenMedicoDto> {
+    return this.saludService.findOneExamen(id);
+  }
+
+  @Patch('examenes/:id')
+  async updateExamen(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateExamenMedicoDto,
+  ): Promise<ResponseExamenMedicoDto> {
+    return this.saludService.updateExamen(id, dto);
+  }
+
+  @Delete('examenes/:id')
+  async removeExamen(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.saludService.removeExamen(id);
+  }
+
+  // ========== CITAS MÉDICAS ==========
+  @Post('citas')
+  async createCita(@Body() dto: CreateCitaMedicaDto): Promise<ResponseCitaMedicaDto> {
+    return this.saludService.createCita(dto);
+  }
+
+  @Get('citas')
+  async findAllCitas(
+    @Query('trabajador_id') trabajadorId?: string,
+    @Query('doctor_id') doctorId?: string,
+  ): Promise<ResponseCitaMedicaDto[]> {
+    return this.saludService.findAllCitas(trabajadorId, doctorId);
+  }
+
+  @Get('citas/:id')
+  async findOneCita(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ResponseCitaMedicaDto> {
+    return this.saludService.findOneCita(id);
+  }
+
+  @Patch('citas/:id')
+  async updateCita(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCitaMedicaDto,
+  ): Promise<ResponseCitaMedicaDto> {
+    return this.saludService.updateCita(id, dto);
+  }
+
+  @Delete('citas/:id')
+  async removeCita(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.saludService.removeCita(id);
+  }
+
+  // ========== COMENTARIOS MÉDICOS ==========
+  @Post('comentarios')
+  async createComentario(
+    @Body() dto: CreateComentarioMedicoDto,
+  ): Promise<ResponseComentarioMedicoDto> {
+    return this.saludService.createComentario(dto);
+  }
+
+  @Get('comentarios')
+  async findAllComentarios(
+    @Query('examen_id') examenId?: string,
+    @Query('trabajador_id') trabajadorId?: string,
+  ): Promise<ResponseComentarioMedicoDto[]> {
+    return this.saludService.findAllComentarios(examenId, trabajadorId);
+  }
+
+  @Get('comentarios/:id')
+  async findOneComentario(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ResponseComentarioMedicoDto> {
+    return this.saludService.findOneComentario(id);
+  }
+
+  @Patch('comentarios/:id')
+  async updateComentario(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateComentarioMedicoDto,
+  ): Promise<ResponseComentarioMedicoDto> {
+    return this.saludService.updateComentario(id, dto);
+  }
+
+  @Delete('comentarios/:id')
+  async removeComentario(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.saludService.removeComentario(id);
+  }
+
+  // ========== HORARIOS DOCTOR ==========
+  @Post('horarios')
+  async createHorario(@Body() dto: CreateHorarioDoctorDto): Promise<ResponseHorarioDoctorDto> {
+    return this.saludService.createHorario(dto);
+  }
+
+  @Get('horarios')
+  async findAllHorarios(
+    @Query('doctor_id') doctorId?: string,
+    @Query('empresa_id') empresaId?: string,
+  ): Promise<ResponseHorarioDoctorDto[]> {
+    return this.saludService.findAllHorarios(doctorId, empresaId);
+  }
+
+  @Get('horarios/:id')
+  async findOneHorario(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ResponseHorarioDoctorDto> {
+    return this.saludService.findOneHorario(id);
+  }
+
+  @Patch('horarios/:id')
+  async updateHorario(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateHorarioDoctorDto,
+  ): Promise<ResponseHorarioDoctorDto> {
+    return this.saludService.updateHorario(id, dto);
+  }
+
+  @Delete('horarios/:id')
+  async removeHorario(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.saludService.removeHorario(id);
+  }
+}

@@ -33,10 +33,10 @@ export class Usuario {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column({ type: 'varchar', unique: true })
   email: string;
 
-  @Column({ name: 'password_hash', nullable: true })
+  @Column({ name: 'password_hash', type: 'varchar', nullable: true })
   passwordHash: string | null;
 
   @Column({
@@ -47,7 +47,7 @@ export class Usuario {
   })
   authProvider: AuthProvider;
 
-  @Column({ name: 'provider_id', nullable: true })
+  @Column({ name: 'provider_id', type: 'varchar', nullable: true })
   providerId: string | null;
 
   @Column({
@@ -61,13 +61,13 @@ export class Usuario {
   })
   roles: UsuarioRol[];
 
-  @Column({ default: true })
+  @Column({ type: 'boolean', default: true })
   activo: boolean;
 
   @Column({ name: 'ultimo_acceso', type: 'timestamptz', nullable: true })
   ultimoAcceso: Date | null;
 
-  @Column({ name: 'refresh_token_hash', nullable: true })
+  @Column({ name: 'refresh_token_hash', type: 'varchar', nullable: true })
   refreshTokenHash: string | null;
 
   @Column({ name: 'empresa_id', type: 'uuid', nullable: true })

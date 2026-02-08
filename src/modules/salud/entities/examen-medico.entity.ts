@@ -1,0 +1,128 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { Trabajador } from '../../trabajadores/entities/trabajador.entity';
+import { Usuario } from '../../usuarios/entities/usuario.entity';
+
+export enum TipoExamen {
+  Ingreso = 'Ingreso',
+  Periodico = 'Periódico',
+  Retiro = 'Retiro',
+  Reingreso = 'Reingreso',
+  PorExposicion = 'Por Exposición',
+}
+
+export enum ResultadoExamen {
+  Apto = 'Apto',
+  AptoConRestricciones = 'Apto con Restricciones',
+  NoApto = 'No Apto',
+  Pendiente = 'Pendiente',
+}
+
+export enum EstadoExamen {
+  Programado = 'Programado',
+  Realizado = 'Realizado',
+  Vencido = 'Vencido',
+  PorVencer = 'Por Vencer',
+  Revisado = 'Revisado',
+}
+
+@Entity('examenes_medicos')
+export class ExamenMedico {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({
+    name: 'tipo_examen',
+    type: 'enum',
+    enum: TipoExamen,
+  })
+  tipoExamen: TipoExamen;
+
+  @Column({ name: 'centro_medico', type: 'varchar' })
+  centroMedico: string;
+
+  @Column({ name: 'medico_evaluador', type: 'varchar' })
+  medicoEvaluador: string;
+
+  @Column({ name: 'fecha_programada', type: 'date' })
+  fechaProgramada: Date;
+
+  @Column({ name: 'fecha_realizado', type: 'date', nullable: true })
+  fechaRealizado: Date | null;
+
+  @Column({ name: 'fecha_vencimiento', type: 'date', nullable: true })
+  fechaVencimiento: Date | null;
+
+  @Column({
+    type: 'enum',
+    enum: ResultadoExamen,
+    default: ResultadoExamen.Pendiente,
+  })
+  resultado: ResultadoExamen;
+
+  @Column({ type: 'text', nullable: true })
+  restricciones: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  observaciones: string | null;
+
+  @Column({ name: 'resultado_archivo_url', type: 'varchar', nullable: true })
+  resultadoArchivoUrl: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: EstadoExamen,
+    default: EstadoExamen.Programado,
+  })
+  estado: EstadoExamen;
+
+  @Column({ name: 'revisado_por_doctor', default: false })
+  revisadoPorDoctor: boolean;
+
+  @Column({ name: 'doctor_interno_id', type: 'uuid', nullable: true })
+  doctorInternoId: string | null;
+
+  @ManyToOne(() => Usuario, { nullable: true })
+  @JoinColumn({ name: 'doctor_interno_id' })
+  doctorInterno: Usuario | null;
+
+  @Column({ name: 'fecha_revision_doctor', type: 'timestamptz', nullable: true })
+  fechaRevisionDoctor: Date | null;
+
+  @Column({ name: 'trabajador_area_snapshot', type: 'varchar', nullable: true })
+  trabajadorAreaSnapshot: string | null;
+
+  // Relaciones
+  @Column({ name: 'trabajador_id', type: 'uuid' })
+  trabajadorId: string;
+
+  @ManyToOne(() => Trabajador, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'trabajador_id' })
+  trabajador: Trabajador;
+
+  @Column({ name: 'cargado_por_id', type: 'uuid' })
+  cargadoPorId: string;
+
+  @ManyToOne(() => Usuario, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'cargado_por_id' })
+  cargadoPor: Usuario;
+
+  @OneToMany('ComentarioMedico', 'examen', {
+    cascade: true,
+  })
+  comentarios: import('./comentario-medico.entity').ComentarioMedico[];
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+}

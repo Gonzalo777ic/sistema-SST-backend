@@ -7,6 +7,20 @@ import { EmpresasModule } from './modules/empresas/empresas.module';
 import { UsuariosModule } from './modules/usuarios/usuarios.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TrabajadoresModule } from './modules/trabajadores/trabajadores.module';
+import { AtsModule } from './modules/ats/ats.module';
+import { PetarModule } from './modules/petar/petar.module';
+import { IpercModule } from './modules/iperc/iperc.module';
+import { IncidentesModule } from './modules/incidentes/incidentes.module';
+import { SaludModule } from './modules/salud/salud.module';
+import { DocumentosModule } from './modules/documentos/documentos.module';
+import { EppModule } from './modules/epp/epp.module';
+import { CapacitacionesModule } from './modules/capacitaciones/capacitaciones.module';
+import { InspeccionesModule } from './modules/inspecciones/inspecciones.module';
+import { PetsModule } from './modules/pets/pets.module';
+import { ContratistasModule } from './modules/contratistas/contratistas.module';
+import { RiesgosModule } from './modules/riesgos/riesgos.module';
+import { PermisosModule } from './modules/permisos/permisos.module';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -14,6 +28,7 @@ import { TrabajadoresModule } from './modules/trabajadores/trabajadores.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    CommonModule,
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DB_HOST || 'localhost',
@@ -28,6 +43,19 @@ import { TrabajadoresModule } from './modules/trabajadores/trabajadores.module';
     UsuariosModule,
     TrabajadoresModule,
     AuthModule,
+    AtsModule,
+    PetarModule,
+    IpercModule,
+    IncidentesModule,
+    SaludModule,
+    DocumentosModule,
+    EppModule,
+    CapacitacionesModule,
+    InspeccionesModule,
+    PetsModule,
+    ContratistasModule,
+    RiesgosModule,
+    PermisosModule,
   ],
   controllers: [AppController],
   providers: [AppService],
