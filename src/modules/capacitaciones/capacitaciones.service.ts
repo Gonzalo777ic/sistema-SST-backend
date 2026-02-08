@@ -94,7 +94,7 @@ export class CapacitacionesService {
 
     const capacitaciones = await this.capacitacionRepository.find({
       where,
-      relations: ['asistencias', 'creadoPor'],
+      relations: ['asistencias', 'creadoPor', 'examenes'],
       order: { fecha: 'DESC' },
     });
 
@@ -104,7 +104,7 @@ export class CapacitacionesService {
   async findOne(id: string): Promise<ResponseCapacitacionDto> {
     const capacitacion = await this.capacitacionRepository.findOne({
       where: { id },
-      relations: ['asistencias', 'creadoPor'],
+      relations: ['asistencias', 'creadoPor', 'examenes'],
     });
 
     if (!capacitacion) {
@@ -270,7 +270,7 @@ export class CapacitacionesService {
       });
 
       if (capacitacion) {
-        const numeroCertificado = `CERT-${Date.now()}`;
+        const numeroCertificado = await this.generarNumeroCertificado();
         const certificado = this.certificadoRepository.create({
           numeroCertificado,
           capacitacionId: capacitacion.id,
@@ -291,5 +291,60 @@ export class CapacitacionesService {
     }
 
     return saved;
+  }
+
+  async generarNumeroCertificado(): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `CERT-${year}-`;
+
+    // Buscar el último certificado del año
+    const ultimoCertificado = await this.certificadoRepository
+      .createQueryBuilder('certificado')
+      .where('certificado.numeroCertificado LIKE :prefix', { prefix: `${prefix}%` })
+      .orderBy('certificado.numeroCertificado', 'DESC')
+      .getOne();
+
+    let siguienteNumero = 1;
+    if (ultimoCertificado) {
+      const ultimoNumero = parseInt(
+        ultimoCertificado.numeroCertificado.replace(prefix, ''),
+        10,
+      );
+      siguienteNumero = ultimoNumero + 1;
+    }
+
+    return `${prefix}${siguienteNumero.toString().padStart(6, '0')}`;
+  }
+
+  async actualizarAsistencia(
+    capacitacionId: string,
+    trabajadorId: string,
+    asistencia: boolean,
+    calificacion?: number,
+  ): Promise<void> {
+    const asistenciaRecord = await this.asistenciaRepository.findOne({
+      where: { capacitacionId, trabajadorId },
+    });
+
+    if (!asistenciaRecord) {
+      throw new NotFoundException('Asistencia no encontrada');
+    }
+
+    asistenciaRecord.asistencia = asistencia;
+    if (calificacion !== undefined) {
+      asistenciaRecord.calificacion = calificacion;
+      asistenciaRecord.aprobado = calificacion >= 70; // Umbral por defecto
+    }
+
+    await this.asistenciaRepository.save(asistenciaRecord);
+  }
+
+  async obtenerExamenesPorCapacitacion(
+    capacitacionId: string,
+  ): Promise<ExamenCapacitacion[]> {
+    return this.examenRepository.find({
+      where: { capacitacionId, activo: true },
+      relations: ['resultados'],
+    });
   }
 }
