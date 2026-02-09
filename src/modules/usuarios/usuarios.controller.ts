@@ -31,32 +31,64 @@ export class UsuariosController {
   }
 
   @Get()
-  @Roles(UsuarioRol.SUPER_ADMIN)
-  async findAll(): Promise<ResponseUsuarioDto[]> {
-    return this.usuariosService.findAll();
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  async findAll(
+    @CurrentUser() currentUser: { id: string; dni: string; roles: UsuarioRol[]; empresaId?: string | null },
+  ): Promise<ResponseUsuarioDto[]> {
+    return this.usuariosService.findAll(
+      currentUser.id,
+      currentUser.roles,
+      currentUser.empresaId || null,
+    );
   }
 
   @Get(':id')
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() currentUser: { id: string; dni: string; roles: UsuarioRol[] },
+    @CurrentUser() currentUser: { id: string; dni: string; roles: UsuarioRol[]; empresaId?: string | null },
   ): Promise<ResponseUsuarioDto> {
     // Permitir que cualquier usuario pueda consultar su propio perfil
-    // Si el id solicitado es igual al currentUser.id, permitir acceso sin importar el rol
-    // Para otros usuarios, se requiere SUPER_ADMIN
-    if (id !== currentUser.id && !currentUser.roles.includes(UsuarioRol.SUPER_ADMIN)) {
+    if (id === currentUser.id) {
+      return this.usuariosService.findOne(id);
+    }
+    
+    // Para otros usuarios, verificar permisos
+    const isSuperAdmin = currentUser.roles.includes(UsuarioRol.SUPER_ADMIN);
+    const isAdminEmpresa = currentUser.roles.includes(UsuarioRol.ADMIN_EMPRESA);
+    
+    if (!isSuperAdmin && !isAdminEmpresa) {
       throw new ForbiddenException('No tienes permisos para acceder a este perfil');
     }
+    
+    // ADMIN_EMPRESA solo puede ver usuarios de su empresa
+    if (isAdminEmpresa && !isSuperAdmin) {
+      const usuario = await this.usuariosService.findOne(id);
+      if (usuario.empresaId !== currentUser.empresaId) {
+        throw new ForbiddenException('No tienes permisos para acceder a usuarios de otras empresas');
+      }
+    }
+    
     return this.usuariosService.findOne(id);
   }
 
   @Patch(':id')
-  @Roles(UsuarioRol.SUPER_ADMIN)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUsuarioDto,
-    @CurrentUser() currentUser: { id: string; dni: string; roles: UsuarioRol[] },
+    @CurrentUser() currentUser: { id: string; dni: string; roles: UsuarioRol[]; empresaId?: string | null },
   ): Promise<ResponseUsuarioDto> {
+    // ADMIN_EMPRESA solo puede actualizar usuarios de su empresa
+    if (!currentUser.roles.includes(UsuarioRol.SUPER_ADMIN)) {
+      const usuario = await this.usuariosService.findOne(id);
+      if (usuario.empresaId !== currentUser.empresaId) {
+        throw new ForbiddenException('No tienes permisos para actualizar usuarios de otras empresas');
+      }
+      // ADMIN_EMPRESA no puede modificar roles ni activar/desactivar usuarios
+      if (dto.roles !== undefined || dto.activo !== undefined) {
+        throw new ForbiddenException('No tienes permisos para modificar roles o estado de usuarios');
+      }
+    }
     return this.usuariosService.update(id, dto, currentUser.id);
   }
 
