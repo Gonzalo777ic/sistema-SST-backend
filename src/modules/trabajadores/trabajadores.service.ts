@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Trabajador, EstadoTrabajador } from './entities/trabajador.entity';
+import { Usuario } from '../usuarios/entities/usuario.entity';
 import { CreateTrabajadorDto } from './dto/create-trabajador.dto';
 import { UpdateTrabajadorDto, UpdatePersonalDataDto } from './dto/update-trabajador.dto';
 import { ResponseTrabajadorDto } from './dto/response-trabajador.dto';
@@ -15,14 +16,18 @@ export class TrabajadoresService {
   constructor(
     @InjectRepository(Trabajador)
     private readonly trabajadorRepository: Repository<Trabajador>,
+    @InjectRepository(Usuario)
+    private readonly usuarioRepository: Repository<Usuario>,
   ) {}
 
   async create(dto: CreateTrabajadorDto): Promise<ResponseTrabajadorDto> {
+    // Buscar trabajadores existentes excluyendo los eliminados (soft delete)
     const existing = await this.trabajadorRepository.findOne({
       where: {
         documentoIdentidad: dto.documento_identidad,
         empresaId: dto.empresa_id,
       },
+      withDeleted: false, // No incluir registros eliminados
     });
 
     if (existing) {
@@ -51,6 +56,7 @@ export class TrabajadoresService {
     const saved = await this.trabajadorRepository.findOne({
       where: { id: trabajador.id },
       relations: ['usuario'],
+      withDeleted: false, // No incluir registros eliminados
     });
     return ResponseTrabajadorDto.fromEntity(saved!);
   }
@@ -61,6 +67,7 @@ export class TrabajadoresService {
       where,
       relations: ['usuario'],
       order: { nombreCompleto: 'ASC' },
+      withDeleted: false, // No incluir registros eliminados (soft delete)
     });
     return trabajadores.map((t) => ResponseTrabajadorDto.fromEntity(t));
   }
@@ -69,6 +76,7 @@ export class TrabajadoresService {
     const trabajador = await this.trabajadorRepository.findOne({
       where: { id },
       relations: ['usuario'],
+      withDeleted: false, // No incluir registros eliminados (soft delete)
     });
 
     if (!trabajador) {
@@ -82,29 +90,26 @@ export class TrabajadoresService {
     id: string,
     dto: UpdateTrabajadorDto,
   ): Promise<ResponseTrabajadorDto> {
-    const trabajador = await this.trabajadorRepository.findOne({ where: { id } });
+    const trabajador = await this.trabajadorRepository.findOne({
+      where: { id },
+      withDeleted: false, // No incluir registros eliminados
+    });
 
     if (!trabajador) {
       throw new NotFoundException(`Trabajador con ID ${id} no encontrado`);
     }
 
+    // REGLA DE INTEGRIDAD: El DNI no puede ser modificado después de la creación
+    // Para corregir el DNI, es necesario eliminar y volver a crear el registro
     if (dto.documento_identidad && dto.documento_identidad !== trabajador.documentoIdentidad) {
-      const existing = await this.trabajadorRepository.findOne({
-        where: {
-          documentoIdentidad: dto.documento_identidad,
-          empresaId: trabajador.empresaId,
-        },
-      });
-      if (existing) {
-        throw new ConflictException(
-          'Ya existe un trabajador con ese documento de identidad en esta empresa',
-        );
-      }
+      throw new ConflictException(
+        'El documento de identidad no puede ser modificado. Para corregirlo, elimine y vuelva a crear el registro.',
+      );
     }
 
     Object.assign(trabajador, {
       nombreCompleto: dto.nombre_completo ?? trabajador.nombreCompleto,
-      documentoIdentidad: dto.documento_identidad ?? trabajador.documentoIdentidad,
+      // documentoIdentidad NO se actualiza - es inmutable después de la creación
       cargo: dto.cargo ?? trabajador.cargo,
       areaId: dto.area_id !== undefined ? dto.area_id : trabajador.areaId,
       telefono: dto.telefono !== undefined ? dto.telefono : trabajador.telefono,
@@ -134,15 +139,43 @@ export class TrabajadoresService {
     const updated = await this.trabajadorRepository.findOne({
       where: { id },
       relations: ['usuario'],
+      withDeleted: false, // No incluir registros eliminados
     });
     return ResponseTrabajadorDto.fromEntity(updated!);
   }
 
   async remove(id: string): Promise<void> {
-    const result = await this.trabajadorRepository.delete(id);
+    // Buscar el trabajador con su usuario vinculado antes de eliminar
+    // Excluir registros ya eliminados (soft delete)
+    const trabajador = await this.trabajadorRepository.findOne({
+      where: { id },
+      relations: ['usuario'],
+      withDeleted: false, // No incluir registros eliminados
+    });
 
-    if (result.affected === 0) {
+    if (!trabajador) {
       throw new NotFoundException(`Trabajador con ID ${id} no encontrado`);
+    }
+
+    // Realizar Soft Delete del trabajador
+    await this.trabajadorRepository.softRemove(trabajador);
+
+    // Regla de Cascada: Si tiene un Usuario vinculado, desactivarlo y aplicar Soft Delete
+    if (trabajador.usuario) {
+      const usuario = await this.usuarioRepository.findOne({
+        where: { id: trabajador.usuario.id },
+        withDeleted: false,
+      });
+
+      if (usuario) {
+        // Desactivar el usuario para impedir acceso inmediato
+        usuario.activo = false;
+        await this.usuarioRepository.save(usuario);
+        
+        // Aplicar Soft Delete también al usuario
+        // Esto preserva la información según las leyes de SST (20 años para incidentes graves)
+        await this.usuarioRepository.softRemove(usuario);
+      }
     }
   }
 
@@ -150,7 +183,10 @@ export class TrabajadoresService {
     id: string,
     dto: UpdatePersonalDataDto,
   ): Promise<ResponseTrabajadorDto> {
-    const trabajador = await this.trabajadorRepository.findOne({ where: { id } });
+    const trabajador = await this.trabajadorRepository.findOne({
+      where: { id },
+      withDeleted: false, // No incluir registros eliminados
+    });
 
     if (!trabajador) {
       throw new NotFoundException(`Trabajador con ID ${id} no encontrado`);
@@ -168,6 +204,7 @@ export class TrabajadoresService {
     const updated = await this.trabajadorRepository.findOne({
       where: { id },
       relations: ['usuario'],
+      withDeleted: false, // No incluir registros eliminados
     });
     return ResponseTrabajadorDto.fromEntity(updated!);
   }
