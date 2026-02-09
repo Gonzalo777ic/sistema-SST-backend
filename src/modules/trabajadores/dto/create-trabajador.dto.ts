@@ -44,7 +44,11 @@ export class CreateTrabajadorDto {
 
   @IsOptional()
   @IsString()
-  contacto_emergencia?: string;
+  contacto_emergencia_nombre?: string;
+
+  @IsOptional()
+  @IsString()
+  contacto_emergencia_telefono?: string;
 
   @IsOptional()
   @IsUrl()

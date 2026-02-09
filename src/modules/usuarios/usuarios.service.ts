@@ -33,14 +33,11 @@ export class UsuariosService {
     }
 
     let passwordHash: string | null = null;
-    if (dto.authProvider === AuthProvider.LOCAL && dto.password) {
+    if (dto.authProvider === AuthProvider.LOCAL) {
+      // Si no se proporciona password, usar DNI como contraseña temporal
+      const passwordToHash = dto.password || dto.dni;
       const saltRounds = 10;
-      passwordHash = await bcrypt.hash(dto.password, saltRounds);
-    } else if (dto.authProvider === AuthProvider.LOCAL && !dto.password) {
-      throw new HttpException(
-        'La contraseña es obligatoria para autenticación LOCAL',
-        HttpStatus.BAD_REQUEST,
-      );
+      passwordHash = await bcrypt.hash(passwordToHash, saltRounds);
     }
 
     const usuario = this.usuarioRepository.create({

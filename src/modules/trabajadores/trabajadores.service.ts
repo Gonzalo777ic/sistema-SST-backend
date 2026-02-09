@@ -41,8 +41,8 @@ export class TrabajadoresService {
       fechaIngreso: new Date(dto.fecha_ingreso),
       estado: dto.estado ?? EstadoTrabajador.Activo,
       grupoSanguineo: dto.grupo_sanguineo ?? null,
-      contactoEmergenciaNombre: dto.contacto_emergencia ?? null,
-      contactoEmergenciaTelefono: null,
+      contactoEmergenciaNombre: dto.contacto_emergencia_nombre ?? null,
+      contactoEmergenciaTelefono: dto.contacto_emergencia_telefono ?? null,
       fotoUrl: dto.foto_url ?? null,
       empresaId: dto.empresa_id,
     });
@@ -115,9 +115,13 @@ export class TrabajadoresService {
       estado: dto.estado ?? trabajador.estado,
       grupoSanguineo: dto.grupo_sanguineo !== undefined ? dto.grupo_sanguineo : trabajador.grupoSanguineo,
       contactoEmergenciaNombre:
-        dto.contacto_emergencia !== undefined
-          ? dto.contacto_emergencia
+        dto.contacto_emergencia_nombre !== undefined
+          ? dto.contacto_emergencia_nombre
           : trabajador.contactoEmergenciaNombre,
+      contactoEmergenciaTelefono:
+        dto.contacto_emergencia_telefono !== undefined
+          ? dto.contacto_emergencia_telefono
+          : trabajador.contactoEmergenciaTelefono,
       fotoUrl: dto.foto_url !== undefined ? dto.foto_url : trabajador.fotoUrl,
       tallaCasco: dto.talla_casco !== undefined ? dto.talla_casco : trabajador.tallaCasco,
       tallaCamisa: dto.talla_camisa !== undefined ? dto.talla_camisa : trabajador.tallaCamisa,

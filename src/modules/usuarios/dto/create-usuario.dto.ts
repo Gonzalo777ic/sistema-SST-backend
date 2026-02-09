@@ -18,7 +18,7 @@ export class CreateUsuarioDto {
   @Matches(/^\d+$/, { message: 'El DNI debe contener solo números' })
   dni: string;
 
-  @ValidateIf((o) => o.authProvider === AuthProvider.LOCAL)
+  @IsOptional()
   @IsString()
   @MinLength(8, {
     message: 'La contraseña debe tener al menos 8 caracteres',
