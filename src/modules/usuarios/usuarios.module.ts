@@ -5,10 +5,12 @@ import { UsuariosController } from './usuarios.controller';
 import { UsuariosService } from './usuarios.service';
 import { AdminSeederService } from './admin-seeder.service';
 import { EmpresasModule } from '../empresas/empresas.module';
+import { Trabajador } from '../trabajadores/entities/trabajador.entity';
+import { Empresa } from '../empresas/entities/empresa.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Usuario]),
+    TypeOrmModule.forFeature([Usuario, Trabajador, Empresa]),
     EmpresasModule,
   ],
   controllers: [UsuariosController],

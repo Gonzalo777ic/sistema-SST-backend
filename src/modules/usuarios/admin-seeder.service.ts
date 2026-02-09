@@ -4,6 +4,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Usuario, AuthProvider, UsuarioRol } from './entities/usuario.entity';
+import { Trabajador, EstadoTrabajador } from '../trabajadores/entities/trabajador.entity';
+import { Empresa } from '../empresas/entities/empresa.entity';
 
 @Injectable()
 export class AdminSeederService implements OnApplicationBootstrap {
@@ -12,6 +14,10 @@ export class AdminSeederService implements OnApplicationBootstrap {
   constructor(
     @InjectRepository(Usuario)
     private readonly usuarioRepository: Repository<Usuario>,
+    @InjectRepository(Trabajador)
+    private readonly trabajadorRepository: Repository<Trabajador>,
+    @InjectRepository(Empresa)
+    private readonly empresaRepository: Repository<Empresa>,
     private readonly configService: ConfigService,
   ) {}
 
@@ -78,6 +84,21 @@ export class AdminSeederService implements OnApplicationBootstrap {
       return;
     }
 
+    // Obtener o crear empresa de prueba
+    let empresaPrueba = await this.empresaRepository.findOne({
+      where: { ruc: '20100070970' }, // RUC de ejemplo
+    });
+
+    if (!empresaPrueba) {
+      empresaPrueba = this.empresaRepository.create({
+        nombre: 'Empresa de Prueba SST',
+        ruc: '20100070970',
+        activo: true,
+      });
+      empresaPrueba = await this.empresaRepository.save(empresaPrueba);
+      this.logger.log('Empresa de prueba creada');
+    }
+
     const saltRounds = 10;
     const testPassword = '12345678'; // Contraseña temporal para usuarios de prueba
     const passwordHash = await bcrypt.hash(testPassword, saltRounds);
@@ -88,31 +109,43 @@ export class AdminSeederService implements OnApplicationBootstrap {
         dni: '11111111',
         roles: [UsuarioRol.ADMIN_EMPRESA],
         nombre: 'Admin Empresa',
+        cargo: 'Administrador',
+        necesitaTrabajador: false, // ADMIN_EMPRESA puede existir sin trabajador
       },
       {
         dni: '22222222',
         roles: [UsuarioRol.INGENIERO_SST],
         nombre: 'Ingeniero SST',
+        cargo: 'Ingeniero de Seguridad',
+        necesitaTrabajador: true,
       },
       {
         dni: '33333333',
         roles: [UsuarioRol.SUPERVISOR],
         nombre: 'Supervisor',
+        cargo: 'Supervisor de Producción',
+        necesitaTrabajador: true,
       },
       {
         dni: '44444444',
         roles: [UsuarioRol.MEDICO],
         nombre: 'Médico Ocupacional',
+        cargo: 'Médico Ocupacional',
+        necesitaTrabajador: true,
       },
       {
         dni: '55555555',
         roles: [UsuarioRol.EMPLEADO],
         nombre: 'Empleado',
+        cargo: 'Operario',
+        necesitaTrabajador: true,
       },
       {
         dni: '66666666',
         roles: [UsuarioRol.AUDITOR],
         nombre: 'Auditor',
+        cargo: 'Auditor SST',
+        necesitaTrabajador: true,
       },
     ];
 
@@ -120,12 +153,17 @@ export class AdminSeederService implements OnApplicationBootstrap {
       try {
         const existing = await this.usuarioRepository.findOne({
           where: { dni: testUser.dni },
+          relations: ['trabajador'],
         });
 
         if (existing) {
           this.logger.log(
             `Usuario de prueba ya existe: DNI ${testUser.dni} (${testUser.nombre})`,
           );
+          // Si el usuario existe pero no tiene trabajador y lo necesita, crearlo
+          if (testUser.necesitaTrabajador && !existing.trabajador) {
+            await this.crearTrabajadorParaUsuario(existing, testUser, empresaPrueba.id);
+          }
           continue;
         }
 
@@ -135,21 +173,73 @@ export class AdminSeederService implements OnApplicationBootstrap {
           authProvider: AuthProvider.LOCAL,
           providerId: null,
           roles: testUser.roles,
-          empresaId: null,
+          empresaId: empresaPrueba.id,
           activo: true,
           debeCambiarPassword: true,
         });
 
-        await this.usuarioRepository.save(usuario);
+        const usuarioGuardado = await this.usuarioRepository.save(usuario);
 
         this.logger.log(
           `Usuario de prueba creado: DNI ${testUser.dni} (${testUser.nombre}) - Roles: ${testUser.roles.join(', ')}`,
         );
+
+        // Crear trabajador vinculado para usuarios operativos
+        if (testUser.necesitaTrabajador) {
+          await this.crearTrabajadorParaUsuario(usuarioGuardado, testUser, empresaPrueba.id);
+        }
       } catch (error) {
         this.logger.error(
           `Error al crear usuario de prueba ${testUser.dni}: ${error.message}`,
         );
       }
+    }
+  }
+
+  private async crearTrabajadorParaUsuario(
+    usuario: Usuario,
+    testUser: { nombre: string; cargo: string; dni: string },
+    empresaId: string,
+  ): Promise<void> {
+    try {
+      // Verificar si ya existe un trabajador con este DNI
+      const trabajadorExistente = await this.trabajadorRepository.findOne({
+        where: { documentoIdentidad: testUser.dni },
+      });
+
+      if (trabajadorExistente) {
+        // Si existe, vincularlo al usuario
+        usuario.trabajador = trabajadorExistente;
+        await this.usuarioRepository.save(usuario);
+        this.logger.log(
+          `Trabajador existente vinculado al usuario: DNI ${testUser.dni}`,
+        );
+        return;
+      }
+
+      // Crear nuevo trabajador
+      const trabajador = this.trabajadorRepository.create({
+        nombreCompleto: testUser.nombre,
+        documentoIdentidad: testUser.dni,
+        cargo: testUser.cargo,
+        empresaId: empresaId,
+        fechaIngreso: new Date(),
+        estado: EstadoTrabajador.Activo, // Estado activo para permitir login
+      });
+
+      const trabajadorGuardado = await this.trabajadorRepository.save(trabajador);
+
+      // Vincular trabajador al usuario (la relación OneToOne está en Usuario, no en Trabajador)
+      usuario.trabajador = trabajadorGuardado;
+      await this.usuarioRepository.save(usuario);
+
+      this.logger.log(
+        `Trabajador creado y vinculado: DNI ${testUser.dni} (${testUser.nombre})`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error al crear trabajador para usuario ${testUser.dni}: ${error.message}`,
+      );
     }
   }
 }

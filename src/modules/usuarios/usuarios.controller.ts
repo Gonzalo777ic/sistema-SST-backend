@@ -25,9 +25,12 @@ export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
   @Post()
-  @Roles(UsuarioRol.SUPER_ADMIN)
-  async create(@Body() dto: CreateUsuarioDto): Promise<ResponseUsuarioDto> {
-    return this.usuariosService.create(dto);
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  async create(
+    @Body() dto: CreateUsuarioDto,
+    @CurrentUser() currentUser: { id: string; dni: string; roles: UsuarioRol[]; empresaId?: string | null },
+  ): Promise<ResponseUsuarioDto> {
+    return this.usuariosService.create(dto, currentUser);
   }
 
   @Get()

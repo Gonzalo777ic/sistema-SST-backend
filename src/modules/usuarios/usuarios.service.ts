@@ -5,6 +5,7 @@ import {
   HttpStatus,
   NotFoundException,
   PreconditionFailedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ArrayContains } from 'typeorm';
@@ -21,7 +22,10 @@ export class UsuariosService {
     private readonly usuarioRepository: Repository<Usuario>,
   ) {}
 
-  async create(dto: CreateUsuarioDto): Promise<ResponseUsuarioDto> {
+  async create(
+    dto: CreateUsuarioDto,
+    currentUser?: { id: string; dni: string; roles: UsuarioRol[]; empresaId?: string | null },
+  ): Promise<ResponseUsuarioDto> {
     const existing = await this.usuarioRepository.findOne({
       where: { dni: dto.dni },
     });
@@ -32,9 +36,34 @@ export class UsuariosService {
       );
     }
 
+    // Validaciones de seguridad para ADMIN_EMPRESA
+    // Usamos !! para forzar a booleano y manejamos el caso undefined
+    const isAdminEmpresa = !!currentUser?.roles.includes(UsuarioRol.ADMIN_EMPRESA) && !currentUser?.roles.includes(UsuarioRol.SUPER_ADMIN);
+    
+    if (isAdminEmpresa && currentUser) { // Corregido: validación explícita de currentUser
+      // ADMIN_EMPRESA solo puede crear usuarios de su empresa
+      if (!currentUser.empresaId) {
+        throw new ForbiddenException(
+          'No puedes crear usuarios sin una empresa asignada',
+        );
+      }
+      
+      // Forzar empresaId del nuevo usuario al del creador
+      dto.empresaId = currentUser.empresaId;
+      
+      // Validar que no intente asignar roles prohibidos
+      const rolesProhibidos = [UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA];
+      const tieneRolProhibido = dto.roles.some((rol) => rolesProhibidos.includes(rol));
+      
+      if (tieneRolProhibido) {
+        throw new ForbiddenException(
+          'No tienes permisos para asignar roles de administrador',
+        );
+      }
+    }
+
     let passwordHash: string | null = null;
     if (dto.authProvider === AuthProvider.LOCAL) {
-      // Si no se proporciona password, usar DNI como contraseña temporal
       const passwordToHash = dto.password || dto.dni;
       const saltRounds = 10;
       passwordHash = await bcrypt.hash(passwordToHash, saltRounds);
@@ -51,7 +80,7 @@ export class UsuariosService {
         ? ({ id: dto.trabajadorId } as any)
         : undefined,
       activo: true,
-      debeCambiarPassword: true, // Por defecto debe cambiar contraseña
+      debeCambiarPassword: true,
     });
 
     const saved = await this.usuarioRepository.save(usuario);
