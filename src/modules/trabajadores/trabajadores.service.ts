@@ -22,18 +22,16 @@ export class TrabajadoresService {
 
   async create(dto: CreateTrabajadorDto): Promise<ResponseTrabajadorDto> {
     // Buscar trabajadores existentes excluyendo los eliminados (soft delete)
+    // Validación de unicidad por DNI (sin considerar empresa)
     const existing = await this.trabajadorRepository.findOne({
       where: {
         documentoIdentidad: dto.documento_identidad,
-        empresaId: dto.empresa_id,
       },
       withDeleted: false, // No incluir registros eliminados
     });
 
     if (existing) {
-      throw new ConflictException(
-        'Ya existe un trabajador con ese documento de identidad en esta empresa',
-      );
+      throw new ConflictException('El DNI ya se encuentra registrado');
     }
 
     const trabajador = this.trabajadorRepository.create({
@@ -92,6 +90,7 @@ export class TrabajadoresService {
   ): Promise<ResponseTrabajadorDto> {
     const trabajador = await this.trabajadorRepository.findOne({
       where: { id },
+      relations: ['usuario'], // Cargar relación con usuario para sincronización
       withDeleted: false, // No incluir registros eliminados
     });
 
@@ -107,6 +106,9 @@ export class TrabajadoresService {
       );
     }
 
+    const nuevoEstado = dto.estado ?? trabajador.estado;
+    const estadoCambio = dto.estado !== undefined && dto.estado !== trabajador.estado;
+
     Object.assign(trabajador, {
       nombreCompleto: dto.nombre_completo ?? trabajador.nombreCompleto,
       // documentoIdentidad NO se actualiza - es inmutable después de la creación
@@ -117,7 +119,7 @@ export class TrabajadoresService {
       fechaIngreso: dto.fecha_ingreso
         ? new Date(dto.fecha_ingreso)
         : trabajador.fechaIngreso,
-      estado: dto.estado ?? trabajador.estado,
+      estado: nuevoEstado,
       grupoSanguineo: dto.grupo_sanguineo !== undefined ? dto.grupo_sanguineo : trabajador.grupoSanguineo,
       contactoEmergenciaNombre:
         dto.contacto_emergencia_nombre !== undefined
@@ -136,6 +138,22 @@ export class TrabajadoresService {
     });
 
     await this.trabajadorRepository.save(trabajador);
+
+    // SINCRONIZACIÓN DE ESTADOS: Si el trabajador cambia a 'Inactivo', desactivar su usuario vinculado
+    if (estadoCambio && nuevoEstado === EstadoTrabajador.Inactivo) {
+      // Buscar el usuario vinculado usando QueryBuilder (la relación está en Usuario con trabajador_id)
+      const usuarioVinculado = await this.usuarioRepository
+        .createQueryBuilder('usuario')
+        .leftJoinAndSelect('usuario.trabajador', 'trabajador')
+        .where('trabajador.id = :trabajadorId', { trabajadorId: trabajador.id })
+        .andWhere('usuario.deletedAt IS NULL') // Excluir soft-deleted
+        .getOne();
+      
+      if (usuarioVinculado) {
+        usuarioVinculado.activo = false;
+        await this.usuarioRepository.save(usuarioVinculado);
+      }
+    }
     const updated = await this.trabajadorRepository.findOne({
       where: { id },
       relations: ['usuario'],

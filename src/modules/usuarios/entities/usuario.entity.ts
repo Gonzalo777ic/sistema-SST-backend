@@ -24,7 +24,7 @@ export enum UsuarioRol {
   INGENIERO_SST = 'INGENIERO_SST',
   SUPERVISOR = 'SUPERVISOR',
   MEDICO = 'MEDICO',
-  TRABAJADOR = 'TRABAJADOR',
+  EMPLEADO = 'EMPLEADO',
   AUDITOR = 'AUDITOR',
 }
 
@@ -57,7 +57,7 @@ export class Usuario {
     type: 'enum',
     enum: UsuarioRol,
     array: true,
-    default: [UsuarioRol.TRABAJADOR], 
+    default: [UsuarioRol.EMPLEADO], 
   })
   roles: UsuarioRol[];
 

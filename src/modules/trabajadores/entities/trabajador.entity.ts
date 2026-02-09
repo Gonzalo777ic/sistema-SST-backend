@@ -41,7 +41,7 @@ export class Trabajador {
   @Column({ name: 'nombre_completo' })
   nombreCompleto: string;
 
-  @Column({ name: 'documento_identidad' })
+  @Column({ name: 'documento_identidad', unique: true })
   documentoIdentidad: string;
 
   @Column({ name: 'foto_url', type: 'varchar', nullable: true })

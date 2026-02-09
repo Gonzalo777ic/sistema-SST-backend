@@ -5,6 +5,7 @@ import { UsuariosService } from '../usuarios/usuarios.service';
 import { Usuario, AuthProvider } from '../usuarios/entities/usuario.entity';
 import { CreateUsuarioDto } from '../usuarios/dto/create-usuario.dto';
 import { ResponseUsuarioDto } from '../usuarios/dto/response-usuario.dto';
+import { EstadoTrabajador } from '../trabajadores/entities/trabajador.entity';
 
 export interface JwtPayload {
   sub: string;
@@ -32,6 +33,14 @@ export class AuthService {
 
     if (!usuario.activo) {
       throw new UnauthorizedException('La cuenta está desactivada');
+    }
+
+    // REGLA DE BLOQUEO: Verificar estado del trabajador vinculado
+    // Si el usuario tiene un trabajador vinculado y su estado NO ES 'Activo', bloquear acceso
+    if (usuario.trabajador && usuario.trabajador.estado !== EstadoTrabajador.Activo) {
+      throw new UnauthorizedException(
+        'Acceso denegado: Su vínculo laboral no está activo',
+      );
     }
 
     if (usuario.authProvider !== AuthProvider.LOCAL || !usuario.passwordHash) {

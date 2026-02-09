@@ -70,7 +70,10 @@ export class UsuariosService {
 
 
   async findById(id: string): Promise<Usuario | null> {
-    return this.usuarioRepository.findOne({ where: { id } });
+    return this.usuarioRepository.findOne({
+      where: { id },
+      relations: ['trabajador'], // Cargar relación con trabajador para validación de estado
+    });
   }
 
   async findAll(): Promise<ResponseUsuarioDto[]> {

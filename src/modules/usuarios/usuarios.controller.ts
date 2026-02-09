@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { UsuariosService } from './usuarios.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
@@ -36,10 +37,16 @@ export class UsuariosController {
   }
 
   @Get(':id')
-  @Roles(UsuarioRol.SUPER_ADMIN)
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: { id: string; dni: string; roles: UsuarioRol[] },
   ): Promise<ResponseUsuarioDto> {
+    // Permitir que cualquier usuario pueda consultar su propio perfil
+    // Si el id solicitado es igual al currentUser.id, permitir acceso sin importar el rol
+    // Para otros usuarios, se requiere SUPER_ADMIN
+    if (id !== currentUser.id && !currentUser.roles.includes(UsuarioRol.SUPER_ADMIN)) {
+      throw new ForbiddenException('No tienes permisos para acceder a este perfil');
+    }
     return this.usuariosService.findOne(id);
   }
 
