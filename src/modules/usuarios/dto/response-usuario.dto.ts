@@ -1,5 +1,12 @@
 import { AuthProvider, UsuarioRol } from '../entities/usuario.entity';
 
+export interface TrabajadorInfo {
+  id: string;
+  nombreCompleto: string;
+  documentoIdentidad: string;
+  estado: string;
+}
+
 export class ResponseUsuarioDto {
   id: string;
   dni: string;
@@ -10,6 +17,7 @@ export class ResponseUsuarioDto {
   ultimoAcceso: Date | null;
   empresaId: string | null;
   trabajadorId: string | null;
+  trabajador?: TrabajadorInfo | null;
   perfil_completado?: boolean;
   createdAt: Date;
 
@@ -22,7 +30,13 @@ export class ResponseUsuarioDto {
     debeCambiarPassword: boolean;
     ultimoAcceso: Date | null;
     empresaId: string | null;
-    trabajador?: { id: string; perfilCompletado?: boolean } | null;
+    trabajador?: {
+      id: string;
+      nombreCompleto?: string;
+      documentoIdentidad?: string;
+      estado?: string;
+      perfilCompletado?: boolean;
+    } | null;
     createdAt: Date;
   }): ResponseUsuarioDto {
     const dto = new ResponseUsuarioDto();
@@ -36,6 +50,21 @@ export class ResponseUsuarioDto {
     dto.empresaId = usuario.empresaId;
     dto.trabajadorId = usuario.trabajador?.id ?? null;
     dto.perfil_completado = usuario.trabajador?.perfilCompletado ?? false;
+    
+    // Incluir información del trabajador si está disponible
+    // TypeORM devuelve los campos en camelCase según la entidad
+    if (usuario.trabajador) {
+      const trabajador = usuario.trabajador as any;
+      if (trabajador.nombreCompleto || trabajador.id) {
+        dto.trabajador = {
+          id: trabajador.id,
+          nombreCompleto: trabajador.nombreCompleto || '',
+          documentoIdentidad: trabajador.documentoIdentidad || '',
+          estado: trabajador.estado || '',
+        };
+      }
+    }
+    
     dto.createdAt = usuario.createdAt;
     return dto;
   }

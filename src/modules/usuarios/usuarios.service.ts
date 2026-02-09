@@ -89,56 +89,39 @@ export class UsuariosService {
     });
   }
 
-  async findAll(currentUserId?: string, currentUserRoles?: UsuarioRol[], currentUserEmpresaId?: string | null): Promise<ResponseUsuarioDto[]> {
-    // Lógica de filtrado multitenant con jerarquía de roles
+  async findAll(
+    currentUserId?: string, 
+    currentUserRoles?: UsuarioRol[], 
+    currentUserEmpresaId?: string | null
+  ): Promise<ResponseUsuarioDto[]> {
     const isSuperAdmin = currentUserRoles?.includes(UsuarioRol.SUPER_ADMIN);
     const isAdminEmpresa = currentUserRoles?.includes(UsuarioRol.ADMIN_EMPRESA) && !isSuperAdmin;
     
-    if (!isSuperAdmin && !isAdminEmpresa) {
-      // Sin permisos, retornar array vacío
-      return [];
-    }
+    if (!isSuperAdmin && !isAdminEmpresa) return [];
     
-    let usuarios: Usuario[];
+    let usuarios: Usuario[] = [];
     
     if (isSuperAdmin) {
-      // SUPER_ADMIN puede ver todos los usuarios excepto otros SUPER_ADMIN
-      usuarios = await this.usuarioRepository.find({
-        where: {},
+      // SUPER_ADMIN ve a todos (con sus trabajadores) excepto otros SUPER_ADMIN
+      const allUsers = await this.usuarioRepository.find({
+        relations: ['trabajador'], // Carga la relación para el seed
         order: { createdAt: 'DESC' },
       });
-      // Filtrar manualmente usuarios con SUPER_ADMIN (TypeORM no tiene operador NOT para arrays)
-      usuarios = usuarios.filter((u) => !u.roles.includes(UsuarioRol.SUPER_ADMIN));
-    } else if (isAdminEmpresa) {
-      // ADMIN_EMPRESA (ADMIN del sistema cuando tiene acceso a Gestión de Usuarios)
-      // Puede ver usuarios de su empresa Y también SUPER_ADMIN (solo lectura)
-      const usuariosEmpresa = currentUserEmpresaId
-        ? await this.usuarioRepository.find({
-            where: {
-              empresaId: currentUserEmpresaId,
-            },
-            order: { createdAt: 'DESC' },
-          })
-        : [];
+      usuarios = allUsers.filter(u => !u.roles.includes(UsuarioRol.SUPER_ADMIN) || u.id === currentUserId);
+    } else if (isAdminEmpresa && currentUserEmpresaId) {
+      // ADMIN_EMPRESA ve su empresa + SUPER_ADMINs (para auditoría)
+      const empresaUsers = await this.usuarioRepository.find({
+        where: { empresaId: currentUserEmpresaId },
+        relations: ['trabajador'],
+        order: { createdAt: 'DESC' },
+      });
       
-      // También obtener SUPER_ADMIN para mostrarlos (pero sin permisos de edición)
       const superAdmins = await this.usuarioRepository.find({
-        where: {},
-        order: { createdAt: 'DESC' },
+        where: { roles: ArrayContains([UsuarioRol.SUPER_ADMIN]) },
+        relations: ['trabajador'],
       });
-      const superAdminsFiltrados = superAdmins.filter((u) => 
-        u.roles.includes(UsuarioRol.SUPER_ADMIN) && u.id !== currentUserId
-      );
       
-      // Combinar ambos grupos
-      usuarios = [...usuariosEmpresa, ...superAdminsFiltrados];
-      
-      // Filtrar usuarios con SUPER_ADMIN de la lista de empresa (no deberían estar ahí, pero por seguridad)
-      usuarios = usuarios.filter((u) => 
-        !u.roles.includes(UsuarioRol.SUPER_ADMIN) || superAdminsFiltrados.includes(u)
-      );
-    } else {
-      return [];
+      usuarios = [...empresaUsers, ...superAdmins];
     }
     
     return usuarios.map((usuario) =>
@@ -148,6 +131,9 @@ export class UsuariosService {
       }),
     );
   }
+
+
+  
 
   async findOne(id: string): Promise<ResponseUsuarioDto> {
     const usuario = await this.usuarioRepository.findOne({
