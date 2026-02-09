@@ -25,11 +25,13 @@ export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
   @Post()
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN)
   async create(
     @Body() dto: CreateUsuarioDto,
     @CurrentUser() currentUser: { id: string; dni: string; roles: UsuarioRol[]; empresaId?: string | null },
   ): Promise<ResponseUsuarioDto> {
+    // Solo SUPER_ADMIN puede crear usuarios desde este endpoint
+    // ADMIN_EMPRESA no puede crear usuarios aquí (debe usar el flujo de Trabajadores)
     return this.usuariosService.create(dto, currentUser);
   }
 
@@ -81,18 +83,21 @@ export class UsuariosController {
     @Body() dto: UpdateUsuarioDto,
     @CurrentUser() currentUser: { id: string; dni: string; roles: UsuarioRol[]; empresaId?: string | null },
   ): Promise<ResponseUsuarioDto> {
-    // ADMIN_EMPRESA solo puede actualizar usuarios de su empresa
-    if (!currentUser.roles.includes(UsuarioRol.SUPER_ADMIN)) {
-      const usuario = await this.usuariosService.findOne(id);
-      if (usuario.empresaId !== currentUser.empresaId) {
-        throw new ForbiddenException('No tienes permisos para actualizar usuarios de otras empresas');
-      }
-      // ADMIN_EMPRESA no puede modificar roles ni activar/desactivar usuarios
+    // ADMIN_EMPRESA no puede modificar roles ni activar/desactivar usuarios (excepto para sí mismo)
+    const isAdminEmpresa = currentUser.roles.includes(UsuarioRol.ADMIN_EMPRESA) && !currentUser.roles.includes(UsuarioRol.SUPER_ADMIN);
+    if (isAdminEmpresa && id !== currentUser.id) {
       if (dto.roles !== undefined || dto.activo !== undefined) {
-        throw new ForbiddenException('No tienes permisos para modificar roles o estado de usuarios');
+        throw new ForbiddenException('No tienes permisos para modificar roles o estado de otros usuarios');
       }
     }
-    return this.usuariosService.update(id, dto, currentUser.id);
+    
+    return this.usuariosService.update(
+      id,
+      dto,
+      currentUser.id,
+      currentUser.roles,
+      currentUser.empresaId || null,
+    );
   }
 
   @Post(':id/change-password')

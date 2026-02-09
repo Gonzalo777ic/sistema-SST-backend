@@ -35,29 +35,37 @@ export class AuthService {
       throw new UnauthorizedException('La cuenta está desactivada');
     }
 
-    // REGLA DE BLOQUEO: Verificar estado del trabajador vinculado según el rol
-    // Roles administrativos abstractos (SUPER_ADMIN, ADMIN_EMPRESA) pueden hacer login sin trabajador vinculado
-    // Roles operativos vinculados (EMPLEADO, SUPERVISOR, MEDICO, INGENIERO_SST) requieren trabajador activo
-    const rolesAdministrativos = [UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA];
-    const esRolAdministrativo = usuario.roles.some((rol) => rolesAdministrativos.includes(rol));
+    // REGLA DE BLOQUEO CRÍTICO: Verificar estado del trabajador vinculado según el rol
+    // Solo SUPER_ADMIN y ADMIN_EMPRESA pueden hacer login sin trabajador vinculado
+    // Roles operativos (EMPLEADO, SUPERVISOR, MEDICO, INGENIERO_SST, AUDITOR) OBLIGATORIAMENTE requieren trabajador activo
+    const rolesOperativos = [
+      UsuarioRol.EMPLEADO,
+      UsuarioRol.SUPERVISOR,
+      UsuarioRol.MEDICO,
+      UsuarioRol.INGENIERO_SST,
+      UsuarioRol.AUDITOR,
+    ];
+    const esRolOperativo = usuario.roles.some((rol) => rolesOperativos.includes(rol));
     
-    if (!esRolAdministrativo) {
-      // Para roles operativos, es obligatorio tener trabajador vinculado y activo
+    if (esRolOperativo) {
+      // BLOQUEO OBLIGATORIO: Roles operativos DEBEN tener trabajador vinculado y activo
       if (!usuario.trabajador) {
         throw new UnauthorizedException(
-          'Acceso denegado: Su cuenta requiere un vínculo laboral activo',
+          'Acceso denegado: Su cuenta requiere un vínculo laboral activo. Contacte al administrador.',
         );
       }
       if (usuario.trabajador.estado !== EstadoTrabajador.Activo) {
         throw new UnauthorizedException(
+          'Acceso denegado: Su vínculo laboral no está activo. Contacte al administrador.',
+        );
+      }
+    } else {
+      // Para roles administrativos (SUPER_ADMIN, ADMIN_EMPRESA) con trabajador vinculado, también verificar estado
+      if (usuario.trabajador && usuario.trabajador.estado !== EstadoTrabajador.Activo) {
+        throw new UnauthorizedException(
           'Acceso denegado: Su vínculo laboral no está activo',
         );
       }
-    } else if (usuario.trabajador && usuario.trabajador.estado !== EstadoTrabajador.Activo) {
-      // Para roles administrativos con trabajador vinculado, también verificar estado
-      throw new UnauthorizedException(
-        'Acceso denegado: Su vínculo laboral no está activo',
-      );
     }
 
     if (usuario.authProvider !== AuthProvider.LOCAL || !usuario.passwordHash) {

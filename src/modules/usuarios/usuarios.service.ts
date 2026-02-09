@@ -36,30 +36,14 @@ export class UsuariosService {
       );
     }
 
-    // Validaciones de seguridad para ADMIN_EMPRESA
-    // Usamos !! para forzar a booleano y manejamos el caso undefined
+    // BLOQUEO: ADMIN_EMPRESA no puede crear usuarios desde este endpoint
+    // Debe usar el flujo de Trabajadores para crear usuarios operativos
     const isAdminEmpresa = !!currentUser?.roles.includes(UsuarioRol.ADMIN_EMPRESA) && !currentUser?.roles.includes(UsuarioRol.SUPER_ADMIN);
     
-    if (isAdminEmpresa && currentUser) { // Corregido: validación explícita de currentUser
-      // ADMIN_EMPRESA solo puede crear usuarios de su empresa
-      if (!currentUser.empresaId) {
-        throw new ForbiddenException(
-          'No puedes crear usuarios sin una empresa asignada',
-        );
-      }
-      
-      // Forzar empresaId del nuevo usuario al del creador
-      dto.empresaId = currentUser.empresaId;
-      
-      // Validar que no intente asignar roles prohibidos
-      const rolesProhibidos = [UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA];
-      const tieneRolProhibido = dto.roles.some((rol) => rolesProhibidos.includes(rol));
-      
-      if (tieneRolProhibido) {
-        throw new ForbiddenException(
-          'No tienes permisos para asignar roles de administrador',
-        );
-      }
+    if (isAdminEmpresa) {
+      throw new ForbiddenException(
+        'No tienes permisos para crear usuarios desde este módulo. Usa el módulo de Trabajadores para crear usuarios operativos.',
+      );
     }
 
     let passwordHash: string | null = null;
@@ -106,9 +90,9 @@ export class UsuariosService {
   }
 
   async findAll(currentUserId?: string, currentUserRoles?: UsuarioRol[], currentUserEmpresaId?: string | null): Promise<ResponseUsuarioDto[]> {
-    // Lógica de filtrado multitenant
+    // Lógica de filtrado multitenant con jerarquía de roles
     const isSuperAdmin = currentUserRoles?.includes(UsuarioRol.SUPER_ADMIN);
-    const isAdminEmpresa = currentUserRoles?.includes(UsuarioRol.ADMIN_EMPRESA);
+    const isAdminEmpresa = currentUserRoles?.includes(UsuarioRol.ADMIN_EMPRESA) && !isSuperAdmin;
     
     if (!isSuperAdmin && !isAdminEmpresa) {
       // Sin permisos, retornar array vacío
@@ -120,24 +104,39 @@ export class UsuariosService {
     if (isSuperAdmin) {
       // SUPER_ADMIN puede ver todos los usuarios excepto otros SUPER_ADMIN
       usuarios = await this.usuarioRepository.find({
-        where: {
-          // Excluir usuarios con rol SUPER_ADMIN usando ArrayContains
-          // NOT (SUPER_ADMIN está contenido en el array roles)
-        },
+        where: {},
         order: { createdAt: 'DESC' },
       });
       // Filtrar manualmente usuarios con SUPER_ADMIN (TypeORM no tiene operador NOT para arrays)
       usuarios = usuarios.filter((u) => !u.roles.includes(UsuarioRol.SUPER_ADMIN));
-    } else if (isAdminEmpresa && currentUserEmpresaId) {
-      // ADMIN_EMPRESA solo ve usuarios de su empresa y que no sean SUPER_ADMIN
-      usuarios = await this.usuarioRepository.find({
-        where: {
-          empresaId: currentUserEmpresaId,
-        },
+    } else if (isAdminEmpresa) {
+      // ADMIN_EMPRESA (ADMIN del sistema cuando tiene acceso a Gestión de Usuarios)
+      // Puede ver usuarios de su empresa Y también SUPER_ADMIN (solo lectura)
+      const usuariosEmpresa = currentUserEmpresaId
+        ? await this.usuarioRepository.find({
+            where: {
+              empresaId: currentUserEmpresaId,
+            },
+            order: { createdAt: 'DESC' },
+          })
+        : [];
+      
+      // También obtener SUPER_ADMIN para mostrarlos (pero sin permisos de edición)
+      const superAdmins = await this.usuarioRepository.find({
+        where: {},
         order: { createdAt: 'DESC' },
       });
-      // Filtrar usuarios con SUPER_ADMIN
-      usuarios = usuarios.filter((u) => !u.roles.includes(UsuarioRol.SUPER_ADMIN));
+      const superAdminsFiltrados = superAdmins.filter((u) => 
+        u.roles.includes(UsuarioRol.SUPER_ADMIN) && u.id !== currentUserId
+      );
+      
+      // Combinar ambos grupos
+      usuarios = [...usuariosEmpresa, ...superAdminsFiltrados];
+      
+      // Filtrar usuarios con SUPER_ADMIN de la lista de empresa (no deberían estar ahí, pero por seguridad)
+      usuarios = usuarios.filter((u) => 
+        !u.roles.includes(UsuarioRol.SUPER_ADMIN) || superAdminsFiltrados.includes(u)
+      );
     } else {
       return [];
     }
@@ -170,6 +169,8 @@ export class UsuariosService {
     id: string,
     dto: UpdateUsuarioDto,
     currentUserId?: string,
+    currentUserRoles?: UsuarioRol[],
+    currentUserEmpresaId?: string | null,
   ): Promise<ResponseUsuarioDto> {
     const usuario = await this.usuarioRepository.findOne({
       where: { id },
@@ -181,6 +182,24 @@ export class UsuariosService {
     }
 
     const isCurrentlySuperAdmin = usuario.roles.includes(UsuarioRol.SUPER_ADMIN);
+    const isCurrentUserSuperAdmin = currentUserRoles?.includes(UsuarioRol.SUPER_ADMIN);
+    const isCurrentUserAdminEmpresa = currentUserRoles?.includes(UsuarioRol.ADMIN_EMPRESA) && !isCurrentUserSuperAdmin;
+    
+    // JERARQUÍA DE ROLES: ADMIN_EMPRESA NUNCA puede modificar o eliminar SUPER_ADMIN
+    if (isCurrentlySuperAdmin && isCurrentUserAdminEmpresa) {
+      throw new ForbiddenException(
+        'No tienes permisos para modificar usuarios con rol SUPER_ADMIN',
+      );
+    }
+    
+    // ADMIN_EMPRESA solo puede modificar usuarios de su empresa
+    if (isCurrentUserAdminEmpresa && currentUserEmpresaId) {
+      if (usuario.empresaId !== currentUserEmpresaId && !isCurrentlySuperAdmin) {
+        throw new ForbiddenException(
+          'No tienes permisos para modificar usuarios de otras empresas',
+        );
+      }
+    }
     
     // Solo ejecutar validaciones críticas si se intenta modificar roles o activo
     const isModifyingRoles = dto.roles !== undefined;
@@ -257,8 +276,23 @@ export class UsuariosService {
       usuario.empresaId = dto.empresaId || null;
     }
 
-    // Permitir actualización de trabajadorId sin restricciones para SUPER_ADMIN
+    // Permitir actualización de trabajadorId
     if (dto.trabajadorId !== undefined) {
+      // Validación especial para ADMIN_EMPRESA: solo puede vincularse a trabajador de su empresa
+      if (isCurrentUserAdminEmpresa && currentUserEmpresaId && dto.trabajadorId) {
+        // Verificar que el trabajador pertenezca a la misma empresa
+        const trabajadorRepo = this.usuarioRepository.manager.getRepository('Trabajador');
+        const trabajador = await trabajadorRepo.findOne({
+          where: { id: dto.trabajadorId },
+        });
+        
+        if (trabajador && (trabajador as any).empresaId !== currentUserEmpresaId) {
+          throw new ForbiddenException(
+            'Solo puedes vincularte a trabajadores de tu misma empresa',
+          );
+        }
+      }
+      
       // Si se pasa null o undefined, desvincular el trabajador
       if (dto.trabajadorId) {
         usuario.trabajador = { id: dto.trabajadorId } as any;
