@@ -21,6 +21,9 @@ import { PetsModule } from './modules/pets/pets.module';
 import { ContratistasModule } from './modules/contratistas/contratistas.module';
 import { RiesgosModule } from './modules/riesgos/riesgos.module';
 import { PermisosModule } from './modules/permisos/permisos.module';
+import { ComitesModule } from './modules/comites/comites.module';
+import { AccionesCorrectivasModule } from './modules/acciones-correctivas/acciones-correctivas.module';
+import { ReportesModule } from './modules/reportes/reportes.module';
 import { CommonModule } from './common/common.module';
 
 @Module({
@@ -58,6 +61,9 @@ import { CommonModule } from './common/common.module';
     ContratistasModule,
     RiesgosModule,
     PermisosModule,
+    ComitesModule,
+    AccionesCorrectivasModule,
+    ReportesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   ParseUUIDPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { TrabajadoresService } from './trabajadores.service';
 import { CreateTrabajadorDto } from './dto/create-trabajador.dto';
@@ -28,6 +29,14 @@ export class TrabajadoresController {
     @Query('empresa_id') empresaId?: string,
   ): Promise<ResponseTrabajadorDto[]> {
     return this.trabajadoresService.findAll(empresaId);
+  }
+
+  @Get('buscar')
+  async buscarPorDni(@Query('dni') dni: string): Promise<ResponseTrabajadorDto | null> {
+    if (!dni) {
+      throw new BadRequestException('El parámetro DNI es requerido');
+    }
+    return this.trabajadoresService.buscarPorDni(dni);
   }
 
   @Get(':id')

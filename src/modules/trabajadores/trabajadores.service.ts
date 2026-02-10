@@ -92,56 +92,106 @@ export class TrabajadoresService {
     id: string,
     dto: UpdateTrabajadorDto,
   ): Promise<ResponseTrabajadorDto> {
-    const trabajador = await this.trabajadorRepository.findOne({
+    // Verificar que el trabajador existe antes de intentar actualizar
+    const trabajadorExistente = await this.trabajadorRepository.findOne({
       where: { id },
-      relations: ['usuario'], // Cargar relación con usuario para sincronización
-      withDeleted: false, // No incluir registros eliminados
+      relations: ['usuario'],
+      withDeleted: false,
     });
 
-    if (!trabajador) {
+    if (!trabajadorExistente) {
       throw new NotFoundException(`Trabajador con ID ${id} no encontrado`);
     }
 
     // REGLA DE INTEGRIDAD: El DNI no puede ser modificado después de la creación
-    // Para corregir el DNI, es necesario eliminar y volver a crear el registro
-    if (dto.documento_identidad && dto.documento_identidad !== trabajador.documentoIdentidad) {
-      throw new ConflictException(
-        'El documento de identidad no puede ser modificado. Para corregirlo, elimine y vuelva a crear el registro.',
-      );
+    // Nota: documento_identidad fue excluido de UpdateTrabajadorDto, por lo que esta validación ya no es necesaria
+    // El ValidationPipe con whitelist: true rechazará automáticamente cualquier campo no definido en el DTO
+
+    // Preparar el objeto de actualización mapeando snake_case del DTO a camelCase de la entidad
+    // preload requiere el id y los campos en formato de la entidad (camelCase)
+    const updateData: Partial<Trabajador> = {
+      id, // Necesario para preload
+    };
+
+    // Mapear campos del DTO (snake_case) a la entidad (camelCase)
+    // Solo incluir campos que están definidos en el DTO (undefined no se incluye)
+    if (dto.nombre_completo !== undefined) {
+      updateData.nombreCompleto = dto.nombre_completo;
+    }
+    // documentoIdentidad NO se actualiza - es inmutable después de la creación
+    if (dto.cargo !== undefined) {
+      updateData.cargo = dto.cargo;
+    }
+    // Manejar area_id: si viene explícitamente (incluso si es null), actualizar
+    // Si viene como string vacío, convertir a null
+    if (dto.area_id !== undefined) {
+      if (dto.area_id === null || dto.area_id === '') {
+        updateData.areaId = null;
+      } else {
+        updateData.areaId = dto.area_id;
+      }
+    }
+    if (dto.telefono !== undefined) {
+      updateData.telefono = dto.telefono || null;
+    }
+    if (dto.email !== undefined) {
+      updateData.emailPersonal = dto.email || null;
+    }
+    if (dto.fecha_ingreso !== undefined) {
+      updateData.fechaIngreso = new Date(dto.fecha_ingreso);
+    }
+    if (dto.estado !== undefined) {
+      updateData.estado = dto.estado;
+    }
+    if (dto.grupo_sanguineo !== undefined) {
+      updateData.grupoSanguineo = dto.grupo_sanguineo || null;
+    }
+    if (dto.contacto_emergencia_nombre !== undefined) {
+      updateData.contactoEmergenciaNombre = dto.contacto_emergencia_nombre || null;
+    }
+    if (dto.contacto_emergencia_telefono !== undefined) {
+      updateData.contactoEmergenciaTelefono = dto.contacto_emergencia_telefono || null;
+    }
+    if (dto.foto_url !== undefined) {
+      updateData.fotoUrl = dto.foto_url || null;
+    }
+    if (dto.talla_casco !== undefined) {
+      updateData.tallaCasco = dto.talla_casco || null;
+    }
+    if (dto.talla_camisa !== undefined) {
+      updateData.tallaCamisa = dto.talla_camisa || null;
+    }
+    if (dto.talla_pantalon !== undefined) {
+      updateData.tallaPantalon = dto.talla_pantalon || null;
+    }
+    if (dto.talla_calzado !== undefined) {
+      // Convertir string a number si es necesario (el DTO puede venir como string o number)
+      if (typeof dto.talla_calzado === 'string') {
+        const parsed = parseInt(dto.talla_calzado, 10);
+        updateData.tallaCalzado = isNaN(parsed) ? null : parsed;
+      } else if (typeof dto.talla_calzado === 'number') {
+        updateData.tallaCalzado = dto.talla_calzado;
+      } else {
+        updateData.tallaCalzado = null;
+      }
+    }
+    if (dto.perfil_completado !== undefined) {
+      updateData.perfilCompletado = dto.perfil_completado;
     }
 
-    const nuevoEstado = dto.estado ?? trabajador.estado;
-    const estadoCambio = dto.estado !== undefined && dto.estado !== trabajador.estado;
+    // Usar preload para cargar la entidad y aplicar los cambios de forma segura
+    // preload busca la entidad por id y aplica los cambios parciales
+    const trabajador = await this.trabajadorRepository.preload(updateData);
 
-    Object.assign(trabajador, {
-      nombreCompleto: dto.nombre_completo ?? trabajador.nombreCompleto,
-      // documentoIdentidad NO se actualiza - es inmutable después de la creación
-      cargo: dto.cargo ?? trabajador.cargo,
-      areaId: dto.area_id !== undefined ? dto.area_id : trabajador.areaId,
-      telefono: dto.telefono !== undefined ? dto.telefono : trabajador.telefono,
-      emailPersonal: dto.email !== undefined ? dto.email : trabajador.emailPersonal,
-      fechaIngreso: dto.fecha_ingreso
-        ? new Date(dto.fecha_ingreso)
-        : trabajador.fechaIngreso,
-      estado: nuevoEstado,
-      grupoSanguineo: dto.grupo_sanguineo !== undefined ? dto.grupo_sanguineo : trabajador.grupoSanguineo,
-      contactoEmergenciaNombre:
-        dto.contacto_emergencia_nombre !== undefined
-          ? dto.contacto_emergencia_nombre
-          : trabajador.contactoEmergenciaNombre,
-      contactoEmergenciaTelefono:
-        dto.contacto_emergencia_telefono !== undefined
-          ? dto.contacto_emergencia_telefono
-          : trabajador.contactoEmergenciaTelefono,
-      fotoUrl: dto.foto_url !== undefined ? dto.foto_url : trabajador.fotoUrl,
-      tallaCasco: dto.talla_casco !== undefined ? dto.talla_casco : trabajador.tallaCasco,
-      tallaCamisa: dto.talla_camisa !== undefined ? dto.talla_camisa : trabajador.tallaCamisa,
-      tallaPantalon: dto.talla_pantalon !== undefined ? dto.talla_pantalon : trabajador.tallaPantalon,
-      tallaCalzado: dto.talla_calzado !== undefined ? dto.talla_calzado : trabajador.tallaCalzado,
-      perfilCompletado: dto.perfil_completado !== undefined ? dto.perfil_completado : trabajador.perfilCompletado,
-    });
+    if (!trabajador) {
+      throw new NotFoundException(`Trabajador con ID ${id} no encontrado después de preload`);
+    }
 
-    await this.trabajadorRepository.save(trabajador);
+    // Guardar los cambios - esto persiste los datos en la base de datos
+    const nuevoEstado = trabajador.estado;
+    const estadoCambio = dto.estado !== undefined && dto.estado !== trabajadorExistente.estado;
+
+    const saved = await this.trabajadorRepository.save(trabajador);
 
     // SINCRONIZACIÓN DE ESTADOS: Si el trabajador cambia a 'Inactivo', desactivar su usuario vinculado
     if (estadoCambio && nuevoEstado === EstadoTrabajador.Inactivo) {
@@ -158,12 +208,19 @@ export class TrabajadoresService {
         await this.usuarioRepository.save(usuarioVinculado);
       }
     }
+
+    // Obtener la entidad actualizada fresca de la base de datos con todas las relaciones
     const updated = await this.trabajadorRepository.findOne({
-      where: { id },
+      where: { id: saved.id },
       relations: ['usuario'],
-      withDeleted: false, // No incluir registros eliminados
+      withDeleted: false,
     });
-    return ResponseTrabajadorDto.fromEntity(updated!);
+
+    if (!updated) {
+      throw new NotFoundException(`Error al recuperar el trabajador actualizado con ID ${id}`);
+    }
+
+    return ResponseTrabajadorDto.fromEntity(updated);
   }
 
   async remove(id: string): Promise<void> {
@@ -229,5 +286,19 @@ export class TrabajadoresService {
       withDeleted: false, // No incluir registros eliminados
     });
     return ResponseTrabajadorDto.fromEntity(updated!);
+  }
+
+  async buscarPorDni(dni: string): Promise<ResponseTrabajadorDto | null> {
+    const trabajador = await this.trabajadorRepository.findOne({
+      where: { documentoIdentidad: dni },
+      relations: ['usuario', 'area', 'empresa'],
+      withDeleted: false,
+    });
+
+    if (!trabajador) {
+      return null;
+    }
+
+    return ResponseTrabajadorDto.fromEntity(trabajador);
   }
 }

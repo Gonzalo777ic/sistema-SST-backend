@@ -71,7 +71,6 @@ export class CreateTrabajadorDto {
   talla_calzado?: string;
 
   @IsOptional()
-  @IsString()
   perfil_completado?: boolean;
 
   @IsUUID()

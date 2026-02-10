@@ -6,6 +6,7 @@ export class ResponseTrabajadorDto {
   documento_identidad: string;
   cargo: string;
   area_id: string | null;
+  area_nombre?: string | null;
   telefono: string | null;
   email_personal: string | null;
   fecha_ingreso: string;
@@ -20,6 +21,7 @@ export class ResponseTrabajadorDto {
   talla_calzado: number | null;
   perfil_completado: boolean;
   empresa_id: string;
+  empresa_nombre?: string | null;
   usuario_id: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -30,6 +32,7 @@ export class ResponseTrabajadorDto {
     documentoIdentidad: string;
     cargo: string;
     areaId: string | null;
+    area?: { nombre: string } | null;
     telefono: string | null;
     emailPersonal: string | null;
     fechaIngreso: Date;
@@ -44,6 +47,7 @@ export class ResponseTrabajadorDto {
     tallaCalzado: number | null;
     perfilCompletado: boolean;
     empresaId: string;
+    empresa?: { nombre: string } | null;
     usuario?: { id: string } | null;
     createdAt: Date;
     updatedAt: Date;
@@ -54,6 +58,7 @@ export class ResponseTrabajadorDto {
     dto.documento_identidad = t.documentoIdentidad;
     dto.cargo = t.cargo;
     dto.area_id = t.areaId ?? null;
+    dto.area_nombre = t.area?.nombre ?? null;
     dto.telefono = t.telefono;
     dto.email_personal = t.emailPersonal;
     dto.fecha_ingreso = t.fechaIngreso instanceof Date
@@ -70,6 +75,7 @@ export class ResponseTrabajadorDto {
     dto.talla_calzado = t.tallaCalzado;
     dto.perfil_completado = t.perfilCompletado;
     dto.empresa_id = t.empresaId;
+    dto.empresa_nombre = t.empresa?.nombre ?? null;
     dto.usuario_id = t.usuario?.id ?? null;
     dto.createdAt = t.createdAt;
     dto.updatedAt = t.updatedAt;

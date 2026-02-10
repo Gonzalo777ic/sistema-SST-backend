@@ -88,6 +88,9 @@ export class Incidente {
   @Column({ name: 'area_trabajo', type: 'varchar' })
   areaTrabajo: string;
 
+  @Column({ name: 'codigo_correlativo', type: 'varchar', length: 50, nullable: true })
+  codigoCorrelativo: string | null;
+
   // Snapshot del trabajador afectado (para auditoría histórica)
   @Column({ name: 'nombre_trabajador_snapshot', type: 'varchar', nullable: true })
   nombreTrabajadorSnapshot: string | null;

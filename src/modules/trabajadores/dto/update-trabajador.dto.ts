@@ -1,8 +1,16 @@
-import { PartialType } from '@nestjs/mapped-types';
+import { PartialType, OmitType } from '@nestjs/mapped-types';
 import { CreateTrabajadorDto } from './create-trabajador.dto';
-import { IsOptional, IsString, IsBoolean, IsInt } from 'class-validator';
+import { IsOptional, IsString, IsBoolean, IsUUID, ValidateIf } from 'class-validator';
 
-export class UpdateTrabajadorDto extends PartialType(CreateTrabajadorDto) {
+export class UpdateTrabajadorDto extends PartialType(
+  OmitType(CreateTrabajadorDto, ['talla_calzado', 'empresa_id', 'documento_identidad', 'area_id'] as const)
+) {
+  // Redefinir area_id explícitamente para permitir manejo de null/string vacío
+  @IsOptional()
+  @ValidateIf((o) => o.area_id !== undefined && o.area_id !== null && o.area_id !== '')
+  @IsUUID()
+  area_id?: string;
+
   @IsOptional()
   @IsString()
   talla_casco?: string;
@@ -15,6 +23,7 @@ export class UpdateTrabajadorDto extends PartialType(CreateTrabajadorDto) {
   @IsString()
   talla_pantalon?: string;
 
+  // talla_calzado puede venir como string desde el frontend pero se convierte a number en el servicio
   @IsOptional()
   @IsString()
   talla_calzado?: string;

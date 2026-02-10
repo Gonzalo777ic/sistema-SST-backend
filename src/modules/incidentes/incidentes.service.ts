@@ -9,11 +9,13 @@ import {
   Incidente,
   EstadoIncidente,
   SeveridadIncidente,
+  TipoIncidente,
 } from './entities/incidente.entity';
 import { CreateIncidenteDto } from './dto/create-incidente.dto';
 import { UpdateIncidenteDto } from './dto/update-incidente.dto';
 import { ResponseIncidenteDto } from './dto/response-incidente.dto';
 import { Trabajador } from '../trabajadores/entities/trabajador.entity';
+import { AccionCorrectiva, EstadoAccion } from '../acciones-correctivas/entities/accion-correctiva.entity';
 
 @Injectable()
 export class IncidentesService {
@@ -22,6 +24,8 @@ export class IncidentesService {
     private readonly incidenteRepository: Repository<Incidente>,
     @InjectRepository(Trabajador)
     private readonly trabajadorRepository: Repository<Trabajador>,
+    @InjectRepository(AccionCorrectiva)
+    private readonly accionCorrectivaRepository: Repository<AccionCorrectiva>,
   ) {}
 
   async create(dto: CreateIncidenteDto): Promise<ResponseIncidenteDto> {
@@ -38,6 +42,13 @@ export class IncidentesService {
       }
     }
 
+    // Generar código correlativo
+    const year = new Date().getFullYear();
+    const count = await this.incidenteRepository.count({
+      where: { empresaId: dto.empresa_id },
+    });
+    const codigoCorrelativo = `INC-${year}-${String(count + 1).padStart(4, '0')}`;
+
     const incidente = this.incidenteRepository.create({
       tipo: dto.tipo,
       severidad: dto.severidad,
@@ -52,6 +63,7 @@ export class IncidentesService {
       accionesCorrectivas: dto.acciones_correctivas ?? null,
       estado: dto.estado ?? EstadoIncidente.Reportado,
       areaTrabajo: dto.area_trabajo,
+      codigoCorrelativo,
       trabajadorAfectadoId,
       nombreTrabajadorSnapshot,
       areaId: dto.area_id ?? null,
@@ -81,12 +93,21 @@ export class IncidentesService {
     empresaId?: string,
     severidad?: SeveridadIncidente,
     search?: string,
+    tipo?: TipoIncidente,
+    estado?: EstadoIncidente,
+    fechaDesde?: string,
+    fechaHasta?: string,
+    unidad?: string,
+    areaId?: string,
+    sede?: string,
   ): Promise<ResponseIncidenteDto[]> {
     const queryBuilder = this.incidenteRepository
       .createQueryBuilder('incidente')
       .leftJoinAndSelect('incidente.trabajadorAfectado', 'trabajador')
       .leftJoinAndSelect('incidente.responsableInvestigacion', 'responsable')
       .leftJoinAndSelect('incidente.reportadoPor', 'reportado')
+      .leftJoinAndSelect('incidente.area', 'area')
+      .leftJoinAndSelect('incidente.empresa', 'empresa')
       .orderBy('incidente.createdAt', 'DESC');
 
     if (empresaId) {
@@ -97,15 +118,63 @@ export class IncidentesService {
       queryBuilder.andWhere('incidente.severidad = :severidad', { severidad });
     }
 
+    if (tipo) {
+      queryBuilder.andWhere('incidente.tipo = :tipo', { tipo });
+    }
+
+    if (estado) {
+      queryBuilder.andWhere('incidente.estado = :estado', { estado });
+    }
+
+    if (fechaDesde) {
+      queryBuilder.andWhere('incidente.fechaHora >= :fechaDesde', {
+        fechaDesde: new Date(fechaDesde),
+      });
+    }
+
+    if (fechaHasta) {
+      queryBuilder.andWhere('incidente.fechaHora <= :fechaHasta', {
+        fechaHasta: new Date(fechaHasta),
+      });
+    }
+
+    if (areaId) {
+      queryBuilder.andWhere('incidente.areaId = :areaId', { areaId });
+    }
+
     if (search) {
       queryBuilder.andWhere(
-        '(incidente.descripcion ILIKE :search OR incidente.areaTrabajo ILIKE :search)',
+        '(incidente.descripcion ILIKE :search OR incidente.areaTrabajo ILIKE :search OR incidente.codigoCorrelativo ILIKE :search OR trabajador.nombreCompleto ILIKE :search OR reportado.nombreCompleto ILIKE :search OR reportado.dni ILIKE :search)',
         { search: `%${search}%` },
       );
     }
 
     const incidentes = await queryBuilder.getMany();
-    return incidentes.map((incidente) =>
+
+    // Obtener conteos de medidas correctivas para cada incidente
+    const incidentesConMedidas = await Promise.all(
+      incidentes.map(async (incidente) => {
+        const medidas = await this.accionCorrectivaRepository.find({
+          where: {
+            incidenteId: incidente.id,
+            fuente: 'Accidentes' as any,
+          },
+        });
+
+        const totalMedidas = medidas.length;
+        const medidasAprobadas = medidas.filter(
+          (m) => m.estado === EstadoAccion.Aprobado,
+        ).length;
+
+        return {
+          ...incidente,
+          totalMedidas,
+          medidasAprobadas,
+        };
+      }),
+    );
+
+    return incidentesConMedidas.map((incidente) =>
       ResponseIncidenteDto.fromEntity(incidente),
     );
   }
@@ -117,6 +186,8 @@ export class IncidentesService {
         'trabajadorAfectado',
         'responsableInvestigacion',
         'reportadoPor',
+        'area',
+        'empresa',
       ],
     });
 
@@ -124,7 +195,24 @@ export class IncidentesService {
       throw new NotFoundException(`Incidente con ID ${id} no encontrado`);
     }
 
-    return ResponseIncidenteDto.fromEntity(incidente);
+    // Obtener conteos de medidas correctivas
+    const medidas = await this.accionCorrectivaRepository.find({
+      where: {
+        incidenteId: incidente.id,
+        fuente: 'Accidentes' as any,
+      },
+    });
+
+    const totalMedidas = medidas.length;
+    const medidasAprobadas = medidas.filter(
+      (m) => m.estado === EstadoAccion.Aprobado,
+    ).length;
+
+    return ResponseIncidenteDto.fromEntity({
+      ...incidente,
+      totalMedidas,
+      medidasAprobadas,
+    });
   }
 
   async update(
