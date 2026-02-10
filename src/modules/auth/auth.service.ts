@@ -1,20 +1,30 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { Usuario, AuthProvider, UsuarioRol } from '../usuarios/entities/usuario.entity';
 import { CreateUsuarioDto } from '../usuarios/dto/create-usuario.dto';
 import { ResponseUsuarioDto } from '../usuarios/dto/response-usuario.dto';
-import { EstadoTrabajador } from '../trabajadores/entities/trabajador.entity';
+import { Trabajador, EstadoTrabajador } from '../trabajadores/entities/trabajador.entity';
+import { Empresa } from '../empresas/entities/empresa.entity';
 
 export interface JwtPayload {
   sub: string;
   dni: string;
 }
 
+export interface EmpresaVinculada {
+  id: string;
+  nombre: string;
+  logoUrl: string | null;
+}
+
 export interface LoginResponse {
   access_token: string;
   usuario: ResponseUsuarioDto;
+  empresasVinculadas: EmpresaVinculada[];
 }
 
 @Injectable()
@@ -22,6 +32,10 @@ export class AuthService {
   constructor(
     private readonly usuariosService: UsuariosService,
     private readonly jwtService: JwtService,
+    @InjectRepository(Trabajador)
+    private readonly trabajadorRepository: Repository<Trabajador>,
+    @InjectRepository(Empresa)
+    private readonly empresaRepository: Repository<Empresa>,
   ) {}
 
   async validateUser(dni: string, password: string): Promise<Usuario | null> {
@@ -94,6 +108,32 @@ export class AuthService {
     usuario.ultimoAcceso = new Date();
     await this.usuariosService.updateUltimoAcceso(usuario.id);
 
+    // Buscar todos los trabajadores con el mismo DNI para obtener empresas vinculadas
+    const trabajadores = await this.trabajadorRepository.find({
+      where: {
+        documentoIdentidad: usuario.dni,
+      },
+      relations: ['empresa'],
+      withDeleted: false, // Excluir trabajadores eliminados (soft delete)
+    });
+
+    // Extraer empresas únicas de los trabajadores encontrados
+    const empresasMap = new Map<string, EmpresaVinculada>();
+    
+    for (const trabajador of trabajadores) {
+      if (trabajador.empresa && trabajador.empresa.activo) {
+        if (!empresasMap.has(trabajador.empresa.id)) {
+          empresasMap.set(trabajador.empresa.id, {
+            id: trabajador.empresa.id,
+            nombre: trabajador.empresa.nombre,
+            logoUrl: trabajador.empresa.logoUrl,
+          });
+        }
+      }
+    }
+
+    const empresasVinculadas = Array.from(empresasMap.values());
+
     const payload: JwtPayload = { sub: usuario.id, dni: usuario.dni };
     const access_token = this.jwtService.sign(payload);
 
@@ -103,6 +143,7 @@ export class AuthService {
         ...usuario,
         roles: usuario.roles as typeof usuario.roles,
       }),
+      empresasVinculadas,
     };
   }
 
