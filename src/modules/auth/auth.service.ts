@@ -90,6 +90,10 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
+    // Actualizar último acceso después de validar credenciales
+    usuario.ultimoAcceso = new Date();
+    await this.usuariosService.updateUltimoAcceso(usuario.id);
+
     const payload: JwtPayload = { sub: usuario.id, dni: usuario.dni };
     const access_token = this.jwtService.sign(payload);
 

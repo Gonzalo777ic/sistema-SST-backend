@@ -358,4 +358,10 @@ export class UsuariosService {
 
     await this.usuarioRepository.save(usuario);
   }
+
+  async updateUltimoAcceso(id: string): Promise<void> {
+    await this.usuarioRepository.update(id, {
+      ultimoAcceso: new Date(),
+    });
+  }
 }

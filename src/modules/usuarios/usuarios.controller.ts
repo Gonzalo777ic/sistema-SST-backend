@@ -47,6 +47,21 @@ export class UsuariosController {
     );
   }
 
+  @Get('dni/:dni')
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  async findByDni(
+    @Param('dni') dni: string,
+  ): Promise<ResponseUsuarioDto | null> {
+    const usuario = await this.usuariosService.findByDni(dni);
+    if (!usuario) {
+      return null;
+    }
+    return ResponseUsuarioDto.fromEntity({
+      ...usuario,
+      roles: usuario.roles as typeof usuario.roles,
+    });
+  }
+
   @Get(':id')
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
