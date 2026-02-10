@@ -22,16 +22,20 @@ export class TrabajadoresService {
 
   async create(dto: CreateTrabajadorDto): Promise<ResponseTrabajadorDto> {
     // Buscar trabajadores existentes excluyendo los eliminados (soft delete)
-    // Validación de unicidad por DNI (sin considerar empresa)
+    // Validación de unicidad COMPUESTA: DNI + empresaId
+    // Un mismo DNI puede existir en diferentes empresas, pero no dos veces en la misma empresa
     const existing = await this.trabajadorRepository.findOne({
       where: {
         documentoIdentidad: dto.documento_identidad,
+        empresaId: dto.empresa_id,
       },
       withDeleted: false, // No incluir registros eliminados
     });
 
     if (existing) {
-      throw new ConflictException('El DNI ya se encuentra registrado');
+      throw new ConflictException(
+        `El DNI ${dto.documento_identidad} ya se encuentra registrado para esta empresa`,
+      );
     }
 
     const trabajador = this.trabajadorRepository.create({

@@ -36,6 +36,9 @@ export class Usuario {
   @Column({ type: 'varchar', length: 8, unique: true })
   dni: string;
 
+  @Column({ type: 'varchar', nullable: true, unique: true })
+  email: string | null;
+
   @Column({ name: 'password_hash', type: 'varchar', nullable: true })
   passwordHash: string | null;
 

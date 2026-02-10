@@ -8,7 +8,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   DeleteDateColumn,
-  Index,
+  Unique,
 } from 'typeorm';
 import { Empresa } from '../../empresas/entities/empresa.entity';
 import { Area } from '../../empresas/entities/area.entity';
@@ -33,7 +33,7 @@ export enum GrupoSanguineo {
 }
 
 @Entity('trabajadores')
-@Index(['documentoIdentidad', 'empresaId'], { unique: true })
+@Unique(['documentoIdentidad', 'empresaId'])
 export class Trabajador {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -41,7 +41,7 @@ export class Trabajador {
   @Column({ name: 'nombre_completo' })
   nombreCompleto: string;
 
-  @Column({ name: 'documento_identidad', unique: true })
+  @Column({ name: 'documento_identidad' })
   documentoIdentidad: string;
 
   @Column({ name: 'foto_url', type: 'varchar', nullable: true })

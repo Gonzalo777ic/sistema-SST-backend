@@ -54,6 +54,7 @@ export class AdminSeederService implements OnApplicationBootstrap {
 
       const admin = this.usuarioRepository.create({
         dni: adminDni,
+        email: 'admin@gexim.com',
         passwordHash,
         authProvider: AuthProvider.LOCAL,
         providerId: null,
@@ -107,6 +108,7 @@ export class AdminSeederService implements OnApplicationBootstrap {
     const testUsers = [
       {
         dni: '11111111',
+        email: 'admin@test.com',
         roles: [UsuarioRol.ADMIN_EMPRESA],
         nombre: 'Admin Empresa',
         cargo: 'Administrador',
@@ -114,6 +116,7 @@ export class AdminSeederService implements OnApplicationBootstrap {
       },
       {
         dni: '22222222',
+        email: 'ingeniero@test.com',
         roles: [UsuarioRol.INGENIERO_SST],
         nombre: 'Ingeniero SST',
         cargo: 'Ingeniero de Seguridad',
@@ -121,6 +124,7 @@ export class AdminSeederService implements OnApplicationBootstrap {
       },
       {
         dni: '33333333',
+        email: 'supervisor@test.com',
         roles: [UsuarioRol.SUPERVISOR],
         nombre: 'Supervisor',
         cargo: 'Supervisor de Producción',
@@ -128,6 +132,7 @@ export class AdminSeederService implements OnApplicationBootstrap {
       },
       {
         dni: '44444444',
+        email: 'medico@test.com',
         roles: [UsuarioRol.MEDICO],
         nombre: 'Médico Ocupacional',
         cargo: 'Médico Ocupacional',
@@ -135,6 +140,7 @@ export class AdminSeederService implements OnApplicationBootstrap {
       },
       {
         dni: '55555555',
+        email: 'empleado@test.com',
         roles: [UsuarioRol.EMPLEADO],
         nombre: 'Empleado',
         cargo: 'Operario',
@@ -142,6 +148,7 @@ export class AdminSeederService implements OnApplicationBootstrap {
       },
       {
         dni: '66666666',
+        email: 'auditor@test.com',
         roles: [UsuarioRol.AUDITOR],
         nombre: 'Auditor',
         cargo: 'Auditor SST',
@@ -169,6 +176,7 @@ export class AdminSeederService implements OnApplicationBootstrap {
 
         const usuario = this.usuarioRepository.create({
           dni: testUser.dni,
+          email: testUser.email,
           passwordHash,
           authProvider: AuthProvider.LOCAL,
           providerId: null,
@@ -202,9 +210,9 @@ export class AdminSeederService implements OnApplicationBootstrap {
     empresaId: string,
   ): Promise<void> {
     try {
-      // Verificar si ya existe un trabajador con este DNI
+      // Verificar si ya existe un trabajador con este DNI en esta empresa
       const trabajadorExistente = await this.trabajadorRepository.findOne({
-        where: { documentoIdentidad: testUser.dni },
+        where: { documentoIdentidad: testUser.dni, empresaId: empresaId },
       });
 
       if (trabajadorExistente) {
