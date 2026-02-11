@@ -4,41 +4,22 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
+  OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 import { Trabajador } from '../../trabajadores/entities/trabajador.entity';
 import { Usuario } from '../../usuarios/entities/usuario.entity';
 import { Area } from '../../empresas/entities/area.entity';
 import { Empresa } from '../../empresas/entities/empresa.entity';
-
-export enum TipoEPP {
-  Casco = 'Casco',
-  ChalecoReflectivo = 'Chaleco Reflectivo',
-  Guantes = 'Guantes',
-  BotasSeguridad = 'Botas de Seguridad',
-  LentesSeguridad = 'Lentes de Seguridad',
-  ProteccionAuditiva = 'Protección Auditiva',
-  Arnes = 'Arnés',
-  Respirador = 'Respirador',
-  ProtectorFacial = 'Protector Facial',
-  Otro = 'Otro',
-}
-
-export enum MotivoEPP {
-  NuevoIngreso = 'Nuevo Ingreso',
-  ReposicionDesgaste = 'Reposición por Desgaste',
-  Perdida = 'Pérdida',
-  Dano = 'Daño',
-  CambioTalla = 'Cambio de Talla',
-  Otro = 'Otro',
-}
+import { SolicitudEPPDetalle } from './solicitud-epp-detalle.entity';
 
 export enum EstadoSolicitudEPP {
-  Pendiente = 'Pendiente',
-  Aprobada = 'Aprobada',
-  Rechazada = 'Rechazada',
-  Entregada = 'Entregada',
+  Pendiente = 'PENDIENTE',
+  Aprobada = 'APROBADA',
+  Entregada = 'ENTREGADA',
+  Observada = 'OBSERVADA',
 }
 
 @Entity('solicitudes_epp')
@@ -46,30 +27,23 @@ export class SolicitudEPP {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ name: 'codigo_correlativo', type: 'varchar', length: 50, unique: true, nullable: true })
+  codigoCorrelativo: string | null;
+
   @Column({ name: 'fecha_solicitud', type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
   fechaSolicitud: Date;
 
-  @Column({
-    name: 'tipo_epp',
-    type: 'enum',
-    enum: TipoEPP,
-  })
-  tipoEpp: TipoEPP;
+  @Column({ name: 'motivo', type: 'text', nullable: true })
+  motivo: string | null;
 
-  @Column({ type: 'int', default: 1 })
-  cantidad: number;
+  @Column({ name: 'centro_costos', type: 'varchar', length: 100, nullable: true })
+  centroCostos: string | null;
 
-  @Column({ type: 'varchar', length: 20 })
-  talla: string;
+  @Column({ name: 'comentarios', type: 'text', nullable: true })
+  comentarios: string | null;
 
-  @Column({
-    type: 'enum',
-    enum: MotivoEPP,
-  })
-  motivo: MotivoEPP;
-
-  @Column({ name: 'descripcion_motivo', type: 'text', nullable: true })
-  descripcionMotivo: string | null;
+  @Column({ name: 'observaciones', type: 'text', nullable: true })
+  observaciones: string | null;
 
   @Column({
     type: 'enum',
@@ -107,12 +81,19 @@ export class SolicitudEPP {
   firmaRecepcionUrl: string | null;
 
   // Relaciones
-  @Column({ name: 'trabajador_id', type: 'uuid' })
-  trabajadorId: string;
+  @Column({ name: 'usuario_epp_id', type: 'uuid' })
+  usuarioEppId: string;
+
+  @ManyToOne(() => Usuario, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'usuario_epp_id' })
+  usuarioEpp: Usuario;
+
+  @Column({ name: 'solicitante_id', type: 'uuid' })
+  solicitanteId: string;
 
   @ManyToOne(() => Trabajador, { onDelete: 'RESTRICT' })
-  @JoinColumn({ name: 'trabajador_id' })
-  trabajador: Trabajador;
+  @JoinColumn({ name: 'solicitante_id' })
+  solicitante: Trabajador;
 
   @Column({ name: 'area_id', type: 'uuid', nullable: true })
   areaId: string | null;
@@ -128,9 +109,17 @@ export class SolicitudEPP {
   @JoinColumn({ name: 'empresa_id' })
   empresa: Empresa;
 
+  @OneToMany(() => SolicitudEPPDetalle, (detalle) => detalle.solicitudEpp, {
+    cascade: true,
+  })
+  detalles: SolicitudEPPDetalle[];
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at' })
+  deletedAt: Date | null;
 }

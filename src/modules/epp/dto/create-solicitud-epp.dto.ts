@@ -1,35 +1,46 @@
 import {
   IsString,
   IsOptional,
-  IsEnum,
   IsUUID,
+  IsArray,
+  ValidateNested,
   IsInt,
   Min,
-  IsUrl,
 } from 'class-validator';
-import { TipoEPP, MotivoEPP, EstadoSolicitudEPP } from '../entities/solicitud-epp.entity';
+import { Type } from 'class-transformer';
+import { EstadoSolicitudEPP } from '../entities/solicitud-epp.entity';
 
-export class CreateSolicitudEppDto {
-  @IsEnum(TipoEPP)
-  tipo_epp: TipoEPP;
+export class CreateSolicitudEppDetalleDto {
+  @IsUUID()
+  epp_id: string;
 
-  @IsOptional()
   @IsInt()
   @Min(1)
-  cantidad?: number;
+  cantidad: number;
+}
 
-  @IsString()
-  talla: string;
+export class CreateSolicitudEppDto {
+  @IsUUID()
+  usuario_epp_id: string;
 
-  @IsEnum(MotivoEPP)
-  motivo: MotivoEPP;
+  @IsUUID()
+  solicitante_id: string;
 
   @IsOptional()
   @IsString()
-  descripcion_motivo?: string;
+  motivo?: string;
 
-  @IsUUID()
-  trabajador_id: string;
+  @IsOptional()
+  @IsString()
+  centro_costos?: string;
+
+  @IsOptional()
+  @IsString()
+  comentarios?: string;
+
+  @IsOptional()
+  @IsString()
+  observaciones?: string;
 
   @IsOptional()
   @IsUUID()
@@ -38,7 +49,11 @@ export class CreateSolicitudEppDto {
   @IsUUID()
   empresa_id: string;
 
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateSolicitudEppDetalleDto)
+  detalles: CreateSolicitudEppDetalleDto[];
+
   @IsOptional()
-  @IsEnum(EstadoSolicitudEPP)
   estado?: EstadoSolicitudEPP;
 }

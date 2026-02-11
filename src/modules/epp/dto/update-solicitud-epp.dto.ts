@@ -1,15 +1,38 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateSolicitudEppDto } from './create-solicitud-epp.dto';
 import {
   IsOptional,
   IsUUID,
   IsDateString,
   IsString,
   IsUrl,
+  IsArray,
+  ValidateNested,
+  IsEnum,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { EstadoSolicitudEPP } from '../entities/solicitud-epp.entity';
+import { CreateSolicitudEppDetalleDto } from './create-solicitud-epp.dto';
 
-export class UpdateSolicitudEppDto extends PartialType(CreateSolicitudEppDto) {
+export class UpdateSolicitudEppDto {
+  @IsOptional()
+  @IsString()
+  motivo?: string;
+
+  @IsOptional()
+  @IsString()
+  centro_costos?: string;
+
+  @IsOptional()
+  @IsString()
+  comentarios?: string;
+
+  @IsOptional()
+  @IsString()
+  observaciones?: string;
+
+  @IsOptional()
+  @IsUUID()
+  area_id?: string;
+
   @IsOptional()
   @IsUUID()
   supervisor_aprobador_id?: string;
@@ -35,5 +58,12 @@ export class UpdateSolicitudEppDto extends PartialType(CreateSolicitudEppDto) {
   firma_recepcion_url?: string;
 
   @IsOptional()
+  @IsEnum(EstadoSolicitudEPP)
   estado?: EstadoSolicitudEPP;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateSolicitudEppDetalleDto)
+  detalles?: CreateSolicitudEppDetalleDto[];
 }

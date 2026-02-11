@@ -8,65 +8,178 @@ import { Repository } from 'typeorm';
 import {
   SolicitudEPP,
   EstadoSolicitudEPP,
-  MotivoEPP,
 } from './entities/solicitud-epp.entity';
+import { SolicitudEPPDetalle } from './entities/solicitud-epp-detalle.entity';
+import { EPP } from './entities/epp.entity';
 import { CreateSolicitudEppDto } from './dto/create-solicitud-epp.dto';
 import { UpdateSolicitudEppDto } from './dto/update-solicitud-epp.dto';
 import { ResponseSolicitudEppDto } from './dto/response-solicitud-epp.dto';
+import { CreateEppDto } from './dto/create-epp.dto';
+import { UpdateEppDto } from './dto/update-epp.dto';
+import { ResponseEppDto } from './dto/response-epp.dto';
+import { CategoriaEPP } from './entities/epp.entity';
+import { ResponseKardexDto } from './dto/response-kardex.dto';
+import { Trabajador } from '../trabajadores/entities/trabajador.entity';
 
 @Injectable()
 export class EppService {
   constructor(
     @InjectRepository(SolicitudEPP)
     private readonly solicitudRepository: Repository<SolicitudEPP>,
+    @InjectRepository(SolicitudEPPDetalle)
+    private readonly detalleRepository: Repository<SolicitudEPPDetalle>,
+    @InjectRepository(EPP)
+    private readonly eppRepository: Repository<EPP>,
+    @InjectRepository(Trabajador)
+    private readonly trabajadorRepository: Repository<Trabajador>,
   ) {}
 
-  async create(dto: CreateSolicitudEppDto): Promise<ResponseSolicitudEppDto> {
-    // Validar descripción_motivo si motivo es "Otro"
-    if (dto.motivo === MotivoEPP.Otro && !dto.descripcion_motivo) {
-      throw new BadRequestException(
-        'El campo descripcion_motivo es obligatorio cuando el motivo es "Otro"',
-      );
+  // ========== CRUD EPP (Catálogo) ==========
+
+  async createEpp(dto: CreateEppDto): Promise<ResponseEppDto> {
+    const epp = this.eppRepository.create({
+      nombre: dto.nombre,
+      tipoProteccion: dto.tipo_proteccion,
+      categoria: dto.categoria ?? CategoriaEPP.EPP,
+      descripcion: dto.descripcion ?? null,
+      imagenUrl: dto.imagen_url ?? null,
+      vigencia: dto.vigencia ?? null,
+      adjuntoPdfUrl: dto.adjunto_pdf_url ?? null,
+      stock: dto.stock ?? 0,
+      empresaId: dto.empresa_id,
+    });
+
+    const saved = await this.eppRepository.save(epp);
+    return ResponseEppDto.fromEntity(saved);
+  }
+
+  async findAllEpp(empresaId?: string): Promise<ResponseEppDto[]> {
+    const where: any = {};
+    if (empresaId) {
+      where.empresaId = empresaId;
     }
 
+    const epps = await this.eppRepository.find({
+      where,
+      order: { nombre: 'ASC' },
+    });
+
+    return epps.map((e) => ResponseEppDto.fromEntity(e));
+  }
+
+  async findOneEpp(id: string): Promise<ResponseEppDto> {
+    const epp = await this.eppRepository.findOne({ where: { id } });
+
+    if (!epp) {
+      throw new NotFoundException(`EPP con ID ${id} no encontrado`);
+    }
+
+    return ResponseEppDto.fromEntity(epp);
+  }
+
+  async updateEpp(id: string, dto: UpdateEppDto): Promise<ResponseEppDto> {
+    const epp = await this.eppRepository.findOne({ where: { id } });
+
+    if (!epp) {
+      throw new NotFoundException(`EPP con ID ${id} no encontrado`);
+    }
+
+    if (dto.nombre !== undefined) epp.nombre = dto.nombre;
+    if (dto.tipo_proteccion !== undefined) epp.tipoProteccion = dto.tipo_proteccion;
+    if (dto.categoria !== undefined) epp.categoria = dto.categoria;
+    if (dto.descripcion !== undefined) epp.descripcion = dto.descripcion ?? null;
+    if (dto.imagen_url !== undefined) epp.imagenUrl = dto.imagen_url ?? null;
+    if (dto.vigencia !== undefined) epp.vigencia = dto.vigencia ?? null;
+    if (dto.adjunto_pdf_url !== undefined) epp.adjuntoPdfUrl = dto.adjunto_pdf_url ?? null;
+    if (dto.stock !== undefined) epp.stock = dto.stock ?? 0;
+
+    const saved = await this.eppRepository.save(epp);
+    return ResponseEppDto.fromEntity(saved);
+  }
+
+  // ========== CRUD Solicitudes ==========
+
+  async create(dto: CreateSolicitudEppDto): Promise<ResponseSolicitudEppDto> {
+    if (!dto.detalles || dto.detalles.length === 0) {
+      throw new BadRequestException('Debe incluir al menos un item de EPP');
+    }
+
+    // Generar código correlativo
+    const year = new Date().getFullYear();
+    const count = await this.solicitudRepository.count({
+      where: { empresaId: dto.empresa_id },
+    });
+    const codigoCorrelativo = `EPP-${year}-${String(count + 1).padStart(4, '0')}`;
+
+    // Crear solicitud
     const solicitud = this.solicitudRepository.create({
-      tipoEpp: dto.tipo_epp,
-      cantidad: dto.cantidad ?? 1,
-      talla: dto.talla,
-      motivo: dto.motivo,
-      descripcionMotivo: dto.descripcion_motivo ?? null,
+      codigoCorrelativo,
+      fechaSolicitud: new Date(),
+      usuarioEppId: dto.usuario_epp_id,
+      solicitanteId: dto.solicitante_id,
+      motivo: dto.motivo ?? null,
+      centroCostos: dto.centro_costos ?? null,
+      comentarios: dto.comentarios ?? null,
+      observaciones: dto.observaciones ?? null,
       estado: dto.estado ?? EstadoSolicitudEPP.Pendiente,
-      trabajadorId: dto.trabajador_id,
       areaId: dto.area_id ?? null,
       empresaId: dto.empresa_id,
-      fechaSolicitud: new Date(),
     });
 
     const saved = await this.solicitudRepository.save(solicitud);
+
+    // Crear detalles
+    const detalles = dto.detalles.map((detalleDto) =>
+      this.detalleRepository.create({
+        solicitudEppId: saved.id,
+        eppId: detalleDto.epp_id,
+        cantidad: detalleDto.cantidad,
+      }),
+    );
+
+    await this.detalleRepository.save(detalles);
+
     return this.findOne(saved.id);
   }
 
   async findAll(
     empresaId?: string,
-    trabajadorId?: string,
+    usuarioEppId?: string,
+    solicitanteId?: string,
     estado?: EstadoSolicitudEPP,
+    areaId?: string,
+    sede?: string,
   ): Promise<ResponseSolicitudEppDto[]> {
-    const where: any = {};
+    const query = this.solicitudRepository
+      .createQueryBuilder('solicitud')
+      .leftJoinAndSelect('solicitud.usuarioEpp', 'usuarioEpp')
+      .leftJoinAndSelect('solicitud.solicitante', 'solicitante')
+      .leftJoinAndSelect('solicitud.supervisorAprobador', 'supervisorAprobador')
+      .leftJoinAndSelect('solicitud.entregadoPor', 'entregadoPor')
+      .leftJoinAndSelect('solicitud.area', 'area')
+      .leftJoinAndSelect('solicitud.empresa', 'empresa')
+      .leftJoinAndSelect('solicitud.detalles', 'detalles')
+      .leftJoinAndSelect('detalles.epp', 'epp');
+
     if (empresaId) {
-      where.empresaId = empresaId;
+      query.andWhere('solicitud.empresaId = :empresaId', { empresaId });
     }
-    if (trabajadorId) {
-      where.trabajadorId = trabajadorId;
+    if (usuarioEppId) {
+      query.andWhere('solicitud.usuarioEppId = :usuarioEppId', { usuarioEppId });
+    }
+    if (solicitanteId) {
+      query.andWhere('solicitud.solicitanteId = :solicitanteId', { solicitanteId });
     }
     if (estado) {
-      where.estado = estado;
+      query.andWhere('solicitud.estado = :estado', { estado });
+    }
+    if (areaId) {
+      query.andWhere('solicitud.areaId = :areaId', { areaId });
     }
 
-    const solicitudes = await this.solicitudRepository.find({
-      where,
-      relations: ['trabajador', 'supervisorAprobador', 'entregadoPor', 'area'],
-      order: { createdAt: 'DESC' },
-    });
+    query.orderBy('solicitud.createdAt', 'DESC');
+
+    const solicitudes = await query.getMany();
 
     return solicitudes.map((s) => ResponseSolicitudEppDto.fromEntity(s));
   }
@@ -74,7 +187,16 @@ export class EppService {
   async findOne(id: string): Promise<ResponseSolicitudEppDto> {
     const solicitud = await this.solicitudRepository.findOne({
       where: { id },
-      relations: ['trabajador', 'supervisorAprobador', 'entregadoPor', 'area'],
+      relations: [
+        'usuarioEpp',
+        'solicitante',
+        'supervisorAprobador',
+        'entregadoPor',
+        'area',
+        'empresa',
+        'detalles',
+        'detalles.epp',
+      ],
     });
 
     if (!solicitud) {
@@ -88,31 +210,20 @@ export class EppService {
     id: string,
     dto: UpdateSolicitudEppDto,
   ): Promise<ResponseSolicitudEppDto> {
-    const solicitud = await this.solicitudRepository.findOne({ where: { id } });
+    const solicitud = await this.solicitudRepository.findOne({
+      where: { id },
+      relations: ['detalles'],
+    });
 
     if (!solicitud) {
       throw new NotFoundException(`Solicitud EPP con ID ${id} no encontrada`);
     }
 
-    // Validar descripción_motivo si motivo cambia a "Otro"
-    if (
-      (dto.motivo === MotivoEPP.Otro ||
-        (dto.motivo === undefined && solicitud.motivo === MotivoEPP.Otro)) &&
-      !dto.descripcion_motivo &&
-      !solicitud.descripcionMotivo
-    ) {
-      throw new BadRequestException(
-        'El campo descripcion_motivo es obligatorio cuando el motivo es "Otro"',
-      );
-    }
-
     // Actualizar campos básicos
-    if (dto.tipo_epp !== undefined) solicitud.tipoEpp = dto.tipo_epp;
-    if (dto.cantidad !== undefined) solicitud.cantidad = dto.cantidad;
-    if (dto.talla !== undefined) solicitud.talla = dto.talla;
     if (dto.motivo !== undefined) solicitud.motivo = dto.motivo;
-    if (dto.descripcion_motivo !== undefined)
-      solicitud.descripcionMotivo = dto.descripcion_motivo;
+    if (dto.centro_costos !== undefined) solicitud.centroCostos = dto.centro_costos;
+    if (dto.comentarios !== undefined) solicitud.comentarios = dto.comentarios;
+    if (dto.observaciones !== undefined) solicitud.observaciones = dto.observaciones;
     if (dto.area_id !== undefined) solicitud.areaId = dto.area_id;
 
     // Manejar aprobación
@@ -139,7 +250,6 @@ export class EppService {
 
     // Manejar cambio de estado
     if (dto.estado !== undefined) {
-      this.validateEstadoTransition(solicitud.estado, dto.estado);
       solicitud.estado = dto.estado;
 
       // Auto-completar fechas según el estado
@@ -151,30 +261,25 @@ export class EppService {
       }
     }
 
+    // Actualizar detalles si se proporcionan
+    if (dto.detalles && dto.detalles.length > 0) {
+      // Eliminar detalles existentes
+      await this.detalleRepository.delete({ solicitudEppId: id });
+
+      // Crear nuevos detalles
+      const nuevosDetalles = dto.detalles.map((detalleDto) =>
+        this.detalleRepository.create({
+          solicitudEppId: id,
+          eppId: detalleDto.epp_id,
+          cantidad: detalleDto.cantidad,
+        }),
+      );
+
+      await this.detalleRepository.save(nuevosDetalles);
+    }
+
     await this.solicitudRepository.save(solicitud);
     return this.findOne(id);
-  }
-
-  validateEstadoTransition(
-    estadoActual: EstadoSolicitudEPP,
-    estadoNuevo: EstadoSolicitudEPP,
-  ): void {
-    const transicionesPermitidas: Record<EstadoSolicitudEPP, EstadoSolicitudEPP[]> = {
-      [EstadoSolicitudEPP.Pendiente]: [
-        EstadoSolicitudEPP.Aprobada,
-        EstadoSolicitudEPP.Rechazada,
-      ],
-      [EstadoSolicitudEPP.Aprobada]: [EstadoSolicitudEPP.Entregada],
-      [EstadoSolicitudEPP.Rechazada]: [],
-      [EstadoSolicitudEPP.Entregada]: [],
-    };
-
-    const permitidos = transicionesPermitidas[estadoActual];
-    if (!permitidos.includes(estadoNuevo)) {
-      throw new BadRequestException(
-        `No se puede cambiar de ${estadoActual} a ${estadoNuevo}`,
-      );
-    }
   }
 
   async updateEstado(
@@ -190,13 +295,8 @@ export class EppService {
       throw new NotFoundException(`Solicitud EPP con ID ${id} no encontrada`);
     }
 
-    // Validar transición de estado
-    this.validateEstadoTransition(solicitud.estado, nuevoEstado);
-
-    // Actualizar estado
     solicitud.estado = nuevoEstado;
 
-    // Lógica de aprobación
     if (nuevoEstado === EstadoSolicitudEPP.Aprobada) {
       if (usuarioId) {
         solicitud.supervisorAprobadorId = usuarioId;
@@ -209,7 +309,6 @@ export class EppService {
       }
     }
 
-    // Lógica de entrega automática
     if (nuevoEstado === EstadoSolicitudEPP.Entregada) {
       if (usuarioId) {
         solicitud.entregadoPorId = usuarioId;
@@ -233,7 +332,6 @@ export class EppService {
       throw new NotFoundException(`Solicitud EPP con ID ${id} no encontrada`);
     }
 
-    // No permitir eliminar solicitudes entregadas
     if (solicitud.estado === EstadoSolicitudEPP.Entregada) {
       throw new BadRequestException(
         'No se puede eliminar una solicitud que ya fue entregada',
@@ -241,5 +339,39 @@ export class EppService {
     }
 
     await this.solicitudRepository.remove(solicitud);
+  }
+
+  // ========== Kardex Histórico ==========
+
+  async getKardexPorTrabajador(
+    trabajadorId: string,
+  ): Promise<ResponseKardexDto> {
+    const trabajador = await this.trabajadorRepository.findOne({
+      where: { id: trabajadorId },
+    });
+
+    if (!trabajador) {
+      throw new NotFoundException(`Trabajador con ID ${trabajadorId} no encontrado`);
+    }
+
+    const solicitudes = await this.solicitudRepository.find({
+      where: { solicitanteId: trabajadorId },
+      relations: [
+        'usuarioEpp',
+        'solicitante',
+        'supervisorAprobador',
+        'entregadoPor',
+        'area',
+        'empresa',
+        'detalles',
+        'detalles.epp',
+      ],
+      order: { fechaSolicitud: 'DESC' },
+    });
+
+    return ResponseKardexDto.fromEntity({
+      trabajador,
+      solicitudes,
+    });
   }
 }
