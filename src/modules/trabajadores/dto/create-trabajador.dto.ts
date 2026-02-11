@@ -5,6 +5,7 @@ import {
   IsUUID,
   IsDateString,
   IsUrl,
+  ValidateIf,
 } from 'class-validator';
 import { EstadoTrabajador, GrupoSanguineo } from '../entities/trabajador.entity';
 
@@ -51,7 +52,8 @@ export class CreateTrabajadorDto {
   contacto_emergencia_telefono?: string;
 
   @IsOptional()
-  @IsUrl()
+  @ValidateIf((o) => o.foto_url !== '' && o.foto_url !== null && o.foto_url !== undefined)
+  @IsUrl({}, { message: 'La foto debe ser una URL válida' })
   foto_url?: string;
 
   @IsOptional()
