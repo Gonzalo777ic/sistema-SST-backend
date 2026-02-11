@@ -41,6 +41,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       UsuarioRol.MEDICO,
       UsuarioRol.INGENIERO_SST,
       UsuarioRol.AUDITOR,
+      UsuarioRol.CENTRO_MEDICO,
     ];
     const esRolOperativo = usuario.roles.some((rol) => rolesOperativos.includes(rol));
     

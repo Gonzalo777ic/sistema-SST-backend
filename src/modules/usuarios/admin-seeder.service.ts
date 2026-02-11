@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Usuario, AuthProvider, UsuarioRol } from './entities/usuario.entity';
-import { Trabajador, EstadoTrabajador } from '../trabajadores/entities/trabajador.entity';
+import { Trabajador, EstadoTrabajador, TipoDocumento } from '../trabajadores/entities/trabajador.entity';
 import { Empresa } from '../empresas/entities/empresa.entity';
 
 @Injectable()
@@ -227,7 +227,12 @@ export class AdminSeederService implements OnApplicationBootstrap {
 
       // Crear nuevo trabajador
       const trabajador = this.trabajadorRepository.create({
+        nombres: testUser.nombre,
+        apellidoPaterno: '',
+        apellidoMaterno: '',
         nombreCompleto: testUser.nombre,
+        tipoDocumento: TipoDocumento.DNI,
+        numeroDocumento: testUser.dni,
         documentoIdentidad: testUser.dni,
         cargo: testUser.cargo,
         empresaId: empresaId,

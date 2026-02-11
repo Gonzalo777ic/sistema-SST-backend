@@ -26,6 +26,7 @@ export enum UsuarioRol {
   MEDICO = 'MEDICO',
   EMPLEADO = 'EMPLEADO',
   AUDITOR = 'AUDITOR',
+  CENTRO_MEDICO = 'CENTRO_MEDICO',
 }
 
 @Entity('usuarios')

@@ -3,7 +3,7 @@ import { CreateTrabajadorDto } from './create-trabajador.dto';
 import { IsOptional, IsString, IsBoolean, IsUUID, ValidateIf } from 'class-validator';
 
 export class UpdateTrabajadorDto extends PartialType(
-  OmitType(CreateTrabajadorDto, ['talla_calzado', 'empresa_id', 'documento_identidad', 'area_id'] as const)
+  OmitType(CreateTrabajadorDto, ['talla_calzado', 'empresa_id', 'tipo_documento', 'numero_documento', 'area_id'] as const)
 ) {
   // Redefinir area_id explícitamente para permitir manejo de null/string vacío
   @IsOptional()

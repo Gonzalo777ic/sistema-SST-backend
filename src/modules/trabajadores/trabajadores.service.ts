@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Trabajador, EstadoTrabajador } from './entities/trabajador.entity';
+import { Trabajador, EstadoTrabajador, TipoDocumento } from './entities/trabajador.entity';
 import { Usuario } from '../usuarios/entities/usuario.entity';
 import { CreateTrabajadorDto } from './dto/create-trabajador.dto';
 import { UpdateTrabajadorDto, UpdatePersonalDataDto } from './dto/update-trabajador.dto';
@@ -20,31 +20,49 @@ export class TrabajadoresService {
     private readonly usuarioRepository: Repository<Usuario>,
   ) {}
 
+  private buildNombreCompleto(
+    apellidoPaterno: string,
+    apellidoMaterno: string,
+    nombres: string,
+  ): string {
+    return [apellidoPaterno, apellidoMaterno, nombres].filter(Boolean).join(' ');
+  }
+
   async create(dto: CreateTrabajadorDto): Promise<ResponseTrabajadorDto> {
-    // Buscar trabajadores existentes excluyendo los eliminados (soft delete)
-    // Validación de unicidad COMPUESTA: DNI + empresaId
-    // Un mismo DNI puede existir en diferentes empresas, pero no dos veces en la misma empresa
+    const documentoIdentidad = dto.numero_documento;
+    const nombreCompleto = this.buildNombreCompleto(
+      dto.apellido_paterno,
+      dto.apellido_materno,
+      dto.nombres,
+    );
+
     const existing = await this.trabajadorRepository.findOne({
       where: {
-        documentoIdentidad: dto.documento_identidad,
+        documentoIdentidad,
         empresaId: dto.empresa_id,
       },
-      withDeleted: false, // No incluir registros eliminados
+      withDeleted: false,
     });
 
     if (existing) {
       throw new ConflictException(
-        `El DNI ${dto.documento_identidad} ya se encuentra registrado para esta empresa`,
+        `El documento ${documentoIdentidad} ya se encuentra registrado para esta empresa`,
       );
     }
 
     const trabajador = this.trabajadorRepository.create({
-      nombreCompleto: dto.nombre_completo,
-      documentoIdentidad: dto.documento_identidad,
+      nombres: dto.nombres,
+      apellidoPaterno: dto.apellido_paterno,
+      apellidoMaterno: dto.apellido_materno,
+      nombreCompleto,
+      tipoDocumento: dto.tipo_documento,
+      numeroDocumento: dto.numero_documento,
+      documentoIdentidad,
       cargo: dto.cargo,
       areaId: dto.area_id ?? null,
       telefono: dto.telefono ?? null,
       emailPersonal: dto.email ?? null,
+      emailCorporativo: dto.email_corporativo ?? null,
       fechaIngreso: new Date(dto.fecha_ingreso),
       estado: dto.estado ?? EstadoTrabajador.Activo,
       grupoSanguineo: dto.grupo_sanguineo ?? null,
@@ -52,13 +70,31 @@ export class TrabajadoresService {
       contactoEmergenciaTelefono: dto.contacto_emergencia_telefono ?? null,
       fotoUrl: dto.foto_url ?? null,
       empresaId: dto.empresa_id,
+      sede: dto.sede ?? null,
+      unidad: dto.unidad ?? null,
+      jefeDirecto: dto.jefe_directo ?? null,
+      centroCostos: dto.centro_costos ?? null,
+      nivelExposicion: dto.nivel_exposicion ?? null,
+      tipoUsuario: dto.tipo_usuario ?? null,
+      seguroAtencionMedica: dto.seguro_atencion_medica ?? null,
+      fechaNacimiento: dto.fecha_nacimiento ? new Date(dto.fecha_nacimiento) : null,
+      sexo: dto.sexo as any ?? null,
+      pais: dto.pais ?? null,
+      departamento: dto.departamento ?? null,
+      provincia: dto.provincia ?? null,
+      distrito: dto.distrito ?? null,
+      direccion: dto.direccion ?? null,
+      modalidadContrato: dto.modalidad_contrato ?? null,
+      gerencia: dto.gerencia ?? null,
+      puestoCapacitacion: dto.puesto_capacitacion ?? null,
+      protocolosEmo: dto.protocolos_emo ?? null,
     });
 
     await this.trabajadorRepository.save(trabajador);
     const saved = await this.trabajadorRepository.findOne({
       where: { id: trabajador.id },
-      relations: ['usuario'],
-      withDeleted: false, // No incluir registros eliminados
+      relations: ['usuario', 'area', 'empresa'],
+      withDeleted: false,
     });
     return ResponseTrabajadorDto.fromEntity(saved!);
   }
@@ -67,9 +103,9 @@ export class TrabajadoresService {
     const where = empresaId ? { empresaId } : {};
     const trabajadores = await this.trabajadorRepository.find({
       where,
-      relations: ['usuario'],
+      relations: ['usuario', 'area', 'empresa'],
       order: { nombreCompleto: 'ASC' },
-      withDeleted: false, // No incluir registros eliminados (soft delete)
+      withDeleted: false,
     });
     return trabajadores.map((t) => ResponseTrabajadorDto.fromEntity(t));
   }
@@ -77,8 +113,8 @@ export class TrabajadoresService {
   async findOne(id: string): Promise<ResponseTrabajadorDto> {
     const trabajador = await this.trabajadorRepository.findOne({
       where: { id },
-      relations: ['usuario'],
-      withDeleted: false, // No incluir registros eliminados (soft delete)
+      relations: ['usuario', 'area', 'empresa'],
+      withDeleted: false,
     });
 
     if (!trabajador) {
@@ -92,10 +128,9 @@ export class TrabajadoresService {
     id: string,
     dto: UpdateTrabajadorDto,
   ): Promise<ResponseTrabajadorDto> {
-    // Verificar que el trabajador existe antes de intentar actualizar
     const trabajadorExistente = await this.trabajadorRepository.findOne({
       where: { id },
-      relations: ['usuario'],
+      relations: ['usuario', 'area', 'empresa'],
       withDeleted: false,
     });
 
@@ -103,116 +138,84 @@ export class TrabajadoresService {
       throw new NotFoundException(`Trabajador con ID ${id} no encontrado`);
     }
 
-    // REGLA DE INTEGRIDAD: El DNI no puede ser modificado después de la creación
-    // Nota: documento_identidad fue excluido de UpdateTrabajadorDto, por lo que esta validación ya no es necesaria
-    // El ValidationPipe con whitelist: true rechazará automáticamente cualquier campo no definido en el DTO
+    const updateData: Partial<Trabajador> = { id };
 
-    // Preparar el objeto de actualización mapeando snake_case del DTO a camelCase de la entidad
-    // preload requiere el id y los campos en formato de la entidad (camelCase)
-    const updateData: Partial<Trabajador> = {
-      id, // Necesario para preload
-    };
-
-    // Mapear campos del DTO (snake_case) a la entidad (camelCase)
-    // Solo incluir campos que están definidos en el DTO (undefined no se incluye)
-    if (dto.nombre_completo !== undefined) {
-      updateData.nombreCompleto = dto.nombre_completo;
+    if (dto.nombres !== undefined || dto.apellido_paterno !== undefined || dto.apellido_materno !== undefined) {
+      const apellidoPaterno = dto.apellido_paterno ?? trabajadorExistente.apellidoPaterno ?? '';
+      const apellidoMaterno = dto.apellido_materno ?? trabajadorExistente.apellidoMaterno ?? '';
+      const nombres = dto.nombres ?? trabajadorExistente.nombres ?? '';
+      updateData.nombreCompleto = this.buildNombreCompleto(apellidoPaterno, apellidoMaterno, nombres);
     }
-    // documentoIdentidad NO se actualiza - es inmutable después de la creación
-    if (dto.cargo !== undefined) {
-      updateData.cargo = dto.cargo;
-    }
-    // Manejar area_id: si viene explícitamente (incluso si es null), actualizar
-    // Si viene como string vacío, convertir a null
+    if (dto.nombres !== undefined) updateData.nombres = dto.nombres;
+    if (dto.apellido_paterno !== undefined) updateData.apellidoPaterno = dto.apellido_paterno;
+    if (dto.apellido_materno !== undefined) updateData.apellidoMaterno = dto.apellido_materno;
+    if (dto.cargo !== undefined) updateData.cargo = dto.cargo;
     if (dto.area_id !== undefined) {
-      if (dto.area_id === null || dto.area_id === '') {
-        updateData.areaId = null;
-      } else {
-        updateData.areaId = dto.area_id;
-      }
+      updateData.areaId = dto.area_id === null || dto.area_id === '' ? null : dto.area_id;
     }
-    if (dto.telefono !== undefined) {
-      updateData.telefono = dto.telefono || null;
-    }
-    if (dto.email !== undefined) {
-      updateData.emailPersonal = dto.email || null;
-    }
-    if (dto.fecha_ingreso !== undefined) {
-      updateData.fechaIngreso = new Date(dto.fecha_ingreso);
-    }
-    if (dto.estado !== undefined) {
-      updateData.estado = dto.estado;
-    }
-    if (dto.grupo_sanguineo !== undefined) {
-      updateData.grupoSanguineo = dto.grupo_sanguineo || null;
-    }
-    if (dto.contacto_emergencia_nombre !== undefined) {
-      updateData.contactoEmergenciaNombre = dto.contacto_emergencia_nombre || null;
-    }
-    if (dto.contacto_emergencia_telefono !== undefined) {
-      updateData.contactoEmergenciaTelefono = dto.contacto_emergencia_telefono || null;
-    }
-    if (dto.foto_url !== undefined) {
-      updateData.fotoUrl = dto.foto_url || null;
-    }
-    if (dto.talla_casco !== undefined) {
-      updateData.tallaCasco = dto.talla_casco || null;
-    }
-    if (dto.talla_camisa !== undefined) {
-      updateData.tallaCamisa = dto.talla_camisa || null;
-    }
-    if (dto.talla_pantalon !== undefined) {
-      updateData.tallaPantalon = dto.talla_pantalon || null;
-    }
+    if (dto.telefono !== undefined) updateData.telefono = dto.telefono || null;
+    if (dto.email !== undefined) updateData.emailPersonal = dto.email || null;
+    if (dto.email_corporativo !== undefined) updateData.emailCorporativo = dto.email_corporativo || null;
+    if (dto.fecha_ingreso !== undefined) updateData.fechaIngreso = new Date(dto.fecha_ingreso);
+    if (dto.estado !== undefined) updateData.estado = dto.estado;
+    if (dto.grupo_sanguineo !== undefined) updateData.grupoSanguineo = dto.grupo_sanguineo || null;
+    if (dto.contacto_emergencia_nombre !== undefined) updateData.contactoEmergenciaNombre = dto.contacto_emergencia_nombre || null;
+    if (dto.contacto_emergencia_telefono !== undefined) updateData.contactoEmergenciaTelefono = dto.contacto_emergencia_telefono || null;
+    if (dto.foto_url !== undefined) updateData.fotoUrl = dto.foto_url || null;
+    if (dto.sede !== undefined) updateData.sede = dto.sede || null;
+    if (dto.unidad !== undefined) updateData.unidad = dto.unidad || null;
+    if (dto.jefe_directo !== undefined) updateData.jefeDirecto = dto.jefe_directo || null;
+    if (dto.centro_costos !== undefined) updateData.centroCostos = dto.centro_costos || null;
+    if (dto.nivel_exposicion !== undefined) updateData.nivelExposicion = dto.nivel_exposicion || null;
+    if (dto.tipo_usuario !== undefined) updateData.tipoUsuario = dto.tipo_usuario || null;
+    if (dto.seguro_atencion_medica !== undefined) updateData.seguroAtencionMedica = dto.seguro_atencion_medica || null;
+    if (dto.fecha_nacimiento !== undefined) updateData.fechaNacimiento = dto.fecha_nacimiento ? new Date(dto.fecha_nacimiento) : null;
+    if (dto.sexo !== undefined) updateData.sexo = dto.sexo as any || null;
+    if (dto.pais !== undefined) updateData.pais = dto.pais || null;
+    if (dto.departamento !== undefined) updateData.departamento = dto.departamento || null;
+    if (dto.provincia !== undefined) updateData.provincia = dto.provincia || null;
+    if (dto.distrito !== undefined) updateData.distrito = dto.distrito || null;
+    if (dto.direccion !== undefined) updateData.direccion = dto.direccion || null;
+    if (dto.modalidad_contrato !== undefined) updateData.modalidadContrato = dto.modalidad_contrato || null;
+    if (dto.gerencia !== undefined) updateData.gerencia = dto.gerencia || null;
+    if (dto.puesto_capacitacion !== undefined) updateData.puestoCapacitacion = dto.puesto_capacitacion || null;
+    if (dto.protocolos_emo !== undefined) updateData.protocolosEmo = dto.protocolos_emo || null;
+    if (dto.talla_casco !== undefined) updateData.tallaCasco = dto.talla_casco || null;
+    if (dto.talla_camisa !== undefined) updateData.tallaCamisa = dto.talla_camisa || null;
+    if (dto.talla_pantalon !== undefined) updateData.tallaPantalon = dto.talla_pantalon || null;
     if (dto.talla_calzado !== undefined) {
-      // Convertir string a number si es necesario (el DTO puede venir como string o number)
-      if (typeof dto.talla_calzado === 'string') {
-        const parsed = parseInt(dto.talla_calzado, 10);
-        updateData.tallaCalzado = isNaN(parsed) ? null : parsed;
-      } else if (typeof dto.talla_calzado === 'number') {
-        updateData.tallaCalzado = dto.talla_calzado;
-      } else {
-        updateData.tallaCalzado = null;
-      }
+      const parsed = typeof dto.talla_calzado === 'string' ? parseInt(dto.talla_calzado, 10) : dto.talla_calzado;
+      updateData.tallaCalzado = isNaN(parsed as number) ? null : (parsed as number);
     }
-    if (dto.perfil_completado !== undefined) {
-      updateData.perfilCompletado = dto.perfil_completado;
-    }
+    if (dto.perfil_completado !== undefined) updateData.perfilCompletado = dto.perfil_completado;
 
-    // Usar preload para cargar la entidad y aplicar los cambios de forma segura
-    // preload busca la entidad por id y aplica los cambios parciales
     const trabajador = await this.trabajadorRepository.preload(updateData);
-
     if (!trabajador) {
       throw new NotFoundException(`Trabajador con ID ${id} no encontrado después de preload`);
     }
 
-    // Guardar los cambios - esto persiste los datos en la base de datos
     const nuevoEstado = trabajador.estado;
     const estadoCambio = dto.estado !== undefined && dto.estado !== trabajadorExistente.estado;
 
     const saved = await this.trabajadorRepository.save(trabajador);
 
-    // SINCRONIZACIÓN DE ESTADOS: Si el trabajador cambia a 'Inactivo', desactivar su usuario vinculado
     if (estadoCambio && nuevoEstado === EstadoTrabajador.Inactivo) {
-      // Buscar el usuario vinculado usando QueryBuilder (la relación está en Usuario con trabajador_id)
       const usuarioVinculado = await this.usuarioRepository
         .createQueryBuilder('usuario')
         .leftJoinAndSelect('usuario.trabajador', 'trabajador')
         .where('trabajador.id = :trabajadorId', { trabajadorId: trabajador.id })
-        .andWhere('usuario.deletedAt IS NULL') // Excluir soft-deleted
+        .andWhere('usuario.deletedAt IS NULL')
         .getOne();
-      
+
       if (usuarioVinculado) {
         usuarioVinculado.activo = false;
         await this.usuarioRepository.save(usuarioVinculado);
       }
     }
 
-    // Obtener la entidad actualizada fresca de la base de datos con todas las relaciones
     const updated = await this.trabajadorRepository.findOne({
       where: { id: saved.id },
-      relations: ['usuario'],
+      relations: ['usuario', 'area', 'empresa'],
       withDeleted: false,
     });
 
@@ -224,22 +227,18 @@ export class TrabajadoresService {
   }
 
   async remove(id: string): Promise<void> {
-    // Buscar el trabajador con su usuario vinculado antes de eliminar
-    // Excluir registros ya eliminados (soft delete)
     const trabajador = await this.trabajadorRepository.findOne({
       where: { id },
       relations: ['usuario'],
-      withDeleted: false, // No incluir registros eliminados
+      withDeleted: false,
     });
 
     if (!trabajador) {
       throw new NotFoundException(`Trabajador con ID ${id} no encontrado`);
     }
 
-    // Realizar Soft Delete del trabajador
     await this.trabajadorRepository.softRemove(trabajador);
 
-    // Regla de Cascada: Si tiene un Usuario vinculado, desactivarlo y aplicar Soft Delete
     if (trabajador.usuario) {
       const usuario = await this.usuarioRepository.findOne({
         where: { id: trabajador.usuario.id },
@@ -247,15 +246,15 @@ export class TrabajadoresService {
       });
 
       if (usuario) {
-        // Desactivar el usuario para impedir acceso inmediato
         usuario.activo = false;
         await this.usuarioRepository.save(usuario);
-        
-        // Aplicar Soft Delete también al usuario
-        // Esto preserva la información según las leyes de SST (20 años para incidentes graves)
         await this.usuarioRepository.softRemove(usuario);
       }
     }
+  }
+
+  async desactivar(id: string): Promise<ResponseTrabajadorDto> {
+    return this.update(id, { estado: EstadoTrabajador.Inactivo });
   }
 
   async updatePersonalData(
@@ -264,7 +263,7 @@ export class TrabajadoresService {
   ): Promise<ResponseTrabajadorDto> {
     const trabajador = await this.trabajadorRepository.findOne({
       where: { id },
-      withDeleted: false, // No incluir registros eliminados
+      withDeleted: false,
     });
 
     if (!trabajador) {
@@ -276,24 +275,27 @@ export class TrabajadoresService {
       tallaCamisa: dto.talla_camisa !== undefined ? dto.talla_camisa : trabajador.tallaCamisa,
       tallaPantalon: dto.talla_pantalon !== undefined ? dto.talla_pantalon : trabajador.tallaPantalon,
       tallaCalzado: dto.talla_calzado !== undefined ? parseInt(dto.talla_calzado) : trabajador.tallaCalzado,
-      perfilCompletado: true, // Al actualizar datos personales, marcar perfil como completado
+      perfilCompletado: true,
     });
 
     await this.trabajadorRepository.save(trabajador);
     const updated = await this.trabajadorRepository.findOne({
       where: { id },
-      relations: ['usuario'],
-      withDeleted: false, // No incluir registros eliminados
+      relations: ['usuario', 'area', 'empresa'],
+      withDeleted: false,
     });
     return ResponseTrabajadorDto.fromEntity(updated!);
   }
 
   async buscarPorDni(dni: string): Promise<ResponseTrabajadorDto | null> {
-    const trabajador = await this.trabajadorRepository.findOne({
-      where: { documentoIdentidad: dni },
-      relations: ['usuario', 'area', 'empresa'],
-      withDeleted: false,
-    });
+    const trabajador = await this.trabajadorRepository
+      .createQueryBuilder('t')
+      .leftJoinAndSelect('t.usuario', 'usuario')
+      .leftJoinAndSelect('t.area', 'area')
+      .leftJoinAndSelect('t.empresa', 'empresa')
+      .where('t.documento_identidad = :dni OR t.numero_documento = :dni', { dni })
+      .andWhere('t.deleted_at IS NULL')
+      .getOne();
 
     if (!trabajador) {
       return null;

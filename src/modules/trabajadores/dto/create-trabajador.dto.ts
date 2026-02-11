@@ -6,15 +6,26 @@ import {
   IsDateString,
   IsUrl,
   ValidateIf,
+  MinLength,
 } from 'class-validator';
-import { EstadoTrabajador, GrupoSanguineo } from '../entities/trabajador.entity';
+import { EstadoTrabajador, GrupoSanguineo, TipoDocumento } from '../entities/trabajador.entity';
 
 export class CreateTrabajadorDto {
   @IsString()
-  nombre_completo: string;
+  nombres: string;
 
   @IsString()
-  documento_identidad: string;
+  apellido_paterno: string;
+
+  @IsString()
+  apellido_materno: string;
+
+  @IsEnum(TipoDocumento, { message: 'tipo_documento debe ser DNI, CARNE_EXTRANJERIA o PASAPORTE' })
+  tipo_documento: TipoDocumento;
+
+  @IsString()
+  @MinLength(1, { message: 'El número de documento es obligatorio' })
+  numero_documento: string;
 
   @IsString()
   cargo: string;
@@ -30,6 +41,10 @@ export class CreateTrabajadorDto {
   @IsOptional()
   @IsString()
   email?: string;
+
+  @IsOptional()
+  @IsString()
+  email_corporativo?: string;
 
   @IsString()
   @IsDateString()
@@ -55,6 +70,78 @@ export class CreateTrabajadorDto {
   @ValidateIf((o) => o.foto_url !== '' && o.foto_url !== null && o.foto_url !== undefined)
   @IsUrl({}, { message: 'La foto debe ser una URL válida' })
   foto_url?: string;
+
+  @IsOptional()
+  @IsString()
+  sede?: string;
+
+  @IsOptional()
+  @IsString()
+  unidad?: string;
+
+  @IsOptional()
+  @IsString()
+  jefe_directo?: string;
+
+  @IsOptional()
+  @IsString()
+  centro_costos?: string;
+
+  @IsOptional()
+  @IsString()
+  nivel_exposicion?: string;
+
+  @IsOptional()
+  @IsString()
+  tipo_usuario?: string;
+
+  @IsOptional()
+  @IsString()
+  seguro_atencion_medica?: string;
+
+  @IsOptional()
+  @IsDateString()
+  fecha_nacimiento?: string;
+
+  @IsOptional()
+  @IsString()
+  sexo?: string;
+
+  @IsOptional()
+  @IsString()
+  pais?: string;
+
+  @IsOptional()
+  @IsString()
+  departamento?: string;
+
+  @IsOptional()
+  @IsString()
+  provincia?: string;
+
+  @IsOptional()
+  @IsString()
+  distrito?: string;
+
+  @IsOptional()
+  @IsString()
+  direccion?: string;
+
+  @IsOptional()
+  @IsString()
+  modalidad_contrato?: string;
+
+  @IsOptional()
+  @IsString()
+  gerencia?: string;
+
+  @IsOptional()
+  @IsString()
+  puesto_capacitacion?: string;
+
+  @IsOptional()
+  @IsString()
+  protocolos_emo?: string;
 
   @IsOptional()
   @IsString()

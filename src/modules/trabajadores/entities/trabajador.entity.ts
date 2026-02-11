@@ -14,6 +14,12 @@ import { Empresa } from '../../empresas/entities/empresa.entity';
 import { Area } from '../../empresas/entities/area.entity';
 import { Usuario } from '../../usuarios/entities/usuario.entity';
 
+export enum TipoDocumento {
+  DNI = 'DNI',
+  CARNE_EXTRANJERIA = 'CARNE_EXTRANJERIA',
+  PASAPORTE = 'PASAPORTE',
+}
+
 export enum EstadoTrabajador {
   Activo = 'Activo',
   Inactivo = 'Inactivo',
@@ -32,38 +38,128 @@ export enum GrupoSanguineo {
   'O-' = 'O-',
 }
 
+export enum Sexo {
+  MASCULINO = 'MASCULINO',
+  FEMENINO = 'FEMENINO',
+  OTRO = 'OTRO',
+}
+
 @Entity('trabajadores')
 @Unique(['documentoIdentidad', 'empresaId'])
 export class Trabajador {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  // Datos personales - nombres separados (nullable para migración de datos existentes)
+  @Column({ name: 'nombres', type: 'varchar', nullable: true })
+  nombres: string | null;
+
+  @Column({ name: 'apellido_paterno', type: 'varchar', nullable: true })
+  apellidoPaterno: string | null;
+
+  @Column({ name: 'apellido_materno', type: 'varchar', nullable: true })
+  apellidoMaterno: string | null;
+
   @Column({ name: 'nombre_completo' })
   nombreCompleto: string;
+
+  // Documento de identidad (documento_identidad = numero_documento para Usuario.dni y legacy)
+  @Column({
+    name: 'tipo_documento',
+    type: 'enum',
+    enum: TipoDocumento,
+    nullable: true,
+  })
+  tipoDocumento: TipoDocumento | null;
+
+  @Column({ name: 'numero_documento', type: 'varchar', nullable: true })
+  numeroDocumento: string | null;
 
   @Column({ name: 'documento_identidad' })
   documentoIdentidad: string;
 
+  @Column({ name: 'fecha_nacimiento', type: 'date', nullable: true })
+  fechaNacimiento: Date | null;
+
+  @Column({ type: 'enum', enum: Sexo, nullable: true })
+  sexo: Sexo | null;
+
   @Column({ name: 'foto_url', type: 'varchar', nullable: true })
   fotoUrl: string | null;
+
+  @Column({ name: 'firma_digital_url', type: 'varchar', nullable: true })
+  firmaDigitalUrl: string | null;
 
   @Column({ name: 'email_personal', type: 'varchar', nullable: true })
   emailPersonal: string | null;
 
+  @Column({ name: 'email_corporativo', type: 'varchar', nullable: true })
+  emailCorporativo: string | null;
+
   @Column({ type: 'varchar', nullable: true })
   telefono: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  pais: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  departamento: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  provincia: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  distrito: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  direccion: string | null;
+
+  // Contacto de emergencia
   @Column({ name: 'contacto_emergencia_nombre', type: 'varchar', nullable: true })
   contactoEmergenciaNombre: string | null;
 
   @Column({ name: 'contacto_emergencia_telefono', type: 'varchar', nullable: true })
   contactoEmergenciaTelefono: string | null;
 
-  @Column({ type: 'varchar' })
+  // Datos laborales
+  @Column({ name: 'cargo', type: 'varchar' })
   cargo: string;
+
+  @Column({ name: 'jefe_directo', type: 'varchar', nullable: true })
+  jefeDirecto: string | null;
+
+  @Column({ name: 'sede', type: 'varchar', nullable: true })
+  sede: string | null;
+
+  @Column({ name: 'unidad', type: 'varchar', nullable: true })
+  unidad: string | null;
+
+  @Column({ name: 'centro_costos', type: 'varchar', nullable: true })
+  centroCostos: string | null;
+
+  @Column({ name: 'nivel_exposicion', type: 'varchar', nullable: true })
+  nivelExposicion: string | null;
+
+  @Column({ name: 'tipo_usuario', type: 'varchar', nullable: true })
+  tipoUsuario: string | null;
+
+  @Column({ name: 'seguro_atencion_medica', type: 'varchar', nullable: true })
+  seguroAtencionMedica: string | null;
 
   @Column({ name: 'fecha_ingreso', type: 'date' })
   fechaIngreso: Date;
+
+  @Column({ name: 'modalidad_contrato', type: 'varchar', nullable: true })
+  modalidadContrato: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  gerencia: string | null;
+
+  @Column({ name: 'puesto_capacitacion', type: 'varchar', nullable: true })
+  puestoCapacitacion: string | null;
+
+  @Column({ name: 'protocolos_emo', type: 'varchar', nullable: true })
+  protocolosEmo: string | null;
 
   @Column({
     type: 'enum',
