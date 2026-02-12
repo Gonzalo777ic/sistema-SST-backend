@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { SolicitudEPP } from './solicitud-epp.entity';
 import { EPP } from './epp.entity';
+import { Usuario } from '../../usuarios/entities/usuario.entity';
 
 @Entity('solicitudes_epp_detalle')
 export class SolicitudEPPDetalle {
@@ -35,6 +36,23 @@ export class SolicitudEPPDetalle {
 
   @Column({ type: 'boolean', default: false })
   exceptuado: boolean;
+
+  @Column({ name: 'exceptuado_por_id', type: 'uuid', nullable: true })
+  exceptuadoPorId: string | null;
+
+  @ManyToOne(() => Usuario, { nullable: true })
+  @JoinColumn({ name: 'exceptuado_por_id' })
+  exceptuadoPor: Usuario | null;
+
+  @Column({ type: 'boolean', default: false })
+  agregado: boolean;
+
+  @Column({ name: 'agregado_por_id', type: 'uuid', nullable: true })
+  agregadoPorId: string | null;
+
+  @ManyToOne(() => Usuario, { nullable: true })
+  @JoinColumn({ name: 'agregado_por_id' })
+  agregadoPor: Usuario | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

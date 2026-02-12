@@ -10,6 +10,7 @@ import {
   ParseUUIDPipe,
   ParseEnumPipe,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { EppService } from './epp.service';
 import { CreateSolicitudEppDto } from './dto/create-solicitud-epp.dto';
@@ -103,8 +104,22 @@ export class EppController {
   async toggleExceptuar(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('detalleId', ParseUUIDPipe) detalleId: string,
+    @CurrentUser() currentUser?: { id: string; dni: string },
   ): Promise<ResponseSolicitudEppDto> {
-    return this.eppService.toggleExceptuar(id, detalleId);
+    return this.eppService.toggleExceptuar(id, detalleId, currentUser?.id);
+  }
+
+  @Post('solicitudes/:id/detalle')
+  async agregarDetalle(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('epp_id') eppId: string,
+    @Body('cantidad') cantidad?: number,
+    @CurrentUser() currentUser?: { id: string; dni: string },
+  ): Promise<ResponseSolicitudEppDto> {
+    if (!eppId || typeof eppId !== 'string') {
+      throw new BadRequestException('epp_id es requerido');
+    }
+    return this.eppService.agregarDetalle(id, eppId, cantidad ?? 1, currentUser?.id);
   }
 
   @Patch('solicitudes/:id/estado')

@@ -197,6 +197,10 @@ export class EppService {
         'empresa',
         'detalles',
         'detalles.epp',
+        'detalles.exceptuadoPor',
+        'detalles.exceptuadoPor.trabajador',
+        'detalles.agregadoPor',
+        'detalles.agregadoPor.trabajador',
       ],
     });
 
@@ -286,6 +290,7 @@ export class EppService {
   async toggleExceptuar(
     solicitudId: string,
     detalleId: string,
+    usuarioId?: string,
   ): Promise<ResponseSolicitudEppDto> {
     const solicitud = await this.solicitudRepository.findOne({
       where: { id: solicitudId },
@@ -308,6 +313,51 @@ export class EppService {
     }
 
     detalle.exceptuado = !detalle.exceptuado;
+    detalle.exceptuadoPorId = detalle.exceptuado ? usuarioId ?? null : null;
+    await this.detalleRepository.save(detalle);
+
+    return this.findOne(solicitudId);
+  }
+
+  async agregarDetalle(
+    solicitudId: string,
+    eppId: string,
+    cantidad: number,
+    usuarioId?: string,
+  ): Promise<ResponseSolicitudEppDto> {
+    const solicitud = await this.solicitudRepository.findOne({
+      where: { id: solicitudId },
+      relations: ['detalles', 'empresa'],
+    });
+
+    if (!solicitud) {
+      throw new NotFoundException(`Solicitud EPP con ID ${solicitudId} no encontrada`);
+    }
+
+    const estadosEditable = [EstadoSolicitudEPP.Observada, EstadoSolicitudEPP.Aprobada];
+    if (!estadosEditable.includes(solicitud.estado)) {
+      throw new BadRequestException(
+        'Solo se pueden agregar items cuando la solicitud está en estado OBSERVADA o APROBADA',
+      );
+    }
+
+    const epp = await this.eppRepository.findOne({ where: { id: eppId } });
+    if (!epp) {
+      throw new NotFoundException(`EPP con ID ${eppId} no encontrado`);
+    }
+
+    if (epp.empresaId !== solicitud.empresaId) {
+      throw new BadRequestException('El EPP debe pertenecer a la misma empresa que la solicitud');
+    }
+
+    const detalle = this.detalleRepository.create({
+      solicitudEppId: solicitudId,
+      eppId,
+      cantidad: Math.max(1, cantidad),
+      agregado: true,
+      agregadoPorId: usuarioId ?? null,
+    });
+
     await this.detalleRepository.save(detalle);
 
     return this.findOne(solicitudId);

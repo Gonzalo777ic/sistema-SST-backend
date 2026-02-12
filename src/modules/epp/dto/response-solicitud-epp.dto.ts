@@ -10,6 +10,11 @@ export class ResponseSolicitudEppDetalleDto {
   epp_imagen_url: string | null;
   cantidad: number;
   exceptuado: boolean;
+  exceptuado_por_id: string | null;
+  exceptuado_por_nombre: string | null;
+  agregado: boolean;
+  agregado_por_id: string | null;
+  agregado_por_nombre: string | null;
 }
 
 export class ResponseSolicitudEppDto {
@@ -96,17 +101,28 @@ export class ResponseSolicitudEppDto {
     dto.empresa_nombre = (solicitud.empresa as any)?.nombre || null;
     dto.unidad = (solicitud.solicitante as any)?.unidad || null;
     dto.sede = (solicitud.solicitante as any)?.sede || null;
-    dto.detalles = (solicitud.detalles || []).map((detalle: any) => ({
-      id: detalle.id,
-      epp_id: detalle.eppId,
-      epp_nombre: detalle.epp?.nombre || '',
-      epp_tipo_proteccion: detalle.epp?.tipoProteccion || '',
-      epp_descripcion: detalle.epp?.descripcion || null,
-      epp_vigencia: detalle.epp?.vigencia || null,
-      epp_imagen_url: detalle.epp?.imagenUrl || null,
-      cantidad: detalle.cantidad,
-      exceptuado: detalle.exceptuado ?? false,
-    }));
+    dto.detalles = (solicitud.detalles || []).map((detalle: any) => {
+      const excPor = detalle.exceptuadoPor as any;
+      const agrPor = detalle.agregadoPor as any;
+      return {
+        id: detalle.id,
+        epp_id: detalle.eppId,
+        epp_nombre: detalle.epp?.nombre || '',
+        epp_tipo_proteccion: detalle.epp?.tipoProteccion || '',
+        epp_descripcion: detalle.epp?.descripcion || null,
+        epp_vigencia: detalle.epp?.vigencia || null,
+        epp_imagen_url: detalle.epp?.imagenUrl || null,
+        cantidad: detalle.cantidad,
+        exceptuado: detalle.exceptuado ?? false,
+        exceptuado_por_id: detalle.exceptuadoPorId || null,
+        exceptuado_por_nombre:
+          excPor?.trabajador?.nombreCompleto || excPor?.nombreCompleto || excPor?.dni || null,
+        agregado: detalle.agregado ?? false,
+        agregado_por_id: detalle.agregadoPorId || null,
+        agregado_por_nombre:
+          agrPor?.trabajador?.nombreCompleto || agrPor?.nombreCompleto || agrPor?.dni || null,
+      };
+    });
     dto.createdAt = solicitud.createdAt;
     dto.updatedAt = solicitud.updatedAt;
     return dto;
