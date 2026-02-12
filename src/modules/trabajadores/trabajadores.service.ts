@@ -279,6 +279,7 @@ export class TrabajadoresService {
       tallaCamisa: dto.talla_camisa !== undefined ? dto.talla_camisa : trabajador.tallaCamisa,
       tallaPantalon: dto.talla_pantalon !== undefined ? dto.talla_pantalon : trabajador.tallaPantalon,
       tallaCalzado: dto.talla_calzado !== undefined ? parseInt(dto.talla_calzado) : trabajador.tallaCalzado,
+      firmaDigitalUrl: dto.firma_digital_url !== undefined ? dto.firma_digital_url : trabajador.firmaDigitalUrl,
       perfilCompletado: true,
     });
 

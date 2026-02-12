@@ -25,6 +25,7 @@ import {
 } from './dto/response-kardex-list.dto';
 import { Trabajador } from '../trabajadores/entities/trabajador.entity';
 import { ConfigEppService } from '../config-epp/config-epp.service';
+import { EppPdfService } from './epp-pdf.service';
 
 function vigenciaToMonths(vigencia: VigenciaEPP | null): number {
   if (!vigencia) return 0;
@@ -58,6 +59,7 @@ export class EppService {
     @InjectRepository(Trabajador)
     private readonly trabajadorRepository: Repository<Trabajador>,
     private readonly configEppService: ConfigEppService,
+    private readonly eppPdfService: EppPdfService,
   ) {}
 
   // ========== CRUD EPP (Catálogo) ==========
@@ -439,11 +441,44 @@ export class EppService {
       if (usuarioId) {
         solicitud.entregadoPorId = usuarioId;
       }
+      const fechaEntrega = new Date();
       if (!solicitud.fechaEntrega) {
-        solicitud.fechaEntrega = new Date();
+        solicitud.fechaEntrega = fechaEntrega;
       }
       if (firmaRecepcionUrl) {
         solicitud.firmaRecepcionUrl = firmaRecepcionUrl;
+      }
+
+      const solicitudConDetalles = await this.solicitudRepository.findOne({
+        where: { id },
+        relations: [
+          'detalles',
+          'detalles.epp',
+          'solicitante',
+          'solicitante.area',
+          'empresa',
+          'entregadoPor',
+          'entregadoPor.trabajador',
+          'area',
+        ],
+      });
+
+      if (solicitudConDetalles?.detalles) {
+        for (const det of solicitudConDetalles.detalles) {
+          if (!det.exceptuado) {
+            det.codigoAuditoria = det.id.substring(0, 8);
+            det.fechaHoraEntrega = solicitud.fechaEntrega || fechaEntrega;
+            det.firmaTrabajadorUrl = (solicitudConDetalles.solicitante as any)?.firmaDigitalUrl ?? firmaRecepcionUrl ?? null;
+            await this.detalleRepository.save(det);
+          }
+        }
+
+        try {
+          const filename = await this.eppPdfService.generateRegistroEntregaPdf(solicitudConDetalles);
+          solicitud.registroEntregaPdfUrl = `/epp/registro-pdf/${solicitud.id}`;
+        } catch (err) {
+          console.error('Error generando PDF de registro:', err);
+        }
       }
     }
 
@@ -646,5 +681,16 @@ export class EppService {
     });
 
     return result;
+  }
+
+  async getUltimoKardexPdfUrl(trabajadorId: string): Promise<{ pdf_url: string | null; solicitud_id: string | null }> {
+    const ultima = await this.solicitudRepository.findOne({
+      where: { solicitanteId: trabajadorId, estado: EstadoSolicitudEPP.Entregada },
+      order: { fechaEntrega: 'DESC' },
+    });
+    if (!ultima?.registroEntregaPdfUrl) {
+      return { pdf_url: null, solicitud_id: null };
+    }
+    return { pdf_url: ultima.registroEntregaPdfUrl, solicitud_id: ultima.id };
   }
 }

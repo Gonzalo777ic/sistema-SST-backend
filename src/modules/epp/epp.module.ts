@@ -5,6 +5,7 @@ import { SolicitudEPPDetalle } from './entities/solicitud-epp-detalle.entity';
 import { EPP } from './entities/epp.entity';
 import { EppController } from './epp.controller';
 import { EppService } from './epp.service';
+import { EppPdfService } from './epp-pdf.service';
 import { Trabajador } from '../trabajadores/entities/trabajador.entity';
 import { ConfigEppModule } from '../config-epp/config-epp.module';
 
@@ -14,7 +15,7 @@ import { ConfigEppModule } from '../config-epp/config-epp.module';
     ConfigEppModule,
   ],
   controllers: [EppController],
-  providers: [EppService],
+  providers: [EppService, EppPdfService],
   exports: [EppService],
 })
 export class EppModule {}

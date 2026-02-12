@@ -49,4 +49,8 @@ export class UpdatePersonalDataDto {
   @IsOptional()
   @IsString()
   talla_calzado?: string;
+
+  @IsOptional()
+  @IsString()
+  firma_digital_url?: string;
 }

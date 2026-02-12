@@ -81,6 +81,9 @@ export class SolicitudEPP {
   @Column({ name: 'firma_recepcion_url', type: 'text', nullable: true })
   firmaRecepcionUrl: string | null;
 
+  @Column({ name: 'registro_entrega_pdf_url', type: 'text', nullable: true })
+  registroEntregaPdfUrl: string | null;
+
   // Relaciones
   @Column({ name: 'usuario_epp_id', type: 'uuid' })
   usuarioEppId: string;

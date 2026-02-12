@@ -34,6 +34,15 @@ export class SolicitudEPPDetalle {
   @Column({ type: 'int', default: 1 })
   cantidad: number;
 
+  @Column({ name: 'codigo_auditoria', type: 'varchar', length: 20, nullable: true })
+  codigoAuditoria: string | null;
+
+  @Column({ name: 'firma_trabajador_url', type: 'text', nullable: true })
+  firmaTrabajadorUrl: string | null;
+
+  @Column({ name: 'fecha_hora_entrega', type: 'timestamptz', nullable: true })
+  fechaHoraEntrega: Date | null;
+
   @Column({ type: 'boolean', default: false })
   exceptuado: boolean;
 

@@ -11,8 +11,12 @@ import {
   ParseEnumPipe,
   UseGuards,
   BadRequestException,
+  NotFoundException,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { EppService } from './epp.service';
+import { EppPdfService } from './epp-pdf.service';
 import { CreateSolicitudEppDto } from './dto/create-solicitud-epp.dto';
 import { UpdateSolicitudEppDto } from './dto/update-solicitud-epp.dto';
 import { ResponseSolicitudEppDto } from './dto/response-solicitud-epp.dto';
@@ -27,7 +31,10 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 @Controller('epp')
 @UseGuards(JwtAuthGuard)
 export class EppController {
-  constructor(private readonly eppService: EppService) {}
+  constructor(
+    private readonly eppService: EppService,
+    private readonly eppPdfService: EppPdfService,
+  ) {}
 
   // ========== CRUD EPP (Catálogo) ==========
 
@@ -152,6 +159,26 @@ export class EppController {
     @Param('trabajadorId', ParseUUIDPipe) trabajadorId: string,
   ) {
     return this.eppService.getKardexPorTrabajador(trabajadorId);
+  }
+
+  @Get('ultimo-kardex-pdf/:trabajadorId')
+  async getUltimoKardexPdf(
+    @Param('trabajadorId', ParseUUIDPipe) trabajadorId: string,
+  ) {
+    return this.eppService.getUltimoKardexPdfUrl(trabajadorId);
+  }
+
+  @Get('registro-pdf/:solicitudId')
+  async getRegistroPdf(
+    @Param('solicitudId', ParseUUIDPipe) solicitudId: string,
+    @Res() res: Response,
+  ) {
+    const filepath = this.eppPdfService.getPdfPath(solicitudId);
+    if (!filepath) {
+      throw new NotFoundException('PDF de registro no encontrado');
+    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.sendFile(filepath);
   }
 
   @Get('kardex-list')

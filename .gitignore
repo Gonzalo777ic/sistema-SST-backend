@@ -31,6 +31,9 @@ npm-debug.log*
 coverage/
 .nyc_output/
 
+# Uploads
+uploads/
+
 # OS
 .DS_Store
 Thumbs.db

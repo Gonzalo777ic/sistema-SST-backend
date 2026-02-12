@@ -20,6 +20,12 @@ export class Empresa {
   @Column({ type: 'varchar', unique: true, length: 11 })
   ruc: string;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  direccion: string | null;
+
+  @Column({ name: 'actividad_economica', type: 'varchar', length: 500, nullable: true })
+  actividadEconomica: string | null;
+
   @Column({ name: 'logo_url', type: 'varchar', nullable: true })
   logoUrl: string | null;
 

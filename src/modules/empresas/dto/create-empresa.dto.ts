@@ -17,6 +17,14 @@ export class CreateEmpresaDto {
   ruc: string;
 
   @IsOptional()
+  @IsString()
+  direccion?: string;
+
+  @IsOptional()
+  @IsString()
+  actividad_economica?: string;
+
+  @IsOptional()
   @IsUrl()
   logoUrl?: string;
 

@@ -33,6 +33,8 @@ export class EmpresasService {
     const empresa = this.empresaRepository.create({
       nombre: dto.nombre,
       ruc: dto.ruc,
+      direccion: dto.direccion ?? null,
+      actividadEconomica: dto.actividad_economica ?? null,
       logoUrl: dto.logoUrl ?? null,
       activo: dto.activo ?? true,
     });
@@ -74,10 +76,12 @@ export class EmpresasService {
       }
     }
 
-    Object.assign(empresa, {
-      ...dto,
-      logoUrl: dto.logoUrl ?? empresa.logoUrl,
-    });
+    if (dto.nombre !== undefined) empresa.nombre = dto.nombre;
+    if (dto.ruc !== undefined) empresa.ruc = dto.ruc;
+    if (dto.direccion !== undefined) empresa.direccion = dto.direccion;
+    if (dto.actividad_economica !== undefined) empresa.actividadEconomica = dto.actividad_economica;
+    if (dto.logoUrl !== undefined) empresa.logoUrl = dto.logoUrl;
+    if (dto.activo !== undefined) empresa.activo = dto.activo;
 
     const saved = await this.empresaRepository.save(empresa);
     return ResponseEmpresaDto.fromEntity(saved);

@@ -1,0 +1,183 @@
+import { Injectable } from '@nestjs/common';
+import PDFDocument from 'pdfkit';
+import * as fs from 'fs';
+import * as path from 'path';
+import { SolicitudEPP } from './entities/solicitud-epp.entity';
+import { CategoriaEPP } from './entities/epp.entity';
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads', 'registros-epp');
+
+@Injectable()
+export class EppPdfService {
+  private ensureUploadDir(): string {
+    if (!fs.existsSync(UPLOAD_DIR)) {
+      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    }
+    return UPLOAD_DIR;
+  }
+
+  async generateRegistroEntregaPdf(solicitud: SolicitudEPP): Promise<string> {
+    const detalles = (solicitud.detalles || []).filter((d) => !d.exceptuado);
+    if (detalles.length === 0) {
+      throw new Error('No hay items entregados para generar el registro');
+    }
+
+    const empresa = solicitud.empresa as any;
+    const solicitante = solicitud.solicitante as any;
+    const entregadoPor = solicitud.entregadoPor as any;
+    const responsableNombre =
+      entregadoPor?.trabajador?.nombreCompleto ||
+      entregadoPor?.nombreCompleto ||
+      entregadoPor?.dni ||
+      'Sin asignar';
+    const areaNombre = (solicitante?.area as any)?.nombre || solicitante?.area?.nombre || '-';
+
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const filename = `registro-${solicitud.id}.pdf`;
+    const filepath = path.join(this.ensureUploadDir(), filename);
+
+    return new Promise((resolve, reject) => {
+      const stream = fs.createWriteStream(filepath);
+      doc.pipe(stream);
+
+      // Logo (izquierda) - placeholder si no hay logo
+      const logoUrl = empresa?.logoUrl;
+      if (logoUrl) {
+        // TODO: cargar imagen desde URL cuando bucket esté conectado
+      }
+      doc.fontSize(10).text('', 40, 40);
+
+      // Título (derecha)
+      doc.fontSize(12).font('Helvetica-Bold');
+      doc.text(
+        'REGISTRO DE ENTREGA DE EQUIPO DE PROTECCIÓN PERSONAL Y UNIFORME',
+        200,
+        40,
+        { width: 350, align: 'right' }
+      );
+      doc.font('Helvetica');
+
+      let y = 90;
+
+      // Datos empresa
+      doc.fontSize(9).font('Helvetica-Bold');
+      doc.text('RAZÓN SOCIAL O DENOMINACIÓN SOCIAL:', 40, y);
+      doc.font('Helvetica');
+      doc.text(empresa?.nombre || '-', 40, y + 14, { width: 250 });
+      doc.font('Helvetica-Bold');
+      doc.text('RUC:', 300, y);
+      doc.font('Helvetica');
+      doc.text(empresa?.ruc || '-', 300, y + 14);
+      y += 36;
+
+      doc.font('Helvetica-Bold');
+      doc.text('DIRECCIÓN:', 40, y);
+      doc.font('Helvetica');
+      doc.text(empresa?.direccion || '-', 40, y + 14, { width: 250 });
+      doc.font('Helvetica-Bold');
+      doc.text('ACTIVIDAD ECONÓMICA:', 300, y);
+      doc.font('Helvetica');
+      doc.text((empresa?.actividadEconomica || '-').substring(0, 40), 300, y + 14, { width: 230 });
+      y += 36;
+
+      doc.font('Helvetica-Bold');
+      doc.text('N° TRABAJADORES:', 40, y);
+      doc.font('Helvetica');
+      doc.text('-', 150, y);
+      y += 30;
+
+      // Responsable y solicitante
+      doc.font('Helvetica-Bold').fontSize(9);
+      doc.text('RESPONSABLE DE ENTREGA:', 40, y);
+      doc.font('Helvetica');
+      doc.text(responsableNombre, 40, y + 14);
+      y += 36;
+
+      doc.font('Helvetica-Bold');
+      doc.text('APELLIDOS Y NOMBRES:', 40, y);
+      doc.font('Helvetica');
+      doc.text(solicitante?.nombreCompleto || '-', 40, y + 14);
+      doc.font('Helvetica-Bold');
+      doc.text('DNI:', 300, y);
+      doc.font('Helvetica');
+      doc.text(solicitante?.documentoIdentidad || '-', 300, y + 14);
+      y += 36;
+
+      // Tabla
+      const tableTop = y + 10;
+      const colWidths = {
+        desc: 140,
+        cant: 35,
+        fecha: 55,
+        area: 60,
+        epp: 35,
+        uni: 40,
+        firmaTrab: 90,
+        firmaResp: 90,
+      };
+
+      doc.font('Helvetica-Bold').fontSize(8);
+      doc.fillColor('#e5e7eb').rect(40, tableTop, 516, 20).fill();
+      doc.strokeColor('#374151').rect(40, tableTop, 516, 20).stroke();
+      doc.fillColor('#111827');
+      doc.text('DESCRIPCIÓN', 45, tableTop + 6, { width: colWidths.desc - 10 });
+      doc.text('CANT.', 185, tableTop + 6, { width: colWidths.cant - 5 });
+      doc.text('FECHA ENTREGA', 220, tableTop + 6, { width: colWidths.fecha - 5 });
+      doc.text('ÁREA', 275, tableTop + 6, { width: colWidths.area - 5 });
+      doc.text('EPP', 335, tableTop + 6, { width: colWidths.epp - 5 });
+      doc.text('UNIF.', 370, tableTop + 6, { width: colWidths.uni - 5 });
+      doc.text('FIRMA TRABAJADOR', 410, tableTop + 6, { width: colWidths.firmaTrab - 5 });
+      doc.text('FIRMA RESPONSABLE', 500, tableTop + 6, { width: colWidths.firmaResp - 5 });
+      doc.font('Helvetica').fillColor('#000000');
+
+      let rowY = tableTop + 28;
+      const rowHeight = 50;
+      const fechaEntrega = solicitud.fechaEntrega
+        ? new Date(solicitud.fechaEntrega)
+        : new Date();
+      const fechaStr = fechaEntrega.toLocaleDateString('es-PE');
+
+      for (const det of detalles) {
+        const epp = det.epp as any;
+        const desc = `${epp?.nombre || '-'}${epp?.descripcion ? `, ${epp.descripcion}` : ''}`.substring(0, 45);
+        const esEpp = epp?.categoria === CategoriaEPP.EPP;
+        const codigo = det.codigoAuditoria || det.id?.substring(0, 8) || '-';
+        const horaStr = det.fechaHoraEntrega
+          ? new Date(det.fechaHoraEntrega).toLocaleString('es-PE', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : fechaStr;
+
+        doc.rect(40, rowY, 516, rowHeight).stroke();
+        doc.fontSize(8);
+        doc.text(desc, 45, rowY + 4, { width: colWidths.desc - 10 });
+        doc.text(String(det.cantidad), 185, rowY + 4);
+        doc.text(fechaStr, 220, rowY + 4);
+        doc.text(areaNombre, 275, rowY + 4, { width: colWidths.area - 5 });
+        doc.text(esEpp ? 'X' : '', 335, rowY + 4);
+        doc.text(!esEpp ? 'X' : '', 370, rowY + 4);
+        doc.fontSize(7).fillColor('#6b7280');
+        doc.text(`${horaStr} - ${codigo}`, 410, rowY + 35, { width: colWidths.firmaTrab - 10 });
+        doc.fillColor('#000000');
+        rowY += rowHeight;
+      }
+
+      doc.end();
+
+      stream.on('finish', () => {
+        resolve(filename);
+      });
+      stream.on('error', reject);
+    });
+  }
+
+  getPdfPath(solicitudId: string): string | null {
+    const filename = `registro-${solicitudId}.pdf`;
+    const filepath = path.join(UPLOAD_DIR, filename);
+    return fs.existsSync(filepath) ? filepath : null;
+  }
+}
