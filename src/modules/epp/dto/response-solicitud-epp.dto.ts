@@ -7,6 +7,7 @@ export class ResponseSolicitudEppDetalleDto {
   epp_tipo_proteccion: string;
   epp_descripcion: string | null;
   epp_vigencia: string | null;
+  epp_categoria_criticidad: string | null;
   epp_imagen_url: string | null;
   cantidad: number;
   exceptuado: boolean;
@@ -111,6 +112,7 @@ export class ResponseSolicitudEppDto {
         epp_tipo_proteccion: detalle.epp?.tipoProteccion || '',
         epp_descripcion: detalle.epp?.descripcion || null,
         epp_vigencia: detalle.epp?.vigencia || null,
+        epp_categoria_criticidad: detalle.epp?.categoriaCriticidad || null,
         epp_imagen_url: detalle.epp?.imagenUrl || null,
         cantidad: detalle.cantidad,
         exceptuado: detalle.exceptuado ?? false,

@@ -1,4 +1,4 @@
-import { TipoProteccionEPP, CategoriaEPP, VigenciaEPP } from '../entities/epp.entity';
+import { TipoProteccionEPP, CategoriaEPP, VigenciaEPP, CategoriaCriticidadEPP } from '../entities/epp.entity';
 
 export class ResponseEppDto {
   id: string;
@@ -8,6 +8,8 @@ export class ResponseEppDto {
   descripcion: string | null;
   imagen_url: string | null;
   vigencia: VigenciaEPP | null;
+  costo: number | null;
+  categoria_criticidad: CategoriaCriticidadEPP | null;
   adjunto_pdf_url: string | null;
   stock: number;
   empresa_id: string;
@@ -23,6 +25,8 @@ export class ResponseEppDto {
     dto.descripcion = epp.descripcion;
     dto.imagen_url = epp.imagenUrl;
     dto.vigencia = epp.vigencia;
+    dto.costo = epp.costo != null ? Number(epp.costo) : null;
+    dto.categoria_criticidad = epp.categoriaCriticidad;
     dto.adjunto_pdf_url = epp.adjuntoPdfUrl;
     dto.stock = epp.stock;
     dto.empresa_id = epp.empresaId;

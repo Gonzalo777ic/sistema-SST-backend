@@ -20,6 +20,7 @@ import { CreateEppDto } from './dto/create-epp.dto';
 import { UpdateEppDto } from './dto/update-epp.dto';
 import { ResponseEppDto } from './dto/response-epp.dto';
 import { EstadoSolicitudEPP } from './entities/solicitud-epp.entity';
+import { EstadoVigenciaKardex } from './dto/response-kardex-list.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -151,5 +152,30 @@ export class EppController {
     @Param('trabajadorId', ParseUUIDPipe) trabajadorId: string,
   ) {
     return this.eppService.getKardexPorTrabajador(trabajadorId);
+  }
+
+  @Get('kardex-list')
+  async getKardexList(
+    @Query('empresa_ids') empresaIds?: string,
+    @Query('nombre') nombre?: string,
+    @Query('estado') estado?: EstadoVigenciaKardex,
+    @Query('categoria') categoria?: string,
+    @Query('unidad') unidad?: string,
+    @Query('sede') sede?: string,
+    @Query('area_id') areaId?: string,
+    @Query('fecha_desde') fechaDesde?: string,
+    @Query('fecha_hasta') fechaHasta?: string,
+  ) {
+    const ids = empresaIds ? empresaIds.split(',').filter(Boolean) : undefined;
+    return this.eppService.getKardexList(ids, {
+      nombre,
+      estado,
+      categoria,
+      unidad,
+      sede,
+      area_id: areaId,
+      fecha_desde: fechaDesde,
+      fecha_hasta: fechaHasta,
+    });
   }
 }

@@ -10,7 +10,7 @@ import {
   EstadoSolicitudEPP,
 } from './entities/solicitud-epp.entity';
 import { SolicitudEPPDetalle } from './entities/solicitud-epp-detalle.entity';
-import { EPP } from './entities/epp.entity';
+import { EPP, CategoriaCriticidadEPP, VigenciaEPP } from './entities/epp.entity';
 import { CreateSolicitudEppDto } from './dto/create-solicitud-epp.dto';
 import { UpdateSolicitudEppDto } from './dto/update-solicitud-epp.dto';
 import { ResponseSolicitudEppDto } from './dto/response-solicitud-epp.dto';
@@ -19,7 +19,32 @@ import { UpdateEppDto } from './dto/update-epp.dto';
 import { ResponseEppDto } from './dto/response-epp.dto';
 import { CategoriaEPP } from './entities/epp.entity';
 import { ResponseKardexDto } from './dto/response-kardex.dto';
+import {
+  ResponseKardexListItemDto,
+  EstadoVigenciaKardex,
+} from './dto/response-kardex-list.dto';
 import { Trabajador } from '../trabajadores/entities/trabajador.entity';
+import { ConfigEppService } from '../config-epp/config-epp.service';
+
+function vigenciaToMonths(vigencia: VigenciaEPP | null): number {
+  if (!vigencia) return 0;
+  const map: Record<string, number> = {
+    '1 mes': 1,
+    '2 meses': 2,
+    '3 meses': 3,
+    '4 meses': 4,
+    '5 meses': 5,
+    '6 meses': 6,
+    '7 meses': 7,
+    '8 meses': 8,
+    '9 meses': 9,
+    '10 meses': 10,
+    '11 meses': 11,
+    '1 año': 12,
+    '2 años': 24,
+  };
+  return map[vigencia] ?? 0;
+}
 
 @Injectable()
 export class EppService {
@@ -32,6 +57,7 @@ export class EppService {
     private readonly eppRepository: Repository<EPP>,
     @InjectRepository(Trabajador)
     private readonly trabajadorRepository: Repository<Trabajador>,
+    private readonly configEppService: ConfigEppService,
   ) {}
 
   // ========== CRUD EPP (Catálogo) ==========
@@ -44,6 +70,8 @@ export class EppService {
       descripcion: dto.descripcion ?? null,
       imagenUrl: dto.imagen_url ?? null,
       vigencia: dto.vigencia ?? null,
+      costo: dto.costo ?? null,
+      categoriaCriticidad: dto.categoria_criticidad ?? null,
       adjuntoPdfUrl: dto.adjunto_pdf_url ?? null,
       stock: dto.stock ?? 0,
       empresaId: dto.empresa_id,
@@ -87,6 +115,8 @@ export class EppService {
     if (dto.descripcion !== undefined) epp.descripcion = dto.descripcion ?? null;
     if (dto.imagen_url !== undefined) epp.imagenUrl = dto.imagen_url ?? null;
     if (dto.vigencia !== undefined) epp.vigencia = dto.vigencia ?? null;
+    if (dto.costo !== undefined) epp.costo = dto.costo ?? null;
+    if (dto.categoria_criticidad !== undefined) epp.categoriaCriticidad = dto.categoria_criticidad ?? null;
     if (dto.adjunto_pdf_url !== undefined) epp.adjuntoPdfUrl = dto.adjunto_pdf_url ?? null;
     if (dto.stock !== undefined) epp.stock = dto.stock ?? 0;
 
@@ -478,5 +508,143 @@ export class EppService {
       trabajador,
       solicitudes,
     });
+  }
+
+  async getKardexList(
+    empresaIds?: string[],
+    filters?: {
+      nombre?: string;
+      estado?: EstadoVigenciaKardex;
+      categoria?: string;
+      unidad?: string;
+      sede?: string;
+      area_id?: string;
+      fecha_desde?: string;
+      fecha_hasta?: string;
+    },
+  ): Promise<ResponseKardexListItemDto[]> {
+    const qb = this.solicitudRepository
+      .createQueryBuilder('s')
+      .innerJoinAndSelect('s.solicitante', 't')
+      .leftJoinAndSelect('t.area', 'area')
+      .leftJoinAndSelect('t.empresa', 'empresa')
+      .leftJoinAndSelect('s.detalles', 'det')
+      .leftJoinAndSelect('det.epp', 'epp')
+      .where('s.estado = :estado', { estado: EstadoSolicitudEPP.Entregada })
+      .andWhere('s.fecha_entrega IS NOT NULL');
+
+    if (empresaIds && empresaIds.length > 0) {
+      qb.andWhere('s.empresa_id IN (:...empresaIds)', { empresaIds });
+    }
+    if (filters?.fecha_desde) {
+      qb.andWhere('s.fecha_entrega >= :fechaDesde', {
+        fechaDesde: filters.fecha_desde,
+      });
+    }
+    if (filters?.fecha_hasta) {
+      qb.andWhere('s.fecha_entrega <= :fechaHasta', {
+        fechaHasta: filters.fecha_hasta,
+      });
+    }
+    if (filters?.unidad) {
+      qb.andWhere('t.unidad = :unidad', { unidad: filters.unidad });
+    }
+    if (filters?.sede) {
+      qb.andWhere('t.sede = :sede', { sede: filters.sede });
+    }
+    if (filters?.area_id) {
+      qb.andWhere('t.area_id = :areaId', { areaId: filters.area_id });
+    }
+    if (filters?.nombre) {
+      qb.andWhere('LOWER(t.nombre_completo) LIKE LOWER(:nombre)', {
+        nombre: `%${filters.nombre}%`,
+      });
+    }
+
+    qb.orderBy('s.fecha_entrega', 'DESC');
+
+    const solicitudes = await qb.getMany();
+
+    const byTrabajador = new Map<string, SolicitudEPP>();
+    for (const s of solicitudes) {
+      const tid = s.solicitanteId;
+      if (!byTrabajador.has(tid)) {
+        byTrabajador.set(tid, s);
+      }
+    }
+
+    const now = new Date();
+    const result: ResponseKardexListItemDto[] = [];
+
+    for (const [, solicitud] of byTrabajador) {
+      const t = solicitud.solicitante as any;
+      const emp = t?.empresa;
+      const area = t?.area;
+
+      let estado = EstadoVigenciaKardex.SinRegistro;
+      let coreVencido = false;
+      let recurrenteVencido = false;
+      let categoriaPrimera: string | null = null;
+
+      for (const det of solicitud.detalles || []) {
+        if (det.exceptuado) continue;
+        const epp = det.epp as any;
+        if (!epp) continue;
+
+        const vigenciaMeses = vigenciaToMonths(epp.vigencia);
+        const fechaEntrega = solicitud.fechaEntrega
+          ? new Date(solicitud.fechaEntrega)
+          : null;
+        if (!fechaEntrega || vigenciaMeses === 0) continue;
+
+        const vencimiento = new Date(fechaEntrega);
+        vencimiento.setMonth(vencimiento.getMonth() + vigenciaMeses);
+        const vencido = now > vencimiento;
+
+        const criticidad = epp.categoriaCriticidad;
+        if (!categoriaPrimera) categoriaPrimera = epp.categoria;
+
+        if (criticidad === CategoriaCriticidadEPP.Core) {
+          if (vencido) coreVencido = true;
+        } else if (criticidad === CategoriaCriticidadEPP.Recurrente) {
+          if (vencido) recurrenteVencido = true;
+        } else {
+          if (vencido) recurrenteVencido = true;
+        }
+      }
+
+      if (coreVencido) {
+        estado = EstadoVigenciaKardex.Vencido;
+      } else if (recurrenteVencido) {
+        estado = EstadoVigenciaKardex.VencimientoMenor;
+      } else if (solicitud.detalles?.some((d) => !d.exceptuado)) {
+        estado = EstadoVigenciaKardex.Vigente;
+      }
+
+      if (filters?.estado && estado !== filters.estado) continue;
+      if (filters?.categoria && categoriaPrimera !== filters.categoria) continue;
+
+      result.push({
+        trabajador_id: t?.id ?? solicitud.solicitanteId,
+        trabajador_nombre: t?.nombreCompleto ?? 'Sin nombre',
+        razon_social: emp?.nombre ?? null,
+        unidad: t?.unidad ?? null,
+        area: area?.nombre ?? null,
+        sede: t?.sede ?? null,
+        fecha_entrega: solicitud.fechaEntrega
+          ? new Date(solicitud.fechaEntrega).toISOString()
+          : null,
+        estado,
+        categoria_filtro: categoriaPrimera,
+      });
+    }
+
+    result.sort((a, b) => {
+      const dA = a.fecha_entrega ? new Date(a.fecha_entrega).getTime() : 0;
+      const dB = b.fecha_entrega ? new Date(b.fecha_entrega).getTime() : 0;
+      return dB - dA;
+    });
+
+    return result;
   }
 }

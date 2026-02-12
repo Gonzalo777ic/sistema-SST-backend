@@ -6,8 +6,9 @@ import {
   IsInt,
   Min,
   IsUrl,
+  IsNumber,
 } from 'class-validator';
-import { TipoProteccionEPP, CategoriaEPP, VigenciaEPP } from '../entities/epp.entity';
+import { TipoProteccionEPP, CategoriaEPP, VigenciaEPP, CategoriaCriticidadEPP } from '../entities/epp.entity';
 
 export class CreateEppDto {
   @IsString()
@@ -31,6 +32,15 @@ export class CreateEppDto {
   @IsOptional()
   @IsEnum(VigenciaEPP)
   vigencia?: VigenciaEPP;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  costo?: number;
+
+  @IsOptional()
+  @IsEnum(CategoriaCriticidadEPP)
+  categoria_criticidad?: CategoriaCriticidadEPP;
 
   @IsOptional()
   @IsUrl({}, { message: 'Debe ser una URL válida' })

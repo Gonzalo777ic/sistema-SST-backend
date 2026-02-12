@@ -28,6 +28,11 @@ export enum CategoriaEPP {
   Uniforme = 'Uniforme',
 }
 
+export enum CategoriaCriticidadEPP {
+  Core = 'Core',
+  Recurrente = 'Recurrente',
+}
+
 export enum VigenciaEPP {
   UnMes = '1 mes',
   DosMeses = '2 meses',
@@ -79,6 +84,17 @@ export class EPP {
     nullable: true,
   })
   vigencia: VigenciaEPP | null;
+
+  @Column({ name: 'costo', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  costo: number | null;
+
+  @Column({
+    name: 'categoria_criticidad',
+    type: 'enum',
+    enum: CategoriaCriticidadEPP,
+    nullable: true,
+  })
+  categoriaCriticidad: CategoriaCriticidadEPP | null;
 
   @Column({ name: 'adjunto_pdf_url', type: 'text', nullable: true })
   adjuntoPdfUrl: string | null;
