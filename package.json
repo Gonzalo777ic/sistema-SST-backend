@@ -21,6 +21,7 @@
     "cleanup:users-trabajadores": "ts-node -r tsconfig-paths/register scripts/cleanup-users-trabajadores.ts"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.19.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.0.1",
@@ -50,6 +51,7 @@
     "@nestjs/testing": "^11.0.1",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
+    "@types/multer": "^2.0.0",
     "@types/node": "^22.10.7",
     "@types/pdfkit": "^0.17.5",
     "@types/supertest": "^6.0.2",

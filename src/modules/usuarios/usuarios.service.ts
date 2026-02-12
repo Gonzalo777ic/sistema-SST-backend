@@ -13,13 +13,16 @@ import * as bcrypt from 'bcrypt';
 import { Usuario, AuthProvider, UsuarioRol } from './entities/usuario.entity';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
+import { UpdatePerfilAdminDto } from './dto/update-perfil-admin.dto';
 import { ResponseUsuarioDto } from './dto/response-usuario.dto';
+import { StorageService } from '../../common/services/storage.service';
 
 @Injectable()
 export class UsuariosService {
   constructor(
     @InjectRepository(Usuario)
     private readonly usuarioRepository: Repository<Usuario>,
+    private readonly storageService: StorageService,
   ) {}
 
   async create(
@@ -362,6 +365,60 @@ export class UsuariosService {
   async updateUltimoAcceso(id: string): Promise<void> {
     await this.usuarioRepository.update(id, {
       ultimoAcceso: new Date(),
+    });
+  }
+
+  /**
+   * Actualiza el perfil de un usuario ADMIN/SUPER_ADMIN (sin trabajador vinculado).
+   * Campos opcionales: nombres, apellidos, dni, firma. Marca perfilCompletado = true.
+   */
+  async updatePerfilAdmin(
+    usuarioId: string,
+    dto: UpdatePerfilAdminDto,
+  ): Promise<ResponseUsuarioDto> {
+    const usuario = await this.usuarioRepository.findOne({
+      where: { id: usuarioId },
+      relations: ['trabajador', 'empresa'],
+    });
+
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (dto.nombres !== undefined) usuario.nombres = dto.nombres;
+    if (dto.apellido_paterno !== undefined) usuario.apellidoPaterno = dto.apellido_paterno;
+    if (dto.apellido_materno !== undefined) usuario.apellidoMaterno = dto.apellido_materno;
+    if (dto.dni !== undefined) usuario.dni = dto.dni;
+
+    if (dto.firma_base64) {
+      const base64Data = dto.firma_base64.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      const rucEmpresa = (usuario.empresa as any)?.ruc ?? 'sistema';
+      const url = await this.storageService.uploadFile(
+        rucEmpresa,
+        buffer,
+        'firma_usuario',
+        { filename: `firma-${usuarioId}.png` },
+      );
+      usuario.firmaUrl = url;
+    }
+
+    usuario.perfilCompletado = true;
+
+    await this.usuarioRepository.save(usuario);
+
+    const reloaded = await this.usuarioRepository.findOne({
+      where: { id: usuarioId },
+      relations: ['trabajador'],
+    });
+
+    if (!reloaded) {
+      throw new NotFoundException('Usuario no encontrado después de actualizar');
+    }
+
+    return ResponseUsuarioDto.fromEntity({
+      ...reloaded,
+      roles: reloaded.roles as typeof reloaded.roles,
     });
   }
 }

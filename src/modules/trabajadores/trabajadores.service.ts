@@ -10,6 +10,7 @@ import { Usuario } from '../usuarios/entities/usuario.entity';
 import { CreateTrabajadorDto } from './dto/create-trabajador.dto';
 import { UpdateTrabajadorDto, UpdatePersonalDataDto } from './dto/update-trabajador.dto';
 import { ResponseTrabajadorDto } from './dto/response-trabajador.dto';
+import { StorageService } from '../../common/services/storage.service';
 
 @Injectable()
 export class TrabajadoresService {
@@ -18,6 +19,7 @@ export class TrabajadoresService {
     private readonly trabajadorRepository: Repository<Trabajador>,
     @InjectRepository(Usuario)
     private readonly usuarioRepository: Repository<Usuario>,
+    private readonly storageService: StorageService,
   ) {}
 
   private buildNombreCompleto(
@@ -267,6 +269,7 @@ export class TrabajadoresService {
   ): Promise<ResponseTrabajadorDto> {
     const trabajador = await this.trabajadorRepository.findOne({
       where: { id },
+      relations: ['empresa'],
       withDeleted: false,
     });
 
@@ -274,12 +277,34 @@ export class TrabajadoresService {
       throw new NotFoundException(`Trabajador con ID ${id} no encontrado`);
     }
 
+    let firmaUrl = trabajador.firmaDigitalUrl;
+    if (dto.firma_digital_url !== undefined) {
+      if (dto.firma_digital_url !== '' && dto.firma_digital_url.startsWith('data:image/')) {
+        if (this.storageService.isAvailable()) {
+          const base64Data = dto.firma_digital_url.replace(/^data:image\/\w+;base64,/, '');
+          const buffer = Buffer.from(base64Data, 'base64');
+          const empresa = trabajador.empresa as any;
+          const rucEmpresa = empresa?.ruc ?? 'sistema';
+          firmaUrl = await this.storageService.uploadFile(
+            rucEmpresa,
+            buffer,
+            'firma_trabajador',
+            { filename: `firma-${id}.png` },
+          );
+        } else {
+          firmaUrl = dto.firma_digital_url;
+        }
+      } else if (dto.firma_digital_url === '') {
+        firmaUrl = null;
+      }
+    }
+
     Object.assign(trabajador, {
       tallaCasco: dto.talla_casco !== undefined ? dto.talla_casco : trabajador.tallaCasco,
       tallaCamisa: dto.talla_camisa !== undefined ? dto.talla_camisa : trabajador.tallaCamisa,
       tallaPantalon: dto.talla_pantalon !== undefined ? dto.talla_pantalon : trabajador.tallaPantalon,
       tallaCalzado: dto.talla_calzado !== undefined ? parseInt(dto.talla_calzado) : trabajador.tallaCalzado,
-      firmaDigitalUrl: dto.firma_digital_url !== undefined ? dto.firma_digital_url : trabajador.firmaDigitalUrl,
+      firmaDigitalUrl: firmaUrl,
       perfilCompletado: true,
     });
 

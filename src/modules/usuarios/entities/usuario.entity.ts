@@ -37,6 +37,21 @@ export class Usuario {
   @Column({ type: 'varchar', length: 8, unique: true })
   dni: string;
 
+  @Column({ name: 'nombres', type: 'varchar', length: 200, nullable: true })
+  nombres: string | null;
+
+  @Column({ name: 'apellido_paterno', type: 'varchar', length: 100, nullable: true })
+  apellidoPaterno: string | null;
+
+  @Column({ name: 'apellido_materno', type: 'varchar', length: 100, nullable: true })
+  apellidoMaterno: string | null;
+
+  @Column({ name: 'firma_url', type: 'text', nullable: true })
+  firmaUrl: string | null;
+
+  @Column({ name: 'perfil_completado', type: 'boolean', default: false })
+  perfilCompletado: boolean;
+
   @Column({ type: 'varchar', nullable: true, unique: true })
   email: string | null;
 

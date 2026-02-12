@@ -26,6 +26,7 @@ import {
 import { Trabajador } from '../trabajadores/entities/trabajador.entity';
 import { ConfigEppService } from '../config-epp/config-epp.service';
 import { EppPdfService } from './epp-pdf.service';
+import { StorageService } from '../../common/services/storage.service';
 
 function vigenciaToMonths(vigencia: VigenciaEPP | null): number {
   if (!vigencia) return 0;
@@ -60,6 +61,7 @@ export class EppService {
     private readonly trabajadorRepository: Repository<Trabajador>,
     private readonly configEppService: ConfigEppService,
     private readonly eppPdfService: EppPdfService,
+    private readonly storageService: StorageService,
   ) {}
 
   // ========== CRUD EPP (Catálogo) ==========
@@ -474,8 +476,20 @@ export class EppService {
         }
 
         try {
-          const filename = await this.eppPdfService.generateRegistroEntregaPdf(solicitudConDetalles);
-          solicitud.registroEntregaPdfUrl = `/epp/registro-pdf/${solicitud.id}`;
+          const { buffer } = await this.eppPdfService.generateRegistroEntregaPdf(solicitudConDetalles);
+          const empresa = solicitudConDetalles.empresa as any;
+          const rucEmpresa = empresa?.ruc ?? 'sistema';
+          if (this.storageService.isAvailable()) {
+            solicitud.registroEntregaPdfUrl = await this.storageService.uploadFile(
+              rucEmpresa,
+              buffer,
+              'pdf_entrega',
+              { filename: `registro-${solicitud.id}.pdf` },
+            );
+          } else {
+            this.eppPdfService.saveBufferToDisk(solicitud.id, buffer);
+            solicitud.registroEntregaPdfUrl = `/epp/registro-pdf/${solicitud.id}`;
+          }
         } catch (err) {
           console.error('Error generando PDF de registro:', err);
         }

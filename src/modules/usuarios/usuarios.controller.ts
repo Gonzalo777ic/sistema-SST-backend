@@ -12,6 +12,7 @@ import {
 import { UsuariosService } from './usuarios.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
+import { UpdatePerfilAdminDto } from './dto/update-perfil-admin.dto';
 import { ResponseUsuarioDto } from './dto/response-usuario.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -89,6 +90,14 @@ export class UsuariosController {
     }
     
     return this.usuariosService.findOne(id);
+  }
+
+  @Patch('me/perfil-admin')
+  async updatePerfilAdmin(
+    @Body() dto: UpdatePerfilAdminDto,
+    @CurrentUser() currentUser: { id: string; dni: string; roles: UsuarioRol[] },
+  ): Promise<ResponseUsuarioDto> {
+    return this.usuariosService.updatePerfilAdmin(currentUser.id, dto);
   }
 
   @Patch(':id')

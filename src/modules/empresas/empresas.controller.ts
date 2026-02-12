@@ -7,7 +7,11 @@ import {
   Body,
   Param,
   ParseUUIDPipe,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { EmpresasService } from './empresas.service';
 import { CreateEmpresaDto } from './dto/create-empresa.dto';
 import { UpdateEmpresaDto } from './dto/update-empresa.dto';
@@ -17,6 +21,22 @@ import { CreateAreaDto } from './dto/create-area.dto';
 @Controller('empresas')
 export class EmpresasController {
   constructor(private readonly empresasService: EmpresasService) {}
+
+  @Post('upload-logo')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadLogo(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('ruc') ruc: string,
+  ): Promise<{ url: string }> {
+    if (!file) {
+      throw new BadRequestException('Debe seleccionar un archivo de imagen');
+    }
+    if (!ruc || ruc.length !== 11 || !/^\d{11}$/.test(ruc)) {
+      throw new BadRequestException('El RUC debe tener 11 dígitos numéricos');
+    }
+    const url = await this.empresasService.uploadLogo(ruc, file.buffer, file.mimetype);
+    return { url };
+  }
 
   @Post()
   async create(@Body() dto: CreateEmpresaDto): Promise<ResponseEmpresaDto> {

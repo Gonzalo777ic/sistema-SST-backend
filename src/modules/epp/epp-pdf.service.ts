@@ -7,6 +7,11 @@ import { CategoriaEPP } from './entities/epp.entity';
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads', 'registros-epp');
 
+export interface PdfResult {
+  buffer: Buffer;
+  hashAuditoria: string;
+}
+
 @Injectable()
 export class EppPdfService {
   private ensureUploadDir(): string {
@@ -16,7 +21,18 @@ export class EppPdfService {
     return UPLOAD_DIR;
   }
 
-  async generateRegistroEntregaPdf(solicitud: SolicitudEPP): Promise<string> {
+  /**
+   * Hash de auditoría: últimos 7 caracteres alfanuméricos del UUID (sin guiones).
+   */
+  static getHashAuditoria(solicitudId: string): string {
+    return solicitudId.replace(/-/g, '').slice(-7);
+  }
+
+  /**
+   * Genera el PDF de registro de entrega en memoria (buffer).
+   * Incluye hash de auditoría junto a fecha y hora de entrega.
+   */
+  async generateRegistroEntregaPdf(solicitud: SolicitudEPP): Promise<PdfResult> {
     const detalles = (solicitud.detalles || []).filter((d) => !d.exceptuado);
     if (detalles.length === 0) {
       throw new Error('No hay items entregados para generar el registro');
@@ -25,29 +41,32 @@ export class EppPdfService {
     const empresa = solicitud.empresa as any;
     const solicitante = solicitud.solicitante as any;
     const entregadoPor = solicitud.entregadoPor as any;
+
     const responsableNombre =
       entregadoPor?.trabajador?.nombreCompleto ||
-      entregadoPor?.nombreCompleto ||
+      [entregadoPor?.nombres, entregadoPor?.apellidoPaterno, entregadoPor?.apellidoMaterno]
+        .filter(Boolean)
+        .join(' ')
+        .trim() ||
       entregadoPor?.dni ||
       'Sin asignar';
+
     const areaNombre = (solicitante?.area as any)?.nombre || solicitante?.area?.nombre || '-';
+    const fechaEntrega = solicitud.fechaEntrega ? new Date(solicitud.fechaEntrega) : new Date();
+    const hashAuditoria = EppPdfService.getHashAuditoria(solicitud.id);
 
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
-    const filename = `registro-${solicitud.id}.pdf`;
-    const filepath = path.join(this.ensureUploadDir(), filename);
+    const chunks: Buffer[] = [];
+    doc.on('data', (chunk) => chunks.push(chunk));
 
     return new Promise((resolve, reject) => {
-      const stream = fs.createWriteStream(filepath);
-      doc.pipe(stream);
+      doc.on('end', () => {
+        resolve({ buffer: Buffer.concat(chunks), hashAuditoria });
+      });
+      doc.on('error', reject);
 
-      // Logo (izquierda) - placeholder si no hay logo
-      const logoUrl = empresa?.logoUrl;
-      if (logoUrl) {
-        // TODO: cargar imagen desde URL cuando bucket esté conectado
-      }
       doc.fontSize(10).text('', 40, 40);
 
-      // Título (derecha)
       doc.fontSize(12).font('Helvetica-Bold');
       doc.text(
         'REGISTRO DE ENTREGA DE EQUIPO DE PROTECCIÓN PERSONAL Y UNIFORME',
@@ -59,7 +78,6 @@ export class EppPdfService {
 
       let y = 90;
 
-      // Datos empresa
       doc.fontSize(9).font('Helvetica-Bold');
       doc.text('RAZÓN SOCIAL O DENOMINACIÓN SOCIAL:', 40, y);
       doc.font('Helvetica');
@@ -86,7 +104,6 @@ export class EppPdfService {
       doc.text('-', 150, y);
       y += 30;
 
-      // Responsable y solicitante
       doc.font('Helvetica-Bold').fontSize(9);
       doc.text('RESPONSABLE DE ENTREGA:', 40, y);
       doc.font('Helvetica');
@@ -103,7 +120,6 @@ export class EppPdfService {
       doc.text(solicitante?.documentoIdentidad || '-', 300, y + 14);
       y += 36;
 
-      // Tabla
       const tableTop = y + 10;
       const colWidths = {
         desc: 140,
@@ -132,10 +148,22 @@ export class EppPdfService {
 
       let rowY = tableTop + 28;
       const rowHeight = 50;
-      const fechaEntrega = solicitud.fechaEntrega
-        ? new Date(solicitud.fechaEntrega)
-        : new Date();
       const fechaStr = fechaEntrega.toLocaleDateString('es-PE');
+      const fechaHoraStr = fechaEntrega.toLocaleString('es-PE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      doc.fontSize(8).fillColor('#6b7280');
+      doc.text(
+        `Registro de auditoría: ${fechaHoraStr} - Hash: ${hashAuditoria}`,
+        40,
+        tableTop - 8,
+      );
+      doc.fillColor('#000000');
 
       for (const det of detalles) {
         const epp = det.epp as any;
@@ -167,17 +195,21 @@ export class EppPdfService {
       }
 
       doc.end();
-
-      stream.on('finish', () => {
-        resolve(filename);
-      });
-      stream.on('error', reject);
     });
   }
 
   getPdfPath(solicitudId: string): string | null {
     const filename = `registro-${solicitudId}.pdf`;
-    const filepath = path.join(UPLOAD_DIR, filename);
+    const filepath = path.join(this.ensureUploadDir(), filename);
     return fs.existsSync(filepath) ? filepath : null;
+  }
+
+  /** Guarda el buffer en disco (fallback cuando GCS no está disponible). */
+  saveBufferToDisk(solicitudId: string, buffer: Buffer): string {
+    const dir = this.ensureUploadDir();
+    const filename = `registro-${solicitudId}.pdf`;
+    const filepath = path.join(dir, filename);
+    fs.writeFileSync(filepath, buffer);
+    return filepath;
   }
 }
