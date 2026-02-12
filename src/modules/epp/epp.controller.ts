@@ -37,8 +37,10 @@ export class EppController {
   @Get('catalogo')
   async findAllEpp(
     @Query('empresa_id') empresaId?: string,
+    @Query('empresa_ids') empresaIds?: string,
   ): Promise<ResponseEppDto[]> {
-    return this.eppService.findAllEpp(empresaId);
+    const ids = empresaIds ? empresaIds.split(',').filter(Boolean) : undefined;
+    return this.eppService.findAllEpp(empresaId, ids);
   }
 
   @Get('catalogo/:id')
@@ -95,6 +97,14 @@ export class EppController {
     @Body() dto: UpdateSolicitudEppDto,
   ): Promise<ResponseSolicitudEppDto> {
     return this.eppService.update(id, dto);
+  }
+
+  @Patch('solicitudes/:id/detalle/:detalleId/exceptuar')
+  async toggleExceptuar(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('detalleId', ParseUUIDPipe) detalleId: string,
+  ): Promise<ResponseSolicitudEppDto> {
+    return this.eppService.toggleExceptuar(id, detalleId);
   }
 
   @Patch('solicitudes/:id/estado')

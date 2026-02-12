@@ -17,9 +17,10 @@ import { SolicitudEPPDetalle } from './solicitud-epp-detalle.entity';
 
 export enum EstadoSolicitudEPP {
   Pendiente = 'PENDIENTE',
+  Observada = 'OBSERVADA',
   Aprobada = 'APROBADA',
   Entregada = 'ENTREGADA',
-  Observada = 'OBSERVADA',
+  Rechazada = 'RECHAZADA',
 }
 
 @Entity('solicitudes_epp')

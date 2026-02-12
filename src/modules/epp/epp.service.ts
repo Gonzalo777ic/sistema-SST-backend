@@ -53,17 +53,14 @@ export class EppService {
     return ResponseEppDto.fromEntity(saved);
   }
 
-  async findAllEpp(empresaId?: string): Promise<ResponseEppDto[]> {
-    const where: any = {};
-    if (empresaId) {
-      where.empresaId = empresaId;
+  async findAllEpp(empresaId?: string, empresaIds?: string[]): Promise<ResponseEppDto[]> {
+    const qb = this.eppRepository.createQueryBuilder('e').orderBy('e.nombre', 'ASC');
+    if (empresaIds && empresaIds.length > 0) {
+      qb.andWhere('e.empresaId IN (:...empresaIds)', { empresaIds });
+    } else if (empresaId) {
+      qb.andWhere('e.empresaId = :empresaId', { empresaId });
     }
-
-    const epps = await this.eppRepository.find({
-      where,
-      order: { nombre: 'ASC' },
-    });
-
+    const epps = await qb.getMany();
     return epps.map((e) => ResponseEppDto.fromEntity(e));
   }
 
@@ -189,9 +186,13 @@ export class EppService {
       where: { id },
       relations: [
         'usuarioEpp',
+        'usuarioEpp.trabajador',
         'solicitante',
+        'solicitante.area',
         'supervisorAprobador',
+        'supervisorAprobador.trabajador',
         'entregadoPor',
+        'entregadoPor.trabajador',
         'area',
         'empresa',
         'detalles',
@@ -219,7 +220,24 @@ export class EppService {
       throw new NotFoundException(`Solicitud EPP con ID ${id} no encontrada`);
     }
 
-    // Actualizar campos básicos
+    const estadosInmutables = [
+      EstadoSolicitudEPP.Aprobada,
+      EstadoSolicitudEPP.Entregada,
+      EstadoSolicitudEPP.Rechazada,
+    ];
+    if (estadosInmutables.includes(solicitud.estado)) {
+      throw new BadRequestException(
+        `No se puede modificar una solicitud en estado ${solicitud.estado}. Es un estado de auditoría.`,
+      );
+    }
+
+    if (solicitud.estado === EstadoSolicitudEPP.Pendiente) {
+      throw new BadRequestException(
+        'No se puede modificar una solicitud en estado PENDIENTE. Cambie a OBSERVADA para realizar ajustes.',
+      );
+    }
+
+    // Actualizar campos básicos (solo permitido en Observada)
     if (dto.motivo !== undefined) solicitud.motivo = dto.motivo;
     if (dto.centro_costos !== undefined) solicitud.centroCostos = dto.centro_costos;
     if (dto.comentarios !== undefined) solicitud.comentarios = dto.comentarios;
@@ -261,26 +279,47 @@ export class EppService {
       }
     }
 
-    // Actualizar detalles si se proporcionan
-    if (dto.detalles && dto.detalles.length > 0) {
-      // Eliminar detalles existentes
-      await this.detalleRepository.delete({ solicitudEppId: id });
-
-      // Crear nuevos detalles
-      const nuevosDetalles = dto.detalles.map((detalleDto) =>
-        this.detalleRepository.create({
-          solicitudEppId: id,
-          eppId: detalleDto.epp_id,
-          cantidad: detalleDto.cantidad,
-        }),
-      );
-
-      await this.detalleRepository.save(nuevosDetalles);
-    }
-
     await this.solicitudRepository.save(solicitud);
     return this.findOne(id);
   }
+
+  async toggleExceptuar(
+    solicitudId: string,
+    detalleId: string,
+  ): Promise<ResponseSolicitudEppDto> {
+    const solicitud = await this.solicitudRepository.findOne({
+      where: { id: solicitudId },
+      relations: ['detalles'],
+    });
+
+    if (!solicitud) {
+      throw new NotFoundException(`Solicitud EPP con ID ${solicitudId} no encontrada`);
+    }
+
+    if (solicitud.estado !== EstadoSolicitudEPP.Observada) {
+      throw new BadRequestException(
+        'Solo se pueden exceptuar items cuando la solicitud está en estado OBSERVADA',
+      );
+    }
+
+    const detalle = solicitud.detalles?.find((d) => d.id === detalleId);
+    if (!detalle) {
+      throw new NotFoundException(`Detalle con ID ${detalleId} no encontrado`);
+    }
+
+    detalle.exceptuado = !detalle.exceptuado;
+    await this.detalleRepository.save(detalle);
+
+    return this.findOne(solicitudId);
+  }
+
+  private readonly TRANSICIONES_VALIDAS: Record<EstadoSolicitudEPP, EstadoSolicitudEPP[]> = {
+    [EstadoSolicitudEPP.Pendiente]: [EstadoSolicitudEPP.Observada, EstadoSolicitudEPP.Aprobada, EstadoSolicitudEPP.Rechazada],
+    [EstadoSolicitudEPP.Observada]: [EstadoSolicitudEPP.Pendiente, EstadoSolicitudEPP.Aprobada, EstadoSolicitudEPP.Rechazada],
+    [EstadoSolicitudEPP.Aprobada]: [EstadoSolicitudEPP.Entregada],
+    [EstadoSolicitudEPP.Entregada]: [],
+    [EstadoSolicitudEPP.Rechazada]: [],
+  };
 
   async updateEstado(
     id: string,
@@ -293,6 +332,13 @@ export class EppService {
 
     if (!solicitud) {
       throw new NotFoundException(`Solicitud EPP con ID ${id} no encontrada`);
+    }
+
+    const permitidos = this.TRANSICIONES_VALIDAS[solicitud.estado] || [];
+    if (!permitidos.includes(nuevoEstado)) {
+      throw new BadRequestException(
+        `No se puede pasar de ${solicitud.estado} a ${nuevoEstado}. Transiciones permitidas: ${permitidos.join(', ') || 'ninguna'}`,
+      );
     }
 
     solicitud.estado = nuevoEstado;
@@ -318,6 +364,15 @@ export class EppService {
       }
       if (firmaRecepcionUrl) {
         solicitud.firmaRecepcionUrl = firmaRecepcionUrl;
+      }
+    }
+
+    if (nuevoEstado === EstadoSolicitudEPP.Rechazada) {
+      if (usuarioId) {
+        solicitud.supervisorAprobadorId = usuarioId;
+      }
+      if (comentariosAprobacion) {
+        solicitud.comentariosAprobacion = comentariosAprobacion;
       }
     }
 

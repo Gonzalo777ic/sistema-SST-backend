@@ -39,6 +39,14 @@ export class TrabajadoresController {
     return this.trabajadoresService.buscarPorDni(dni);
   }
 
+  @Get('search')
+  async buscar(
+    @Query('empresa_id') empresaId?: string,
+    @Query('q') q?: string,
+  ): Promise<ResponseTrabajadorDto[]> {
+    return this.trabajadoresService.buscar(empresaId || undefined, q || '');
+  }
+
   @Get(':id')
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,

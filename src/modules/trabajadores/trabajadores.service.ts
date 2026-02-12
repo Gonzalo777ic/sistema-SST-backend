@@ -199,7 +199,7 @@ export class TrabajadoresService {
 
     const saved = await this.trabajadorRepository.save(trabajador);
 
-    if (estadoCambio && nuevoEstado === EstadoTrabajador.Inactivo) {
+    if (estadoCambio) {
       const usuarioVinculado = await this.usuarioRepository
         .createQueryBuilder('usuario')
         .leftJoinAndSelect('usuario.trabajador', 'trabajador')
@@ -208,7 +208,7 @@ export class TrabajadoresService {
         .getOne();
 
       if (usuarioVinculado) {
-        usuarioVinculado.activo = false;
+        usuarioVinculado.activo = nuevoEstado === EstadoTrabajador.Activo;
         await this.usuarioRepository.save(usuarioVinculado);
       }
     }
@@ -257,6 +257,10 @@ export class TrabajadoresService {
     return this.update(id, { estado: EstadoTrabajador.Inactivo });
   }
 
+  async activar(id: string): Promise<ResponseTrabajadorDto> {
+    return this.update(id, { estado: EstadoTrabajador.Activo });
+  }
+
   async updatePersonalData(
     id: string,
     dto: UpdatePersonalDataDto,
@@ -293,8 +297,8 @@ export class TrabajadoresService {
       .leftJoinAndSelect('t.usuario', 'usuario')
       .leftJoinAndSelect('t.area', 'area')
       .leftJoinAndSelect('t.empresa', 'empresa')
-      .where('t.documento_identidad = :dni OR t.numero_documento = :dni', { dni })
-      .andWhere('t.deleted_at IS NULL')
+      .where('t.documentoIdentidad = :dni OR t.numeroDocumento = :dni', { dni })
+      .andWhere('t.deletedAt IS NULL')
       .getOne();
 
     if (!trabajador) {
@@ -302,5 +306,30 @@ export class TrabajadoresService {
     }
 
     return ResponseTrabajadorDto.fromEntity(trabajador);
+  }
+
+  async buscar(empresaId?: string, q?: string): Promise<ResponseTrabajadorDto[]> {
+    if (!q || q.trim().length < 2) {
+      return [];
+    }
+    const term = `%${q.trim()}%`;
+    const qb = this.trabajadorRepository
+      .createQueryBuilder('t')
+      .leftJoinAndSelect('t.area', 'area')
+      .leftJoinAndSelect('t.empresa', 'empresa')
+      .where('t.deletedAt IS NULL')
+      .andWhere(
+        '(t.nombreCompleto ILIKE :term OR t.nombres ILIKE :term OR t.apellidoPaterno ILIKE :term OR t.apellidoMaterno ILIKE :term OR t.documentoIdentidad ILIKE :term OR t.numeroDocumento ILIKE :term)',
+        { term },
+      )
+      .orderBy('t.nombreCompleto', 'ASC')
+      .take(20);
+
+    if (empresaId) {
+      qb.andWhere('t.empresaId = :empresaId', { empresaId });
+    }
+
+    const trabajadores = await qb.getMany();
+    return trabajadores.map((t) => ResponseTrabajadorDto.fromEntity(t));
   }
 }
