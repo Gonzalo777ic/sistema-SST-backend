@@ -3,7 +3,7 @@ import { Storage } from '@google-cloud/storage';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
-export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'firma_recepcion' | 'pdf_entrega' | 'logo_empresa' | 'imagen_epp' | 'ficha_pdf_epp';
+export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'firma_recepcion' | 'pdf_entrega' | 'kardex_pdf' | 'logo_empresa' | 'imagen_epp' | 'ficha_pdf_epp';
 
 @Injectable()
 export class StorageService {
@@ -59,7 +59,7 @@ export class StorageService {
     }
 
     let ext = 'png';
-    if (tipo === 'pdf_entrega' || tipo === 'ficha_pdf_epp') ext = 'pdf';
+    if (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp') ext = 'pdf';
     else if (options?.contentType) {
       const m = options.contentType.match(/image\/(jpeg|jpg|png|webp|gif)/);
       if (m) ext = m[1] === 'jpg' ? 'jpeg' : m[1];
@@ -70,7 +70,7 @@ export class StorageService {
     const bucket = this.storage.bucket(this.bucketName);
     const file = bucket.file(objectPath);
 
-    const contentType = options?.contentType || (tipo === 'pdf_entrega' || tipo === 'ficha_pdf_epp' ? 'application/pdf' : 'image/png');
+    const contentType = options?.contentType || (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp' ? 'application/pdf' : 'image/png');
 
     await file.save(buffer, {
       contentType,
@@ -94,6 +94,26 @@ export class StorageService {
   getCanonicalUrl(url: string): string {
     if (!url?.includes('storage.googleapis.com')) return url;
     return url.split('?')[0];
+  }
+
+  /**
+   * Descarga un archivo desde GCS dado su URL canónica.
+   */
+  async downloadFile(publicUrl: string): Promise<Buffer> {
+    await this.ensureInit();
+    if (!this.storage) {
+      throw new Error('Storage no configurado');
+    }
+    const canonicalUrl = this.getCanonicalUrl(publicUrl);
+    const match = canonicalUrl.match(
+      new RegExp(`https://storage\\.googleapis\\.com/${this.bucketName}/(.+)`),
+    );
+    if (!match) {
+      throw new Error('URL no válida de GCS');
+    }
+    const objectPath = match[1];
+    const [buffer] = await this.storage.bucket(this.bucketName).file(objectPath).download();
+    return buffer;
   }
 
   /**

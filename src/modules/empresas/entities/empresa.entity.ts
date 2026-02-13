@@ -26,6 +26,9 @@ export class Empresa {
   @Column({ name: 'actividad_economica', type: 'varchar', length: 500, nullable: true })
   actividadEconomica: string | null;
 
+  @Column({ name: 'numero_trabajadores', type: 'int', default: 0 })
+  numeroTrabajadores: number;
+
   @Column({ name: 'logo_url', type: 'varchar', nullable: true })
   logoUrl: string | null;
 

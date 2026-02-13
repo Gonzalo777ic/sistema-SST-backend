@@ -38,6 +38,7 @@ export class EmpresasService {
       ruc: dto.ruc,
       direccion: dto.direccion ?? null,
       actividadEconomica: dto.actividad_economica ?? null,
+      numeroTrabajadores: dto.numero_trabajadores ?? 0,
       logoUrl: dto.logoUrl ?? null,
       activo: dto.activo ?? true,
     });
@@ -105,6 +106,7 @@ export class EmpresasService {
     if (dto.ruc !== undefined) empresa.ruc = dto.ruc;
     if (dto.direccion !== undefined) empresa.direccion = dto.direccion;
     if (dto.actividad_economica !== undefined) empresa.actividadEconomica = dto.actividad_economica;
+    if (dto.numero_trabajadores !== undefined) empresa.numeroTrabajadores = dto.numero_trabajadores;
     if (dto.logoUrl !== undefined) {
       empresa.logoUrl = this.storageService.getCanonicalUrl(dto.logoUrl) || dto.logoUrl;
     }

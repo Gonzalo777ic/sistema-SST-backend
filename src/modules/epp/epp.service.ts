@@ -563,7 +563,8 @@ export class EppService {
           if (!det.exceptuado) {
             det.codigoAuditoria = det.id.substring(0, 8);
             det.fechaHoraEntrega = solicitud.fechaEntrega || fechaEntrega;
-            det.firmaTrabajadorUrl = (solicitudConDetalles.solicitante as any)?.firmaDigitalUrl ?? solicitud.firmaRecepcionUrl ?? null;
+            // Priorizar firma de transacción (capturada en entrega) sobre firma maestra (onboarding)
+            det.firmaTrabajadorUrl = solicitud.firmaRecepcionUrl ?? (solicitudConDetalles.solicitante as any)?.firmaDigitalUrl ?? null;
             await this.detalleRepository.save(det);
           }
         }
@@ -585,6 +586,71 @@ export class EppService {
           }
         } catch (err) {
           console.error('Error generando PDF de registro:', err);
+        }
+
+        // Generar kardex consolidado (todos los items de todas las entregas del trabajador)
+        const trabajadorId = solicitudConDetalles.solicitanteId;
+        const todasEntregas = await this.solicitudRepository.find({
+          where: { solicitanteId: trabajadorId, estado: EstadoSolicitudEPP.Entregada },
+          relations: [
+            'detalles',
+            'detalles.epp',
+            'solicitante',
+            'solicitante.area',
+            'empresa',
+            'entregadoPor',
+            'entregadoPor.trabajador',
+          ],
+          order: { fechaEntrega: 'ASC' },
+        });
+        // La solicitud actual aún no está guardada con estado Entregada; incluirla explícitamente
+        const solicitudActual = Object.assign(solicitudConDetalles, {
+          estado: EstadoSolicitudEPP.Entregada,
+          fechaEntrega: solicitud.fechaEntrega || fechaEntrega,
+          firmaRecepcionUrl: solicitud.firmaRecepcionUrl,
+          entregadoPorId: solicitud.entregadoPorId,
+        });
+        // Cargar entregadoPor (Usuario con firmaUrl) para la solicitud actual; la BD aún no tiene el nuevo entregadoPorId
+        if (solicitud.entregadoPorId) {
+          const usuarioEntregador = await this.usuariosService.findById(solicitud.entregadoPorId);
+          if (usuarioEntregador) {
+            (solicitudActual as any).entregadoPor = usuarioEntregador;
+          }
+        }
+        const entregasParaKardex = [...todasEntregas.filter((s) => s.id !== solicitudConDetalles.id), solicitudActual];
+        entregasParaKardex.sort((a, b) => {
+          const dA = a.fechaEntrega ? new Date(a.fechaEntrega).getTime() : 0;
+          const dB = b.fechaEntrega ? new Date(b.fechaEntrega).getTime() : 0;
+          return dA - dB;
+        });
+        try {
+          const trabajador = solicitudConDetalles.solicitante;
+          const kardexBuffer = await this.eppPdfService.generateKardexPdfPorTrabajador(
+            trabajador,
+            entregasParaKardex,
+          );
+          const rucEmpresa = (solicitudConDetalles.empresa as any)?.ruc ?? 'sistema';
+          const trabajadorEntity = await this.trabajadorRepository.findOne({
+            where: { id: trabajadorId },
+          });
+          if (trabajadorEntity) {
+            if (this.storageService.isAvailable()) {
+              // Nombre único por generación para que la URL referencie siempre el último kardex
+              const timestamp = Date.now();
+              trabajadorEntity.kardexPdfUrl = await this.storageService.uploadFile(
+                rucEmpresa,
+                kardexBuffer,
+                'kardex_pdf',
+                { filename: `kardex-${trabajadorId}-${timestamp}.pdf` },
+              );
+            } else {
+              this.eppPdfService.saveKardexToDisk(trabajadorId, kardexBuffer);
+              trabajadorEntity.kardexPdfUrl = `/epp/kardex-pdf/${trabajadorId}`;
+            }
+            await this.trabajadorRepository.save(trabajadorEntity);
+          }
+        } catch (err) {
+          console.error('Error generando kardex PDF:', err);
         }
       }
     }
@@ -790,14 +856,102 @@ export class EppService {
     return result;
   }
 
-  async getUltimoKardexPdfUrl(trabajadorId: string): Promise<{ pdf_url: string | null; solicitud_id: string | null }> {
-    const ultima = await this.solicitudRepository.findOne({
-      where: { solicitanteId: trabajadorId, estado: EstadoSolicitudEPP.Entregada },
-      order: { fechaEntrega: 'DESC' },
+  async getUltimoKardexPdfUrl(
+    trabajadorId: string,
+  ): Promise<{ pdf_url: string | null; trabajador_id: string | null }> {
+    const trabajador = await this.trabajadorRepository.findOne({
+      where: { id: trabajadorId },
     });
-    if (!ultima?.registroEntregaPdfUrl) {
-      return { pdf_url: null, solicitud_id: null };
+    if (!trabajador) {
+      return { pdf_url: null, trabajador_id: null };
     }
-    return { pdf_url: ultima.registroEntregaPdfUrl, solicitud_id: ultima.id };
+    const tieneEntregas = await this.solicitudRepository.exists({
+      where: { solicitanteId: trabajadorId, estado: EstadoSolicitudEPP.Entregada },
+    });
+    if (!tieneEntregas) {
+      return { pdf_url: null, trabajador_id: null };
+    }
+    return { pdf_url: trabajador.kardexPdfUrl ?? null, trabajador_id: trabajadorId };
+  }
+
+  /** Obtiene el buffer del PDF de kardex consolidado del trabajador. */
+  async getKardexPdfBuffer(trabajadorId: string): Promise<Buffer> {
+    const trabajador = await this.trabajadorRepository.findOne({
+      where: { id: trabajadorId },
+    });
+    if (!trabajador) {
+      throw new NotFoundException(`Trabajador ${trabajadorId} no encontrado`);
+    }
+    if (!trabajador.kardexPdfUrl) {
+      const todasEntregas = await this.solicitudRepository.find({
+        where: { solicitanteId: trabajadorId, estado: EstadoSolicitudEPP.Entregada },
+        relations: [
+          'detalles',
+          'detalles.epp',
+          'solicitante',
+          'solicitante.area',
+          'empresa',
+          'entregadoPor',
+          'entregadoPor.trabajador',
+        ],
+        order: { fechaEntrega: 'ASC' },
+      });
+      const detallesCount = todasEntregas.reduce((s, sol) => s + (sol.detalles?.filter((d) => !d.exceptuado).length ?? 0), 0);
+      if (detallesCount === 0) {
+        throw new NotFoundException(
+          'No hay entregas registradas para este trabajador. El kardex se genera al marcar una solicitud como entregada.',
+        );
+      }
+      const kardexBuffer = await this.eppPdfService.generateKardexPdfPorTrabajador(
+        trabajador,
+        todasEntregas,
+      );
+      const empresa = todasEntregas[0]?.empresa as any;
+      const rucEmpresa = empresa?.ruc ?? 'sistema';
+      if (this.storageService.isAvailable()) {
+        const timestamp = Date.now();
+        trabajador.kardexPdfUrl = await this.storageService.uploadFile(
+          rucEmpresa,
+          kardexBuffer,
+          'kardex_pdf',
+          { filename: `kardex-${trabajadorId}-${timestamp}.pdf` },
+        );
+      } else {
+        this.eppPdfService.saveKardexToDisk(trabajadorId, kardexBuffer);
+        trabajador.kardexPdfUrl = `/epp/kardex-pdf/${trabajadorId}`;
+      }
+      await this.trabajadorRepository.save(trabajador);
+      return kardexBuffer;
+    }
+    const url = trabajador.kardexPdfUrl;
+    if (url.includes('storage.googleapis.com') && this.storageService.isAvailable()) {
+      return this.storageService.downloadFile(url);
+    }
+    const filepath = this.eppPdfService.getKardexPdfPath(trabajadorId);
+    if (!filepath) {
+      throw new NotFoundException('PDF de kardex no encontrado');
+    }
+    const fs = await import('fs');
+    return fs.promises.readFile(filepath);
+  }
+
+  /** Obtiene el buffer del PDF de registro para descarga (desde GCS o disco). */
+  async getRegistroPdfBuffer(solicitudId: string): Promise<Buffer> {
+    const solicitud = await this.solicitudRepository.findOne({
+      where: { id: solicitudId },
+    });
+    if (!solicitud?.registroEntregaPdfUrl) {
+      throw new NotFoundException(`PDF de registro no encontrado para la solicitud ${solicitudId}`);
+    }
+    const url = solicitud.registroEntregaPdfUrl;
+    if (url.includes('storage.googleapis.com') && this.storageService.isAvailable()) {
+      return this.storageService.downloadFile(url);
+    }
+    const filepath = this.eppPdfService.getPdfPath(solicitudId);
+    if (!filepath) {
+      throw new NotFoundException(`PDF de registro no encontrado`);
+    }
+    const fs = await import('fs');
+    return fs.promises.readFile(filepath);
   }
 }

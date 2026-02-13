@@ -191,6 +191,9 @@ export class Trabajador {
   @Column({ name: 'perfil_completado', type: 'boolean', default: false })
   perfilCompletado: boolean;
 
+  @Column({ name: 'kardex_pdf_url', type: 'text', nullable: true })
+  kardexPdfUrl: string | null;
+
   @Column({ name: 'empresa_id', type: 'uuid' })
   empresaId: string;
 

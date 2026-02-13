@@ -204,17 +204,28 @@ export class EppController {
     return this.eppService.getUltimoKardexPdfUrl(trabajadorId);
   }
 
+  @Get('kardex-pdf/:trabajadorId')
+  async getKardexPdf(
+    @Param('trabajadorId', ParseUUIDPipe) trabajadorId: string,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.eppService.getKardexPdfBuffer(trabajadorId);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="kardex-epp-${trabajadorId}.pdf"`);
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.send(buffer);
+  }
+
   @Get('registro-pdf/:solicitudId')
   async getRegistroPdf(
     @Param('solicitudId', ParseUUIDPipe) solicitudId: string,
     @Res() res: Response,
   ) {
-    const filepath = this.eppPdfService.getPdfPath(solicitudId);
-    if (!filepath) {
-      throw new NotFoundException('PDF de registro no encontrado');
-    }
+    const buffer = await this.eppService.getRegistroPdfBuffer(solicitudId);
     res.setHeader('Content-Type', 'application/pdf');
-    res.sendFile(filepath);
+    res.setHeader('Content-Disposition', `attachment; filename="registro-entrega-${solicitudId}.pdf"`);
+    res.send(buffer);
   }
 
   @Get('kardex-list')

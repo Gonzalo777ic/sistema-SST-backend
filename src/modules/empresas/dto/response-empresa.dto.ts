@@ -4,6 +4,7 @@ export class ResponseEmpresaDto {
   ruc: string;
   direccion: string | null;
   actividad_economica: string | null;
+  numero_trabajadores: number;
   logoUrl: string | null;
   activo: boolean;
   areas: { id: string; nombre: string }[];
@@ -28,6 +29,7 @@ export class ResponseEmpresaDto {
     dto.ruc = empresa.ruc;
     dto.direccion = (empresa as any).direccion ?? null;
     dto.actividad_economica = (empresa as any).actividadEconomica ?? null;
+    dto.numero_trabajadores = (empresa as any).numeroTrabajadores ?? 0;
     dto.logoUrl = empresa.logoUrl;
     dto.activo = empresa.activo;
     dto.areas = (empresa as any).areas?.map((a: { id: string; nombre: string }) => ({ id: a.id, nombre: a.nombre })) ?? [];

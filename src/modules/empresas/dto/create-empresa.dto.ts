@@ -3,6 +3,8 @@ import {
   IsOptional,
   IsBoolean,
   IsUrl,
+  IsNumber,
+  Min,
   Length,
   Matches,
 } from 'class-validator';
@@ -16,13 +18,16 @@ export class CreateEmpresaDto {
   @Matches(/^\d{11}$/, { message: 'El RUC debe contener solo números' })
   ruc: string;
 
-  @IsOptional()
-  @IsString()
-  direccion?: string;
+  @IsString({ message: 'La dirección es obligatoria' })
+  direccion: string;
+
+  @IsString({ message: 'La actividad económica es obligatoria' })
+  actividad_economica: string;
 
   @IsOptional()
-  @IsString()
-  actividad_economica?: string;
+  @IsNumber()
+  @Min(0)
+  numero_trabajadores?: number;
 
   @IsOptional()
   @IsUrl()
