@@ -44,6 +44,7 @@ export class ResponseSolicitudEppDto {
   entregado_por_nombre: string | null;
   fecha_entrega: string | null;
   firma_recepcion_url: string | null;
+  kardex_pdf_url: string | null;
   area_id: string | null;
   area_nombre: string | null;
   empresa_id: string;
@@ -96,6 +97,7 @@ export class ResponseSolicitudEppDto {
       ? new Date(solicitud.fechaEntrega).toISOString()
       : null;
     dto.firma_recepcion_url = solicitud.firmaRecepcionUrl;
+    dto.kardex_pdf_url = solicitud.kardexPdfUrl || null;
     dto.area_id = (solicitud.solicitante as any)?.areaId ?? solicitud.areaId;
     dto.area_nombre = (solicitud.solicitante as any)?.area?.nombre || (solicitud.area as any)?.nombre || null;
     dto.empresa_id = solicitud.empresaId;

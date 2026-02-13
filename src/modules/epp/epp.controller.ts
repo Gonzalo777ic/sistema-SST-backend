@@ -217,6 +217,19 @@ export class EppController {
     res.send(buffer);
   }
 
+  @Get('kardex-pdf-solicitud/:solicitudId')
+  async getKardexPdfBySolicitud(
+    @Param('solicitudId', ParseUUIDPipe) solicitudId: string,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.eppService.getKardexPdfBufferBySolicitud(solicitudId);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="kardex-solicitud-${solicitudId}.pdf"`);
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.send(buffer);
+  }
+
   @Get('registro-pdf/:solicitudId')
   async getRegistroPdf(
     @Param('solicitudId', ParseUUIDPipe) solicitudId: string,

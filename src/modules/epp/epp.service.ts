@@ -714,15 +714,17 @@ export class EppService {
             where: { id: trabajadorId },
           });
           if (trabajadorEntity) {
+            let kardexUrl: string | null = null;
             if (this.storageService.isAvailable()) {
-              // Nombre único por generación para que la URL referencie siempre el último kardex
               const timestamp = Date.now();
-              trabajadorEntity.kardexPdfUrl = await this.storageService.uploadFile(
+              kardexUrl = await this.storageService.uploadFile(
                 rucEmpresa,
                 kardexBuffer,
                 'kardex_pdf',
-                { filename: `kardex-${trabajadorId}-${timestamp}.pdf` },
+                { filename: `kardex-${trabajadorId}-${solicitud.id}-${timestamp}.pdf` },
               );
+              trabajadorEntity.kardexPdfUrl = kardexUrl;
+              solicitud.kardexPdfUrl = kardexUrl;
             } else {
               this.eppPdfService.saveKardexToDisk(trabajadorId, kardexBuffer);
               trabajadorEntity.kardexPdfUrl = `/epp/kardex-pdf/${trabajadorId}`;
@@ -778,7 +780,7 @@ export class EppService {
     }
 
     const solicitudes = await this.solicitudRepository.find({
-      where: { solicitanteId: trabajadorId },
+      where: { solicitanteId: trabajadorId, estado: EstadoSolicitudEPP.Entregada },
       relations: [
         'usuarioEpp',
         'solicitante',
@@ -789,7 +791,7 @@ export class EppService {
         'detalles',
         'detalles.epp',
       ],
-      order: { fechaSolicitud: 'DESC' },
+      order: { fechaEntrega: 'DESC' },
     });
 
     return ResponseKardexDto.fromEntity({
@@ -1045,5 +1047,22 @@ export class EppService {
     }
     const fs = await import('fs');
     return fs.promises.readFile(filepath);
+  }
+
+  /** Obtiene el buffer del PDF de kardex asociado a una solicitud entregada. */
+  async getKardexPdfBufferBySolicitud(solicitudId: string): Promise<Buffer> {
+    const solicitud = await this.solicitudRepository.findOne({
+      where: { id: solicitudId },
+    });
+    if (!solicitud?.kardexPdfUrl) {
+      throw new NotFoundException(
+        `PDF de kardex no encontrado para la solicitud ${solicitudId}`,
+      );
+    }
+    const url = solicitud.kardexPdfUrl;
+    if (url.includes('storage.googleapis.com') && this.storageService.isAvailable()) {
+      return this.storageService.downloadFile(url);
+    }
+    throw new NotFoundException(`PDF de kardex no disponible para la solicitud ${solicitudId}`);
   }
 }

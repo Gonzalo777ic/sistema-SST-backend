@@ -84,6 +84,10 @@ export class SolicitudEPP {
   @Column({ name: 'registro_entrega_pdf_url', type: 'text', nullable: true })
   registroEntregaPdfUrl: string | null;
 
+  /** Kardex consolidado en el momento de esta entrega (incluye todas las entregas previas + esta). */
+  @Column({ name: 'kardex_pdf_url', type: 'text', nullable: true })
+  kardexPdfUrl: string | null;
+
   // Relaciones
   @Column({ name: 'usuario_epp_id', type: 'uuid' })
   usuarioEppId: string;
