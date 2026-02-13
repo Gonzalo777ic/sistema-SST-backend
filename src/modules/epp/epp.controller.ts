@@ -163,15 +163,23 @@ export class EppController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body('estado', new ParseEnumPipe(EstadoSolicitudEPP)) estado: EstadoSolicitudEPP,
     @Body('comentarios_aprobacion') comentariosAprobacion?: string,
+    @Body('observaciones') observaciones?: string,
     @Body('firma_recepcion_url') firmaRecepcionUrl?: string,
+    @Body('firma_recepcion_base64') firmaRecepcionBase64?: string,
+    @Body('password') password?: string,
     @CurrentUser() currentUser?: { id: string; dni: string },
   ): Promise<ResponseSolicitudEppDto> {
     return this.eppService.updateEstado(
       id,
       estado,
       currentUser?.id,
-      comentariosAprobacion,
-      firmaRecepcionUrl,
+      {
+        comentariosAprobacion,
+        observaciones,
+        firmaRecepcionUrl,
+        firmaRecepcionBase64,
+        password,
+      },
     );
   }
 

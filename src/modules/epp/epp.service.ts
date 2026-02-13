@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -28,6 +29,7 @@ import { Empresa } from '../empresas/entities/empresa.entity';
 import { ConfigEppService } from '../config-epp/config-epp.service';
 import { EppPdfService } from './epp-pdf.service';
 import { StorageService } from '../../common/services/storage.service';
+import { UsuariosService } from '../usuarios/usuarios.service';
 
 function vigenciaToMonths(vigencia: VigenciaEPP | null): number {
   if (!vigencia) return 0;
@@ -65,6 +67,7 @@ export class EppService {
     private readonly configEppService: ConfigEppService,
     private readonly eppPdfService: EppPdfService,
     private readonly storageService: StorageService,
+    private readonly usuariosService: UsuariosService,
   ) {}
 
   // ========== CRUD EPP (Catálogo) ==========
@@ -460,8 +463,13 @@ export class EppService {
     id: string,
     nuevoEstado: EstadoSolicitudEPP,
     usuarioId?: string,
-    comentariosAprobacion?: string,
-    firmaRecepcionUrl?: string,
+    opts?: {
+      comentariosAprobacion?: string;
+      observaciones?: string;
+      firmaRecepcionUrl?: string;
+      firmaRecepcionBase64?: string;
+      password?: string;
+    },
   ): Promise<ResponseSolicitudEppDto> {
     const solicitud = await this.solicitudRepository.findOne({ where: { id } });
 
@@ -476,7 +484,39 @@ export class EppService {
       );
     }
 
+    // Entregada: validar contraseña del usuario que registra (admin/sst)
+    if (nuevoEstado === EstadoSolicitudEPP.Entregada && usuarioId) {
+      if (!opts?.password) {
+        throw new UnauthorizedException('Debe ingresar su contraseña para registrar la entrega');
+      }
+      const passwordValid = await this.usuariosService.verifyPassword(usuarioId, opts.password);
+      if (!passwordValid) {
+        throw new UnauthorizedException('Contraseña incorrecta');
+      }
+    }
+
+    // Entregada: firma del solicitante (recepción) - base64 o URL
+    let firmaRecepcionUrl = opts?.firmaRecepcionUrl;
+    if (nuevoEstado === EstadoSolicitudEPP.Entregada && opts?.firmaRecepcionBase64) {
+      const base64Data = opts.firmaRecepcionBase64.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      const empresa = await this.empresaRepository.findOne({ where: { id: solicitud.empresaId } });
+      const rucEmpresa = (empresa as any)?.ruc ?? 'sistema';
+      if (this.storageService.isAvailable()) {
+        firmaRecepcionUrl = await this.storageService.uploadFile(
+          rucEmpresa,
+          buffer,
+          'firma_recepcion',
+          { filename: `firma-recepcion-${solicitud.id}.png` },
+        );
+      }
+    }
+
     solicitud.estado = nuevoEstado;
+
+    if (nuevoEstado === EstadoSolicitudEPP.Observada && opts?.observaciones !== undefined) {
+      solicitud.observaciones = opts.observaciones || null;
+    }
 
     if (nuevoEstado === EstadoSolicitudEPP.Aprobada) {
       if (usuarioId) {
@@ -485,8 +525,8 @@ export class EppService {
       if (!solicitud.fechaAprobacion) {
         solicitud.fechaAprobacion = new Date();
       }
-      if (comentariosAprobacion) {
-        solicitud.comentariosAprobacion = comentariosAprobacion;
+      if (opts?.comentariosAprobacion) {
+        solicitud.comentariosAprobacion = opts.comentariosAprobacion;
       }
     }
 
@@ -500,6 +540,8 @@ export class EppService {
       }
       if (firmaRecepcionUrl) {
         solicitud.firmaRecepcionUrl = firmaRecepcionUrl;
+      } else if (opts?.firmaRecepcionBase64 && !this.storageService.isAvailable()) {
+        solicitud.firmaRecepcionUrl = opts.firmaRecepcionBase64;
       }
 
       const solicitudConDetalles = await this.solicitudRepository.findOne({
@@ -521,7 +563,7 @@ export class EppService {
           if (!det.exceptuado) {
             det.codigoAuditoria = det.id.substring(0, 8);
             det.fechaHoraEntrega = solicitud.fechaEntrega || fechaEntrega;
-            det.firmaTrabajadorUrl = (solicitudConDetalles.solicitante as any)?.firmaDigitalUrl ?? firmaRecepcionUrl ?? null;
+            det.firmaTrabajadorUrl = (solicitudConDetalles.solicitante as any)?.firmaDigitalUrl ?? solicitud.firmaRecepcionUrl ?? null;
             await this.detalleRepository.save(det);
           }
         }
@@ -551,8 +593,8 @@ export class EppService {
       if (usuarioId) {
         solicitud.supervisorAprobadorId = usuarioId;
       }
-      if (comentariosAprobacion) {
-        solicitud.comentariosAprobacion = comentariosAprobacion;
+      if (opts?.comentariosAprobacion) {
+        solicitud.comentariosAprobacion = opts.comentariosAprobacion;
       }
     }
 

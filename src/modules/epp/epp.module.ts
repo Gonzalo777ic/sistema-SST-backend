@@ -9,11 +9,13 @@ import { EppPdfService } from './epp-pdf.service';
 import { Trabajador } from '../trabajadores/entities/trabajador.entity';
 import { Empresa } from '../empresas/entities/empresa.entity';
 import { ConfigEppModule } from '../config-epp/config-epp.module';
+import { UsuariosModule } from '../usuarios/usuarios.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([SolicitudEPP, SolicitudEPPDetalle, EPP, Trabajador, Empresa]),
     ConfigEppModule,
+    UsuariosModule,
   ],
   controllers: [EppController],
   providers: [EppService, EppPdfService],

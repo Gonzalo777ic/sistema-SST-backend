@@ -308,6 +308,17 @@ export class UsuariosService {
     });
   }
 
+  async verifyPassword(userId: string, password: string): Promise<boolean> {
+    const usuario = await this.usuarioRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'passwordHash', 'authProvider'],
+    });
+    if (!usuario?.passwordHash || usuario.authProvider !== AuthProvider.LOCAL) {
+      return false;
+    }
+    return bcrypt.compare(password, usuario.passwordHash);
+  }
+
   async changePassword(id: string, nuevaPassword: string): Promise<void> {
     const usuario = await this.usuarioRepository.findOne({ where: { id } });
 
