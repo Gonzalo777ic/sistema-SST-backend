@@ -241,6 +241,52 @@ export class EppController {
     res.send(buffer);
   }
 
+  @Get('reportes/estados-epp')
+  async getReporteEstadosEpp(@Query('empresa_ids') empresaIds?: string) {
+    const ids = empresaIds ? empresaIds.split(',').filter(Boolean) : undefined;
+    return this.eppService.getReporteEstadosEpp(ids);
+  }
+
+  @Get('reportes/entregas-por-empresa')
+  async getReporteEntregasPorEmpresa(@Query('empresa_ids') empresaIds?: string) {
+    const ids = empresaIds ? empresaIds.split(',').filter(Boolean) : undefined;
+    return this.eppService.getReporteEntregasPorEmpresa(ids);
+  }
+
+  @Get('reportes/entregas-por-empresa-area')
+  async getReporteEntregasPorEmpresaArea(@Query('empresa_ids') empresaIds?: string) {
+    const ids = empresaIds ? empresaIds.split(',').filter(Boolean) : undefined;
+    return this.eppService.getReporteEntregasPorEmpresaArea(ids);
+  }
+
+  @Get('reportes/entregas-por-mes')
+  async getReporteEntregasPorMes(
+    @Query('empresa_ids') empresaIds?: string,
+    @Query('fecha_desde') fechaDesde?: string,
+    @Query('fecha_hasta') fechaHasta?: string,
+  ) {
+    const ids = empresaIds ? empresaIds.split(',').filter(Boolean) : undefined;
+    return this.eppService.getReporteEntregasPorMes(ids, fechaDesde, fechaHasta);
+  }
+
+  @Get('reportes/entregas-por-sede')
+  async getReporteEntregasPorSede(@Query('empresa_ids') empresaIds?: string) {
+    const ids = empresaIds ? empresaIds.split(',').filter(Boolean) : undefined;
+    return this.eppService.getReporteEntregasPorSede(ids);
+  }
+
+  @Get('reportes/epps-mas-solicitados')
+  async getReporteEppsMasSolicitados(@Query('empresa_ids') empresaIds?: string) {
+    const ids = empresaIds ? empresaIds.split(',').filter(Boolean) : undefined;
+    return this.eppService.getReporteEppsMasSolicitados(ids);
+  }
+
+  @Get('reportes/trabajador-costo-historico')
+  async getReporteTrabajadorCostoHistorico(@Query('empresa_ids') empresaIds?: string) {
+    const ids = empresaIds ? empresaIds.split(',').filter(Boolean) : undefined;
+    return this.eppService.getReporteTrabajadorCostoHistorico(ids);
+  }
+
   @Get('kardex-list')
   async getKardexList(
     @Query('empresa_ids') empresaIds?: string,

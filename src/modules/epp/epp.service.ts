@@ -24,6 +24,15 @@ import {
   ResponseKardexListItemDto,
   EstadoVigenciaKardex,
 } from './dto/response-kardex-list.dto';
+import {
+  ReporteEstadosEppDto,
+  ReporteEntregasPorEmpresaDto,
+  ReporteEntregasPorEmpresaAreaDto,
+  ReporteEntregasPorMesDto,
+  ReporteEntregasPorSedeDto,
+  ReporteEppsMasSolicitadosDto,
+  ReporteTrabajadorCostoDto,
+} from './dto/reporte-epp.dto';
 import { Trabajador } from '../trabajadores/entities/trabajador.entity';
 import { Empresa } from '../empresas/entities/empresa.entity';
 import { ConfigEppService } from '../config-epp/config-epp.service';
@@ -1064,5 +1073,395 @@ export class EppService {
       return this.storageService.downloadFile(url);
     }
     throw new NotFoundException(`PDF de kardex no disponible para la solicitud ${solicitudId}`);
+  }
+
+  // ========== Reportes EPP ==========
+
+  private clasificarVigencia(
+    fechaEntrega: Date,
+    vigenciaMeses: number,
+  ): 'vencido' | 'vigente' | 'por_vencer' {
+    if (vigenciaMeses <= 0) return 'vencido';
+    const vencimiento = new Date(fechaEntrega);
+    vencimiento.setMonth(vencimiento.getMonth() + vigenciaMeses);
+    const now = new Date();
+    if (now > vencimiento) return 'vencido';
+    const diasRestantes = (vencimiento.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    return diasRestantes <= 30 ? 'por_vencer' : 'vigente';
+  }
+
+  async getReporteEstadosEpp(empresaIds?: string[]): Promise<ReporteEstadosEppDto> {
+    const qb = this.solicitudRepository
+      .createQueryBuilder('s')
+      .innerJoinAndSelect('s.detalles', 'det')
+      .innerJoinAndSelect('det.epp', 'epp')
+      .where('s.estado = :estado', { estado: EstadoSolicitudEPP.Entregada })
+      .andWhere('s.fecha_entrega IS NOT NULL')
+      .andWhere('det.exceptuado = false');
+
+    if (empresaIds?.length) {
+      qb.andWhere('s.empresa_id IN (:...empresaIds)', { empresaIds });
+    }
+
+    const solicitudes = await qb.getMany();
+    let vencido = 0;
+    let vigente = 0;
+    let porVencer = 0;
+
+    for (const s of solicitudes) {
+      const fechaEntrega = s.fechaEntrega ? new Date(s.fechaEntrega) : null;
+      if (!fechaEntrega) continue;
+      for (const det of s.detalles || []) {
+        if (det.exceptuado) continue;
+        const epp = det.epp as any;
+        const vigenciaMeses = vigenciaToMonths(epp?.vigencia);
+        const estado = this.clasificarVigencia(fechaEntrega, vigenciaMeses);
+        const qty = det.cantidad || 1;
+        if (estado === 'vencido') vencido += qty;
+        else if (estado === 'vigente') vigente += qty;
+        else porVencer += qty;
+      }
+    }
+
+    const total = vencido + vigente + porVencer;
+    return { vencido, vigente, por_vencer: porVencer, total };
+  }
+
+  async getReporteEntregasPorEmpresa(
+    empresaIds?: string[],
+  ): Promise<ReporteEntregasPorEmpresaDto[]> {
+    const qb = this.solicitudRepository
+      .createQueryBuilder('s')
+      .innerJoinAndSelect('s.empresa', 'empresa')
+      .innerJoinAndSelect('s.detalles', 'det')
+      .innerJoinAndSelect('det.epp', 'epp')
+      .where('s.estado = :estado', { estado: EstadoSolicitudEPP.Entregada })
+      .andWhere('s.fecha_entrega IS NOT NULL')
+      .andWhere('det.exceptuado = false');
+
+    if (empresaIds?.length) {
+      qb.andWhere('s.empresa_id IN (:...empresaIds)', { empresaIds });
+    }
+
+    const solicitudes = await qb.getMany();
+    const byEmpresa = new Map<
+      string,
+      { nombre: string; vencido: number; vigente: number; porVencer: number }
+    >();
+
+    for (const s of solicitudes) {
+      const emp = s.empresa as any;
+      const empId = s.empresaId;
+      const empNombre = emp?.nombre ?? 'Sin empresa';
+      if (!byEmpresa.has(empId)) {
+        byEmpresa.set(empId, {
+          nombre: empNombre,
+          vencido: 0,
+          vigente: 0,
+          porVencer: 0,
+        });
+      }
+      const fechaEntrega = s.fechaEntrega ? new Date(s.fechaEntrega) : null;
+      if (!fechaEntrega) continue;
+      for (const det of s.detalles || []) {
+        if (det.exceptuado) continue;
+        const epp = det.epp as any;
+        const vigenciaMeses = vigenciaToMonths(epp?.vigencia);
+        const estado = this.clasificarVigencia(fechaEntrega, vigenciaMeses);
+        const qty = det.cantidad || 1;
+        const rec = byEmpresa.get(empId)!;
+        if (estado === 'vencido') rec.vencido += qty;
+        else if (estado === 'vigente') rec.vigente += qty;
+        else rec.porVencer += qty;
+      }
+    }
+
+    return Array.from(byEmpresa.entries()).map(([empresa_id, rec]) => ({
+      empresa_id,
+      empresa_nombre: rec.nombre,
+      total: rec.vencido + rec.vigente + rec.porVencer,
+      vencido: rec.vencido,
+      vigente: rec.vigente,
+      por_vencer: rec.porVencer,
+    }));
+  }
+
+  async getReporteEntregasPorEmpresaArea(
+    empresaIds?: string[],
+  ): Promise<ReporteEntregasPorEmpresaAreaDto[]> {
+    const qb = this.solicitudRepository
+      .createQueryBuilder('s')
+      .innerJoinAndSelect('s.empresa', 'empresa')
+      .innerJoinAndSelect('s.solicitante', 't')
+      .leftJoinAndSelect('t.area', 'area')
+      .innerJoinAndSelect('s.detalles', 'det')
+      .innerJoinAndSelect('det.epp', 'epp')
+      .where('s.estado = :estado', { estado: EstadoSolicitudEPP.Entregada })
+      .andWhere('s.fecha_entrega IS NOT NULL')
+      .andWhere('det.exceptuado = false');
+
+    if (empresaIds?.length) {
+      qb.andWhere('s.empresa_id IN (:...empresaIds)', { empresaIds });
+    }
+
+    const solicitudes = await qb.getMany();
+    const byKey = new Map<
+      string,
+      { empNombre: string; areaNombre: string; vencido: number; vigente: number; porVencer: number }
+    >();
+
+    for (const s of solicitudes) {
+      const emp = s.empresa as any;
+      const t = s.solicitante as any;
+      const area = t?.area;
+      const empId = s.empresaId;
+      const areaId = t?.areaId ?? null;
+      const empNombre = emp?.nombre ?? 'Sin empresa';
+      const areaNombre = area?.nombre ?? 'Sin área';
+      const key = `${empId}|${areaId ?? 'null'}`;
+      if (!byKey.has(key)) {
+        byKey.set(key, {
+          empNombre,
+          areaNombre,
+          vencido: 0,
+          vigente: 0,
+          porVencer: 0,
+        });
+      }
+      const fechaEntrega = s.fechaEntrega ? new Date(s.fechaEntrega) : null;
+      if (!fechaEntrega) continue;
+      for (const det of s.detalles || []) {
+        if (det.exceptuado) continue;
+        const epp = det.epp as any;
+        const vigenciaMeses = vigenciaToMonths(epp?.vigencia);
+        const estado = this.clasificarVigencia(fechaEntrega, vigenciaMeses);
+        const qty = det.cantidad || 1;
+        const rec = byKey.get(key)!;
+        if (estado === 'vencido') rec.vencido += qty;
+        else if (estado === 'vigente') rec.vigente += qty;
+        else rec.porVencer += qty;
+      }
+    }
+
+    return Array.from(byKey.entries()).map(([k, rec]) => {
+      const [empresa_id, area_id] = k.split('|');
+      return {
+        empresa_id,
+        empresa_nombre: rec.empNombre,
+        area_id: area_id === 'null' ? null : area_id,
+        area_nombre: rec.areaNombre,
+        total: rec.vencido + rec.vigente + rec.porVencer,
+        vencido: rec.vencido,
+        vigente: rec.vigente,
+        por_vencer: rec.porVencer,
+      };
+    });
+  }
+
+  async getReporteEntregasPorMes(
+    empresaIds?: string[],
+    fechaDesde?: string,
+    fechaHasta?: string,
+  ): Promise<ReporteEntregasPorMesDto[]> {
+    const qb = this.solicitudRepository
+      .createQueryBuilder('s')
+      .innerJoinAndSelect('s.solicitante', 't')
+      .leftJoinAndSelect('t.empresa', 'empresa')
+      .innerJoinAndSelect('s.detalles', 'det')
+      .innerJoinAndSelect('det.epp', 'epp')
+      .where('s.estado = :estado', { estado: EstadoSolicitudEPP.Entregada })
+      .andWhere('s.fecha_entrega IS NOT NULL')
+      .andWhere('det.exceptuado = false');
+
+    if (empresaIds?.length) {
+      qb.andWhere('s.empresa_id IN (:...empresaIds)', { empresaIds });
+    }
+    if (fechaDesde) {
+      qb.andWhere('s.fecha_entrega >= :fechaDesde', { fechaDesde });
+    }
+    if (fechaHasta) {
+      qb.andWhere('s.fecha_entrega <= :fechaHasta', { fechaHasta });
+    }
+    qb.orderBy('s.fecha_entrega', 'DESC');
+
+    const solicitudes = await qb.getMany();
+    const result: ReporteEntregasPorMesDto[] = [];
+
+    for (const s of solicitudes) {
+      const t = s.solicitante as any;
+      const emp = t?.empresa;
+      const fechaEntrega = s.fechaEntrega ? new Date(s.fechaEntrega) : null;
+      if (!fechaEntrega) continue;
+      for (const det of s.detalles || []) {
+        if (det.exceptuado) continue;
+        const epp = det.epp as any;
+        const vigenciaMeses = vigenciaToMonths(epp?.vigencia);
+        const vencimiento = new Date(fechaEntrega);
+        vencimiento.setMonth(vencimiento.getMonth() + vigenciaMeses);
+        const estado = this.clasificarVigencia(fechaEntrega, vigenciaMeses);
+        const vigenciaLabel =
+          estado === 'vencido' ? 'Vencido' : estado === 'vigente' ? 'Vigente' : 'Por vencer';
+        result.push({
+          fecha_entrega: fechaEntrega.toISOString(),
+          trabajador_id: t?.id ?? s.solicitanteId,
+          trabajador_nombre: t?.nombreCompleto ?? 'Sin nombre',
+          nro_documento: t?.documentoIdentidad ?? t?.numeroDocumento ?? '-',
+          fecha_vencimiento: vigenciaMeses > 0 ? vencimiento.toISOString() : null,
+          razon_social: emp?.nombre ?? 'Sin empresa',
+          sede: t?.sede ?? null,
+          equipo: epp?.nombre ?? 'Sin nombre',
+          vigencia: vigenciaLabel,
+          cantidad: det.cantidad || 1,
+          costo_unitario: epp?.costo ? Number(epp.costo) : null,
+        });
+      }
+    }
+
+    return result;
+  }
+
+  async getReporteEntregasPorSede(
+    empresaIds?: string[],
+  ): Promise<ReporteEntregasPorSedeDto[]> {
+    const qb = this.solicitudRepository
+      .createQueryBuilder('s')
+      .innerJoinAndSelect('s.solicitante', 't')
+      .innerJoinAndSelect('s.detalles', 'det')
+      .innerJoinAndSelect('det.epp', 'epp')
+      .where('s.estado = :estado', { estado: EstadoSolicitudEPP.Entregada })
+      .andWhere('s.fecha_entrega IS NOT NULL')
+      .andWhere('det.exceptuado = false');
+
+    if (empresaIds?.length) {
+      qb.andWhere('s.empresa_id IN (:...empresaIds)', { empresaIds });
+    }
+
+    const solicitudes = await qb.getMany();
+    const bySede = new Map<
+      string,
+      { vencido: number; vigente: number; porVencer: number }
+    >();
+
+    for (const s of solicitudes) {
+      const t = s.solicitante as any;
+      const sede = t?.sede ?? 'Sin sede';
+      if (!bySede.has(sede)) {
+        bySede.set(sede, { vencido: 0, vigente: 0, porVencer: 0 });
+      }
+      const fechaEntrega = s.fechaEntrega ? new Date(s.fechaEntrega) : null;
+      if (!fechaEntrega) continue;
+      for (const det of s.detalles || []) {
+        if (det.exceptuado) continue;
+        const epp = det.epp as any;
+        const vigenciaMeses = vigenciaToMonths(epp?.vigencia);
+        const estado = this.clasificarVigencia(fechaEntrega, vigenciaMeses);
+        const qty = det.cantidad || 1;
+        const rec = bySede.get(sede)!;
+        if (estado === 'vencido') rec.vencido += qty;
+        else if (estado === 'vigente') rec.vigente += qty;
+        else rec.porVencer += qty;
+      }
+    }
+
+    return Array.from(bySede.entries()).map(([sede, rec]) => ({
+      sede,
+      total: rec.vencido + rec.vigente + rec.porVencer,
+      vencido: rec.vencido,
+      vigente: rec.vigente,
+      por_vencer: rec.porVencer,
+    }));
+  }
+
+  async getReporteEppsMasSolicitados(
+    empresaIds?: string[],
+  ): Promise<ReporteEppsMasSolicitadosDto[]> {
+    const qb = this.detalleRepository
+      .createQueryBuilder('det')
+      .innerJoin('det.solicitudEpp', 's')
+      .innerJoinAndSelect('det.epp', 'epp')
+      .where('s.estado = :estado', { estado: EstadoSolicitudEPP.Entregada })
+      .andWhere('s.fecha_entrega IS NOT NULL')
+      .andWhere('det.exceptuado = false');
+
+    if (empresaIds?.length) {
+      qb.andWhere('s.empresa_id IN (:...empresaIds)', { empresaIds });
+    }
+
+    const detalles = await qb.getMany();
+    const byEpp = new Map<string, { nombre: string; total: number }>();
+
+    for (const det of detalles) {
+      const epp = det.epp as any;
+      const eppId = det.eppId;
+      const nombre = epp?.nombre ?? 'Sin nombre';
+      const qty = det.cantidad || 1;
+      if (!byEpp.has(eppId)) {
+        byEpp.set(eppId, { nombre, total: 0 });
+      }
+      byEpp.get(eppId)!.total += qty;
+    }
+
+    return Array.from(byEpp.entries())
+      .map(([epp_id, rec]) => ({
+        epp_id,
+        epp_nombre: rec.nombre,
+        total_solicitado: rec.total,
+        cantidad_entregas: rec.total,
+      }))
+      .sort((a, b) => b.total_solicitado - a.total_solicitado);
+  }
+
+  async getReporteTrabajadorCostoHistorico(
+    empresaIds?: string[],
+  ): Promise<ReporteTrabajadorCostoDto[]> {
+    const qb = this.solicitudRepository
+      .createQueryBuilder('s')
+      .innerJoinAndSelect('s.solicitante', 't')
+      .leftJoinAndSelect('t.empresa', 'empresa')
+      .innerJoinAndSelect('s.detalles', 'det')
+      .innerJoinAndSelect('det.epp', 'epp')
+      .where('s.estado = :estado', { estado: EstadoSolicitudEPP.Entregada })
+      .andWhere('s.fecha_entrega IS NOT NULL')
+      .andWhere('det.exceptuado = false');
+
+    if (empresaIds?.length) {
+      qb.andWhere('s.empresa_id IN (:...empresaIds)', { empresaIds });
+    }
+
+    const solicitudes = await qb.getMany();
+    const byTrabajador = new Map<
+      string,
+      { nombre: string; doc: string; razon: string; items: number; costo: number }
+    >();
+
+    for (const s of solicitudes) {
+      const t = s.solicitante as any;
+      const emp = t?.empresa;
+      const tid = t?.id ?? s.solicitanteId;
+      const nombre = t?.nombreCompleto ?? 'Sin nombre';
+      const doc = t?.documentoIdentidad ?? t?.numeroDocumento ?? '-';
+      const razon = emp?.nombre ?? null;
+      if (!byTrabajador.has(tid)) {
+        byTrabajador.set(tid, { nombre, doc, razon: razon ?? '', items: 0, costo: 0 });
+      }
+      const rec = byTrabajador.get(tid)!;
+      for (const det of s.detalles || []) {
+        if (det.exceptuado) continue;
+        const epp = det.epp as any;
+        const qty = det.cantidad || 1;
+        const costoUnit = epp?.costo ? Number(epp.costo) : 0;
+        rec.items += qty;
+        rec.costo += qty * costoUnit;
+      }
+    }
+
+    return Array.from(byTrabajador.entries()).map(([trabajador_id, rec]) => ({
+      trabajador_id,
+      trabajador_nombre: rec.nombre,
+      nro_documento: rec.doc,
+      razon_social: rec.razon,
+      total_items: rec.items,
+      costo_total: Math.round(rec.costo * 100) / 100,
+    }));
   }
 }
