@@ -349,6 +349,7 @@ export class EppService {
     const query = this.solicitudRepository
       .createQueryBuilder('solicitud')
       .leftJoinAndSelect('solicitud.usuarioEpp', 'usuarioEpp')
+      .leftJoinAndSelect('usuarioEpp.trabajador', 'usuarioEppTrabajador')
       .leftJoinAndSelect('solicitud.solicitante', 'solicitante')
       .leftJoinAndSelect('solicitud.supervisorAprobador', 'supervisorAprobador')
       .leftJoinAndSelect('solicitud.entregadoPor', 'entregadoPor')
