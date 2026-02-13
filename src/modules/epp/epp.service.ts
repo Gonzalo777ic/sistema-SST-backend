@@ -296,7 +296,22 @@ export class EppService {
       throw new NotFoundException(`Solicitud EPP con ID ${id} no encontrada`);
     }
 
-    return ResponseSolicitudEppDto.fromEntity(solicitud);
+    const dto = ResponseSolicitudEppDto.fromEntity(solicitud);
+    await this.applySignedUrlsToSolicitudDetalles(dto);
+    return dto;
+  }
+
+  private async applySignedUrlsToSolicitudDetalles(dto: ResponseSolicitudEppDto): Promise<void> {
+    if (!this.storageService.isAvailable() || !dto.detalles?.length) return;
+    for (const detalle of dto.detalles) {
+      if (detalle.epp_imagen_url?.includes('storage.googleapis.com')) {
+        try {
+          detalle.epp_imagen_url = await this.storageService.getSignedUrl(detalle.epp_imagen_url, 60);
+        } catch {
+          // Mantener URL original si falla la firma
+        }
+      }
+    }
   }
 
   async update(
@@ -434,7 +449,8 @@ export class EppService {
       throw new NotFoundException(`EPP con ID ${eppId} no encontrado`);
     }
 
-    if (epp.empresaId !== solicitud.empresaId) {
+    // EPP con empresaId null es global (disponible para todas las empresas)
+    if (epp.empresaId != null && epp.empresaId !== solicitud.empresaId) {
       throw new BadRequestException('El EPP debe pertenecer a la misma empresa que la solicitud');
     }
 
