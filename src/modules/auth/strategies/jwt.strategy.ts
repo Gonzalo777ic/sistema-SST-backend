@@ -66,6 +66,12 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       }
     }
 
-    return { id: usuario.id, dni: usuario.dni, roles: usuario.roles };
+    return {
+      id: usuario.id,
+      dni: usuario.dni,
+      roles: usuario.roles,
+      trabajadorId: usuario.trabajador?.id ?? null,
+      empresaId: usuario.empresaId ?? null,
+    };
   }
 }

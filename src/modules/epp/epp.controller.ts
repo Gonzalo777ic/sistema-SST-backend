@@ -71,6 +71,34 @@ export class EppController {
     return this.eppService.createEpp(dto);
   }
 
+  @Get('catalogo/epps-anteriormente-solicitados')
+  async getEppsAnteriormenteSolicitados(
+    @Query('trabajador_id') trabajadorId: string,
+    @Query('empresa_id') empresaId: string,
+  ) {
+    return this.eppService.getEppsAnteriormenteSolicitados(trabajadorId, empresaId);
+  }
+
+  @Get('catalogo/favoritos')
+  async getFavoritosEpp(
+    @Query('trabajador_id') trabajadorId: string,
+  ): Promise<{ epp_ids: string[] }> {
+    const ids = await this.eppService.getFavoritosEpp(trabajadorId);
+    return { epp_ids: ids };
+  }
+
+  @Post('catalogo/favoritos/:eppId/toggle')
+  async toggleFavoritoEpp(
+    @Param('eppId', ParseUUIDPipe) eppId: string,
+    @CurrentUser() currentUser?: { id: string; trabajadorId?: string | null },
+  ) {
+    const trabajadorId = currentUser?.trabajadorId;
+    if (!trabajadorId) {
+      throw new BadRequestException('Debe tener un trabajador vinculado para usar favoritos');
+    }
+    return this.eppService.toggleFavoritoEpp(trabajadorId, eppId);
+  }
+
   @Get('catalogo')
   async findAllEpp(
     @Query('empresa_id') empresaId?: string,

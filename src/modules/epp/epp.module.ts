@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { SolicitudEPP } from './entities/solicitud-epp.entity';
 import { SolicitudEPPDetalle } from './entities/solicitud-epp-detalle.entity';
 import { EPP } from './entities/epp.entity';
+import { TrabajadorEppFavorito } from './entities/trabajador-epp-favorito.entity';
 import { EppController } from './epp.controller';
 import { EppService } from './epp.service';
 import { EppPdfService } from './epp-pdf.service';
@@ -13,7 +14,7 @@ import { UsuariosModule } from '../usuarios/usuarios.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([SolicitudEPP, SolicitudEPPDetalle, EPP, Trabajador, Empresa]),
+    TypeOrmModule.forFeature([SolicitudEPP, SolicitudEPPDetalle, EPP, Trabajador, Empresa, TrabajadorEppFavorito]),
     ConfigEppModule,
     UsuariosModule,
   ],

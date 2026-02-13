@@ -34,6 +34,7 @@ import {
   ReporteTrabajadorCostoDto,
 } from './dto/reporte-epp.dto';
 import { Trabajador } from '../trabajadores/entities/trabajador.entity';
+import { TrabajadorEppFavorito } from './entities/trabajador-epp-favorito.entity';
 import { Empresa } from '../empresas/entities/empresa.entity';
 import { ConfigEppService } from '../config-epp/config-epp.service';
 import { EppPdfService } from './epp-pdf.service';
@@ -73,6 +74,8 @@ export class EppService {
     private readonly trabajadorRepository: Repository<Trabajador>,
     @InjectRepository(Empresa)
     private readonly empresaRepository: Repository<Empresa>,
+    @InjectRepository(TrabajadorEppFavorito)
+    private readonly favoritoRepository: Repository<TrabajadorEppFavorito>,
     private readonly configEppService: ConfigEppService,
     private readonly eppPdfService: EppPdfService,
     private readonly storageService: StorageService,
@@ -176,6 +179,49 @@ export class EppService {
     return this.applySignedUrls(ResponseEppDto.fromEntity(saved));
   }
 
+  async getEppsAnteriormenteSolicitados(trabajadorId: string, empresaId: string): Promise<ResponseEppDto[]> {
+    const detalles = await this.detalleRepository
+      .createQueryBuilder('det')
+      .innerJoin('det.solicitudEpp', 's')
+      .innerJoinAndSelect('det.epp', 'epp')
+      .where('s.solicitanteId = :trabajadorId', { trabajadorId })
+      .andWhere('s.estado = :estado', { estado: EstadoSolicitudEPP.Entregada })
+      .andWhere('det.exceptuado = false')
+      .getMany();
+
+    const eppIds = [...new Set(detalles.map((d) => d.eppId))];
+    if (eppIds.length === 0) return [];
+
+    const epps = await this.eppRepository
+      .createQueryBuilder('e')
+      .where('e.id IN (:...eppIds)', { eppIds })
+      .andWhere('(e.empresaId = :empresaId OR e.empresaId IS NULL)', { empresaId })
+      .getMany();
+
+    return Promise.all(epps.map((e) => this.applySignedUrls(ResponseEppDto.fromEntity(e))));
+  }
+
+  async getFavoritosEpp(trabajadorId: string): Promise<string[]> {
+    const favoritos = await this.favoritoRepository.find({
+      where: { trabajadorId },
+      select: ['eppId'],
+    });
+    return favoritos.map((f) => f.eppId);
+  }
+
+  async toggleFavoritoEpp(trabajadorId: string, eppId: string): Promise<{ es_favorito: boolean }> {
+    const existente = await this.favoritoRepository.findOne({
+      where: { trabajadorId, eppId },
+    });
+    if (existente) {
+      await this.favoritoRepository.remove(existente);
+      return { es_favorito: false };
+    }
+    const fav = this.favoritoRepository.create({ trabajadorId, eppId });
+    await this.favoritoRepository.save(fav);
+    return { es_favorito: true };
+  }
+
   private async applySignedUrls(dto: ResponseEppDto): Promise<ResponseEppDto> {
     if (!this.storageService.isAvailable()) return dto;
     try {
@@ -272,6 +318,22 @@ export class EppService {
 
       return saved.id;
     });
+
+    // Si es auto-solicitud (empleado solicita para sí), adjuntar firma del onboarding
+    const solicitudConRelaciones = await this.solicitudRepository.findOne({
+      where: { id: savedId },
+      relations: ['solicitante', 'usuarioEpp', 'usuarioEpp.trabajador'],
+    });
+    if (solicitudConRelaciones) {
+      const usuarioEpp = solicitudConRelaciones.usuarioEpp as any;
+      const solicitante = solicitudConRelaciones.solicitante as any;
+      const esAutoSolicitud =
+        usuarioEpp?.trabajador?.id === solicitudConRelaciones.solicitanteId;
+      if (esAutoSolicitud && solicitante?.firmaDigitalUrl) {
+        solicitudConRelaciones.firmaRecepcionUrl = solicitante.firmaDigitalUrl;
+        await this.solicitudRepository.save(solicitudConRelaciones);
+      }
+    }
 
     return this.findOne(savedId);
   }
@@ -607,6 +669,16 @@ export class EppService {
         solicitud.firmaRecepcionUrl = firmaRecepcionUrl;
       } else if (opts?.firmaRecepcionBase64 && !this.storageService.isAvailable()) {
         solicitud.firmaRecepcionUrl = opts.firmaRecepcionBase64;
+      } else if (!firmaRecepcionUrl && !opts?.firmaRecepcionBase64) {
+        // Usar firma del solicitante (onboarding) cuando no se proporciona firma en la entrega
+        const solConSolicitante = await this.solicitudRepository.findOne({
+          where: { id },
+          relations: ['solicitante'],
+        });
+        const firmaSolicitante = (solConSolicitante?.solicitante as any)?.firmaDigitalUrl;
+        if (firmaSolicitante) {
+          solicitud.firmaRecepcionUrl = firmaSolicitante;
+        }
       }
 
       const solicitudConDetalles = await this.solicitudRepository.findOne({
