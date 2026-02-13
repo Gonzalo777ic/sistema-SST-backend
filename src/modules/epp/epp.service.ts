@@ -184,47 +184,87 @@ export class EppService {
 
   // ========== CRUD Solicitudes ==========
 
+  /**
+   * Genera el siguiente código correlativo por empresa de forma segura.
+   * Formato: {RUC}-{YEAR}-{NNNN} (ej: 20548123616-2026-0001).
+   * Usa transacción + advisory lock para evitar colisiones en concurrencia.
+   */
+  private async generarSiguienteCodigoCorrelativo(
+    empresaId: string,
+    manager: { query: (sql: string, params?: any[]) => Promise<any> },
+  ): Promise<string> {
+    const empresa = await this.empresaRepository.findOne({ where: { id: empresaId } });
+    if (!empresa) {
+      throw new NotFoundException(`Empresa ${empresaId} no encontrada`);
+    }
+    const ruc = (empresa as any).ruc?.replace(/[^0-9]/g, '') || empresaId.substring(0, 8);
+    const year = new Date().getFullYear();
+    const prefix = `${ruc}-${year}-`;
+
+    // Advisory lock para serializar generación de códigos (evita race conditions)
+    await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['epp_correlativo']);
+
+    const result = await manager.query(
+      `SELECT codigo_correlativo FROM solicitudes_epp 
+       WHERE codigo_correlativo LIKE $1 
+       ORDER BY codigo_correlativo DESC 
+       LIMIT 1`,
+      [`${prefix}%`],
+    );
+
+    let nextNum = 1;
+    if (result?.length > 0 && result[0]?.codigo_correlativo) {
+      const lastCode = result[0].codigo_correlativo;
+      const match = lastCode.match(new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)$`));
+      if (match) {
+        nextNum = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    return `${prefix}${String(nextNum).padStart(4, '0')}`;
+  }
+
   async create(dto: CreateSolicitudEppDto): Promise<ResponseSolicitudEppDto> {
     if (!dto.detalles || dto.detalles.length === 0) {
       throw new BadRequestException('Debe incluir al menos un item de EPP');
     }
 
-    // Generar código correlativo
-    const year = new Date().getFullYear();
-    const count = await this.solicitudRepository.count({
-      where: { empresaId: dto.empresa_id },
+    const savedId = await this.solicitudRepository.manager.transaction(async (manager) => {
+      const solicitudRepo = manager.getRepository(SolicitudEPP);
+      const detalleRepo = manager.getRepository(SolicitudEPPDetalle);
+
+      const codigoCorrelativo = await this.generarSiguienteCodigoCorrelativo(dto.empresa_id, manager);
+
+      const solicitud = solicitudRepo.create({
+        codigoCorrelativo,
+        fechaSolicitud: new Date(),
+        usuarioEppId: dto.usuario_epp_id,
+        solicitanteId: dto.solicitante_id,
+        motivo: dto.motivo ?? null,
+        centroCostos: dto.centro_costos ?? null,
+        comentarios: dto.comentarios ?? null,
+        observaciones: dto.observaciones ?? null,
+        estado: dto.estado ?? EstadoSolicitudEPP.Pendiente,
+        areaId: dto.area_id ?? null,
+        empresaId: dto.empresa_id,
+      });
+
+      const saved = await solicitudRepo.save(solicitud);
+
+      const detalles = dto.detalles.map((detalleDto) =>
+        detalleRepo.create({
+          solicitudEppId: saved.id,
+          eppId: detalleDto.epp_id,
+          cantidad: detalleDto.cantidad,
+        }),
+      );
+
+      await detalleRepo.save(detalles);
+
+      return saved.id;
     });
-    const codigoCorrelativo = `EPP-${year}-${String(count + 1).padStart(4, '0')}`;
 
-    // Crear solicitud
-    const solicitud = this.solicitudRepository.create({
-      codigoCorrelativo,
-      fechaSolicitud: new Date(),
-      usuarioEppId: dto.usuario_epp_id,
-      solicitanteId: dto.solicitante_id,
-      motivo: dto.motivo ?? null,
-      centroCostos: dto.centro_costos ?? null,
-      comentarios: dto.comentarios ?? null,
-      observaciones: dto.observaciones ?? null,
-      estado: dto.estado ?? EstadoSolicitudEPP.Pendiente,
-      areaId: dto.area_id ?? null,
-      empresaId: dto.empresa_id,
-    });
-
-    const saved = await this.solicitudRepository.save(solicitud);
-
-    // Crear detalles
-    const detalles = dto.detalles.map((detalleDto) =>
-      this.detalleRepository.create({
-        solicitudEppId: saved.id,
-        eppId: detalleDto.epp_id,
-        cantidad: detalleDto.cantidad,
-      }),
-    );
-
-    await this.detalleRepository.save(detalles);
-
-    return this.findOne(saved.id);
+    return this.findOne(savedId);
   }
 
   async findAll(
@@ -567,6 +607,7 @@ export class EppService {
           'detalles.epp',
           'solicitante',
           'solicitante.area',
+          'solicitante.empresa',
           'empresa',
           'entregadoPor',
           'entregadoPor.trabajador',
@@ -586,7 +627,19 @@ export class EppService {
         }
 
         try {
-          const { buffer } = await this.eppPdfService.generateRegistroEntregaPdf(solicitudConDetalles);
+          const empresaReg = solicitudConDetalles.empresa as any;
+          let logoUrlReg: string | undefined;
+          if (empresaReg?.logoUrl && this.storageService.isAvailable()) {
+            try {
+              logoUrlReg = await this.storageService.getSignedUrl(empresaReg.logoUrl, 5);
+            } catch {
+              logoUrlReg = empresaReg.logoUrl;
+            }
+          }
+          const { buffer } = await this.eppPdfService.generateRegistroEntregaPdf(
+            solicitudConDetalles,
+            logoUrlReg ?? empresaReg?.logoUrl,
+          );
           const empresa = solicitudConDetalles.empresa as any;
           const rucEmpresa = empresa?.ruc ?? 'sistema';
           if (this.storageService.isAvailable()) {
@@ -642,9 +695,19 @@ export class EppService {
         });
         try {
           const trabajador = solicitudConDetalles.solicitante;
+          const empresaKardex = (trabajador as any)?.empresa ?? (solicitudConDetalles.empresa as any);
+          let logoUrlSigned: string | undefined;
+          if (empresaKardex?.logoUrl && this.storageService.isAvailable()) {
+            try {
+              logoUrlSigned = await this.storageService.getSignedUrl(empresaKardex.logoUrl, 5);
+            } catch {
+              // Usar URL original si falla la firma
+            }
+          }
           const kardexBuffer = await this.eppPdfService.generateKardexPdfPorTrabajador(
             trabajador,
             entregasParaKardex,
+            logoUrlSigned ?? empresaKardex?.logoUrl,
           );
           const rucEmpresa = (solicitudConDetalles.empresa as any)?.ruc ?? 'sistema';
           const trabajadorEntity = await this.trabajadorRepository.findOne({
@@ -895,6 +958,7 @@ export class EppService {
   async getKardexPdfBuffer(trabajadorId: string): Promise<Buffer> {
     const trabajador = await this.trabajadorRepository.findOne({
       where: { id: trabajadorId },
+      relations: ['empresa'],
     });
     if (!trabajador) {
       throw new NotFoundException(`Trabajador ${trabajadorId} no encontrado`);
@@ -920,9 +984,19 @@ export class EppService {
           'No hay entregas registradas para este trabajador. El kardex se genera al marcar una solicitud como entregada.',
         );
       }
+      const empresaKardex = (trabajador as any)?.empresa ?? (todasEntregas[0]?.empresa as any);
+      let logoUrlSigned: string | undefined;
+      if (empresaKardex?.logoUrl && this.storageService.isAvailable()) {
+        try {
+          logoUrlSigned = await this.storageService.getSignedUrl(empresaKardex.logoUrl, 5);
+        } catch {
+          // Usar URL original si falla la firma
+        }
+      }
       const kardexBuffer = await this.eppPdfService.generateKardexPdfPorTrabajador(
         trabajador,
         todasEntregas,
+        logoUrlSigned ?? empresaKardex?.logoUrl,
       );
       const empresa = todasEntregas[0]?.empresa as any;
       const rucEmpresa = empresa?.ruc ?? 'sistema';

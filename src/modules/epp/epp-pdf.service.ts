@@ -20,6 +20,7 @@ export class EppPdfService {
 
   /**
    * Obtiene el buffer de una imagen desde URL (data:, GCS o http).
+   * Para GCS: usa downloadFile (service account) o fetch si la URL está firmada.
    */
   private async fetchImageBuffer(url: string | null | undefined): Promise<Buffer | null> {
     if (!url?.trim()) return null;
@@ -28,8 +29,29 @@ export class EppPdfService {
         const base64Match = url.match(/^data:image\/\w+;base64,(.+)$/);
         if (base64Match) return Buffer.from(base64Match[1], 'base64');
       }
-      if (url.includes('storage.googleapis.com') && this.storageService.isAvailable()) {
-        return await this.storageService.downloadFile(url);
+      if (url.includes('storage.googleapis.com')) {
+        if (this.storageService.isAvailable()) {
+          try {
+            return await this.storageService.downloadFile(url);
+          } catch {
+            // Fallback: URL firmada (con ?) puede descargarse vía fetch
+            if (url.includes('?')) {
+              const res = await fetch(url);
+              if (res.ok) {
+                const ab = await res.arrayBuffer();
+                return Buffer.from(ab);
+              }
+            }
+          }
+        } else if (url.includes('?')) {
+          // Storage no configurado: fetch con URL firmada
+          const res = await fetch(url);
+          if (res.ok) {
+            const ab = await res.arrayBuffer();
+            return Buffer.from(ab);
+          }
+        }
+        return null;
       }
       const res = await fetch(url);
       if (!res.ok) return null;
@@ -57,8 +79,9 @@ export class EppPdfService {
    * Genera el PDF de registro de entrega en memoria (buffer).
    * Incluye hash de auditoría junto a fecha y hora de entrega.
    * Embeber imágenes de firma: trabajador (transacción o maestra) y responsable (maestra).
+   * @param logoUrlOverride - URL firmada del logo (prioridad sobre empresa.logoUrl) para cargar la imagen PNG.
    */
-  async generateRegistroEntregaPdf(solicitud: SolicitudEPP): Promise<PdfResult> {
+  async generateRegistroEntregaPdf(solicitud: SolicitudEPP, logoUrlOverride?: string): Promise<PdfResult> {
     const detalles = (solicitud.detalles || []).filter((d) => !d.exceptuado);
     if (detalles.length === 0) {
       throw new Error('No hay items entregados para generar el registro');
@@ -71,8 +94,9 @@ export class EppPdfService {
     const firmaTrabajadorUrl = solicitud.firmaRecepcionUrl ?? solicitante?.firmaDigitalUrl ?? null;
     const firmaResponsableUrl = entregadoPor?.firmaUrl ?? null;
 
+    const logoUrl = logoUrlOverride ?? empresa?.logoUrl;
     const [logoBuf, firmaTrabajadorBuf, firmaResponsableBuf] = await Promise.all([
-      this.fetchImageBuffer(empresa?.logoUrl),
+      this.fetchImageBuffer(logoUrl),
       this.fetchImageBuffer(firmaTrabajadorUrl),
       this.fetchImageBuffer(firmaResponsableUrl),
     ]);
@@ -111,11 +135,16 @@ export class EppPdfService {
       doc.on('error', reject);
       doc.strokeColor('#000000');
 
-      // Encabezado: logo izquierda, título derecha
+      // Encabezado: logo izquierda, título derecha (preserva aspect ratio)
       if (logoBuf) {
         try {
           doc.rect(M, M, logoSize, logoSize).stroke();
-          doc.image(logoBuf, M + 4, M + 4, { width: logoSize - 8, height: logoSize - 8 });
+          const logoBox = logoSize - 8;
+          doc.image(logoBuf, M + 4, M + 4, {
+            fit: [logoBox, logoBox],
+            align: 'center',
+            valign: 'center',
+          });
         } catch {
           doc.rect(M, M, logoSize, logoSize).stroke();
           doc.fontSize(7).font('Helvetica').text('Logo', M + 10, M + 25);
@@ -313,10 +342,12 @@ export class EppPdfService {
   /**
    * Genera el PDF de kardex consolidado del trabajador con TODOS los items de TODAS las entregas.
    * Se invoca cada vez que se marca una solicitud como ENTREGADA.
+   * @param logoUrlOverride - URL firmada del logo (prioridad sobre empresa.logoUrl) para cargar la imagen PNG.
    */
   async generateKardexPdfPorTrabajador(
     trabajador: any,
     solicitudesEntregadas: SolicitudEPP[],
+    logoUrlOverride?: string,
   ): Promise<Buffer> {
     const solicitudesOrdenadas = [...solicitudesEntregadas].sort((a, b) => {
       const dA = a.fechaEntrega ? new Date(a.fechaEntrega).getTime() : 0;
@@ -380,7 +411,11 @@ export class EppPdfService {
       throw new Error('No hay items entregados para generar el kardex');
     }
 
-    const empresa = (trabajador as any)?.empresa ?? (solicitudesOrdenadas[0]?.empresa as any);
+    // Logo: empresa del trabajador solicitante (prioridad) o de la primera solicitud
+    const empresa =
+      (trabajador as any)?.empresa ??
+      (solicitudesOrdenadas[0]?.empresa as any) ??
+      (solicitudesOrdenadas[0]?.solicitante as any)?.empresa;
     const solicitante = trabajador;
     const entregadoPor = solicitudesEntregadas[0]?.entregadoPor as any;
     const responsableNombre =
@@ -402,7 +437,8 @@ export class EppPdfService {
       return buf;
     };
 
-    const logoBuf = await this.fetchImageBuffer(empresa?.logoUrl);
+    const logoUrl = logoUrlOverride ?? empresa?.logoUrl;
+    const logoBuf = await this.fetchImageBuffer(logoUrl);
 
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
     const chunks: Buffer[] = [];
@@ -430,11 +466,16 @@ export class EppPdfService {
       doc.on('error', reject);
       doc.strokeColor('#000000');
 
-      // Encabezado: logo + título
+      // Encabezado: logo + título (preserva aspect ratio)
       if (logoBuf) {
         try {
           doc.rect(M, M, logoSize, logoSize).stroke();
-          doc.image(logoBuf, M + 4, M + 4, { width: logoSize - 8, height: logoSize - 8 });
+          const logoBox = logoSize - 8;
+          doc.image(logoBuf, M + 4, M + 4, {
+            fit: [logoBox, logoBox],
+            align: 'center',
+            valign: 'center',
+          });
         } catch {
           doc.rect(M, M, logoSize, logoSize).stroke();
           doc.fontSize(7).font('Helvetica').text('Logo', M + 10, M + 25);
@@ -448,7 +489,7 @@ export class EppPdfService {
         'KARDEX DE EPP - REGISTRO HISTÓRICO DE ENTREGAS',
         M + logoSize + 8,
         M + 20,
-        { width: pageW - logoSize - 8, align: 'center' }
+        { width: pageW - logoSize - 8, align: 'center', height: 16 }
       );
       doc.font('Helvetica');
 
@@ -470,7 +511,7 @@ export class EppPdfService {
           'ACTIVIDAD ECONÓMICA',
           'Nº TRABAJADORES',
         ];
-        doc.text(labels[c], x + 3, y + 5, { width: colW[c] - 6, align: 'center' });
+        doc.text(labels[c], x + 3, y + 5, { width: colW[c] - 6, align: 'center', height: 14 });
       }
       y += rowH;
       doc.font('Helvetica');
@@ -484,57 +525,71 @@ export class EppPdfService {
       for (let c = 0; c < 5; c++) {
         const x = gridX + colW.slice(0, c).reduce((a, b) => a + b, 0);
         doc.rect(x, y, colW[c], rowH).stroke();
-        doc.text(vals[c], x + 3, y + 5, { width: colW[c] - 6 });
+        doc.text(vals[c], x + 3, y + 5, { width: colW[c] - 6, height: 14 });
       }
       y += rowH + 12;
 
       doc.font('Helvetica-Bold');
-      doc.text('TRABAJADOR:', M, y);
+      doc.text('TRABAJADOR:', M, y, { height: 12 });
       doc.font('Helvetica');
-      doc.text(solicitante?.nombreCompleto || '-', M + 80, y);
+      doc.text(solicitante?.nombreCompleto || '-', M + 80, y, { width: 180, height: 12 });
       doc.font('Helvetica-Bold');
-      doc.text('DNI:', M + 280, y);
+      doc.text('DNI:', M + 280, y, { height: 12 });
       doc.font('Helvetica');
-      doc.text(solicitante?.documentoIdentidad || '-', M + 305, y);
+      doc.text(solicitante?.documentoIdentidad || '-', M + 305, y, { width: 80, height: 12 });
       y += 14;
       doc.font('Helvetica-Bold');
-      doc.text('RESPONSABLE DE ENTREGA:', M, y);
+      doc.text('RESPONSABLE DE ENTREGA:', M, y, { height: 12 });
       doc.font('Helvetica');
-      doc.text(responsableNombre, M + 155, y);
+      doc.text(responsableNombre, M + 155, y, { width: 200, height: 12 });
       y += 20;
 
       const tableX = M;
-      doc.fontSize(7).font('Helvetica-Bold');
-      let x = tableX;
-      doc.rect(x, y, colWidths.desc, 28).stroke();
-      doc.text('DESCRIPCIÓN DE LO ENTREGADO', x + 2, y + 4, { width: colWidths.desc - 4 });
-      x += colWidths.desc;
-      doc.rect(x, y, colWidths.cant, 28).stroke();
-      doc.text('CANTIDAD', x + 2, y + 4, { width: colWidths.cant - 4, align: 'center' });
-      x += colWidths.cant;
-      doc.rect(x, y, colWidths.fecha, 28).stroke();
-      doc.text('FECHA DE ENTREGA', x + 2, y + 4, { width: colWidths.fecha - 4, align: 'center' });
-      x += colWidths.fecha;
-      doc.rect(x, y, colWidths.area, 28).stroke();
-      doc.text('AREA DE TRABAJO', x + 2, y + 4, { width: colWidths.area - 4, align: 'center' });
-      x += colWidths.area;
-      doc.rect(x, y, colWidths.seEntrego * 2, 14).stroke();
-      doc.text('SE ENTREGO:', x + 2, y + 2, { width: colWidths.seEntrego * 2 - 4, align: 'center' });
-      doc.rect(x, y + 14, colWidths.seEntrego, 14).stroke();
-      doc.text('EPP', x + 2, y + 16, { width: colWidths.seEntrego - 4, align: 'center' });
-      doc.rect(x + colWidths.seEntrego, y + 14, colWidths.seEntrego, 14).stroke();
-      doc.text('UNIF.', x + colWidths.seEntrego + 2, y + 16, { width: colWidths.seEntrego - 4, align: 'center' });
-      x += colWidths.seEntrego * 2;
-      doc.rect(x, y, colWidths.firmaTrab, 28).stroke();
-      doc.text('FIRMA DEL TRABAJADOR', x + 2, y + 4, { width: colWidths.firmaTrab - 4, align: 'center' });
-      x += colWidths.firmaTrab;
-      doc.rect(x, y, colWidths.firmaResp, 28).stroke();
-      doc.text('FIRMA DEL RESPONSABLE', x + 2, y + 4, { width: colWidths.firmaResp - 4, align: 'center' });
-      doc.font('Helvetica');
+      const pageH = 841.89;
+      const pageBottom = pageH - M;
 
+      const drawTableHeader = () => {
+        doc.fontSize(7).font('Helvetica-Bold');
+        let x = tableX;
+        doc.rect(x, y, colWidths.desc, 28).stroke();
+        doc.text('DESCRIPCIÓN DE LO ENTREGADO', x + 2, y + 4, { width: colWidths.desc - 4, height: 20 });
+        x += colWidths.desc;
+        doc.rect(x, y, colWidths.cant, 28).stroke();
+        doc.text('CANTIDAD', x + 2, y + 4, { width: colWidths.cant - 4, align: 'center', height: 20 });
+        x += colWidths.cant;
+        doc.rect(x, y, colWidths.fecha, 28).stroke();
+        doc.text('FECHA DE ENTREGA', x + 2, y + 4, { width: colWidths.fecha - 4, align: 'center', height: 20 });
+        x += colWidths.fecha;
+        doc.rect(x, y, colWidths.area, 28).stroke();
+        doc.text('AREA DE TRABAJO', x + 2, y + 4, { width: colWidths.area - 4, align: 'center', height: 20 });
+        x += colWidths.area;
+        doc.rect(x, y, colWidths.seEntrego * 2, 14).stroke();
+        doc.text('SE ENTREGO:', x + 2, y + 2, { width: colWidths.seEntrego * 2 - 4, align: 'center', height: 10 });
+        doc.rect(x, y + 14, colWidths.seEntrego, 14).stroke();
+        doc.text('EPP', x + 2, y + 16, { width: colWidths.seEntrego - 4, align: 'center', height: 10 });
+        doc.rect(x + colWidths.seEntrego, y + 14, colWidths.seEntrego, 14).stroke();
+        doc.text('UNIF.', x + colWidths.seEntrego + 2, y + 16, { width: colWidths.seEntrego - 4, align: 'center', height: 10 });
+        x += colWidths.seEntrego * 2;
+        doc.rect(x, y, colWidths.firmaTrab, 28).stroke();
+        doc.text('FIRMA DEL TRABAJADOR', x + 2, y + 4, { width: colWidths.firmaTrab - 4, align: 'center', height: 20 });
+        x += colWidths.firmaTrab;
+        doc.rect(x, y, colWidths.firmaResp, 28).stroke();
+        doc.text('FIRMA DEL RESPONSABLE', x + 2, y + 4, { width: colWidths.firmaResp - 4, align: 'center', height: 20 });
+        doc.font('Helvetica');
+      };
+
+      drawTableHeader();
       let rowY = y + 28;
 
+      let x = tableX;
       for (const it of items) {
+        if (rowY + rowHeight > pageBottom) {
+          doc.addPage({ size: 'A4', margin: M });
+          y = M;
+          rowY = y + 28;
+          drawTableHeader();
+        }
+
         const [firmaTrabBuf, firmaRespBuf] = await Promise.all([
           fetchFirma(it.firmaTrabajadorUrl),
           fetchFirma(it.firmaResponsableUrl),
@@ -543,22 +598,22 @@ export class EppPdfService {
 
         x = tableX;
         doc.rect(x, rowY, colWidths.desc, rowHeight).stroke();
-        doc.text(it.desc, x + 3, rowY + 4, { width: colWidths.desc - 6 });
+        doc.text(it.desc, x + 3, rowY + 4, { width: colWidths.desc - 6, height: rowHeight - 8 });
         x += colWidths.desc;
         doc.rect(x, rowY, colWidths.cant, rowHeight).stroke();
-        doc.text(String(it.cant), x + 3, rowY + 4, { width: colWidths.cant - 6, align: 'center' });
+        doc.text(String(it.cant), x + 3, rowY + 4, { width: colWidths.cant - 6, align: 'center', height: rowHeight - 8 });
         x += colWidths.cant;
         doc.rect(x, rowY, colWidths.fecha, rowHeight).stroke();
-        doc.text(it.fechaStr, x + 3, rowY + 4, { width: colWidths.fecha - 6, align: 'center' });
+        doc.text(it.fechaStr, x + 3, rowY + 4, { width: colWidths.fecha - 6, align: 'center', height: rowHeight - 8 });
         x += colWidths.fecha;
         doc.rect(x, rowY, colWidths.area, rowHeight).stroke();
-        doc.text(it.areaNombre, x + 3, rowY + 4, { width: colWidths.area - 6, align: 'center' });
+        doc.text(it.areaNombre, x + 3, rowY + 4, { width: colWidths.area - 6, align: 'center', height: rowHeight - 8 });
         x += colWidths.area;
         doc.rect(x, rowY, colWidths.seEntrego, rowHeight).stroke();
-        doc.text(it.esEpp ? 'X' : '', x + 3, rowY + 4, { width: colWidths.seEntrego - 6, align: 'center' });
+        doc.text(it.esEpp ? 'X' : '', x + 3, rowY + 4, { width: colWidths.seEntrego - 6, align: 'center', height: rowHeight - 8 });
         x += colWidths.seEntrego;
         doc.rect(x, rowY, colWidths.seEntrego, rowHeight).stroke();
-        doc.text(!it.esEpp ? 'X' : '', x + 3, rowY + 4, { width: colWidths.seEntrego - 6, align: 'center' });
+        doc.text(!it.esEpp ? 'X' : '', x + 3, rowY + 4, { width: colWidths.seEntrego - 6, align: 'center', height: rowHeight - 8 });
         x += colWidths.seEntrego;
 
         const cellTrabX = x;
@@ -576,15 +631,16 @@ export class EppPdfService {
           try {
             doc.image(firmaTrabBuf, centerTrabX, centerTrabY, { width: imgW, height: imgH });
           } catch {
-            doc.text('-', cellTrabX + colWidths.firmaTrab / 2 - 4, rowY + imgAreaH / 2 - 4);
+            doc.text('-', cellTrabX + colWidths.firmaTrab / 2 - 4, rowY + imgAreaH / 2 - 4, { height: 10 });
           }
         } else {
-          doc.text('-', cellTrabX + colWidths.firmaTrab / 2 - 4, rowY + imgAreaH / 2 - 4);
+          doc.text('-', cellTrabX + colWidths.firmaTrab / 2 - 4, rowY + imgAreaH / 2 - 4, { height: 10 });
         }
         doc.fontSize(6).fillColor('#4b5563');
         doc.text(hashLine, cellTrabX + 2, rowY + rowHeight - hashH - 1, {
           width: colWidths.firmaTrab - 4,
           align: 'center',
+          height: hashH,
         });
         doc.fillColor('#000000').fontSize(7);
 
@@ -592,10 +648,10 @@ export class EppPdfService {
           try {
             doc.image(firmaRespBuf, centerRespX, centerRespY, { width: imgW, height: imgH });
           } catch {
-            doc.text('-', cellRespX + colWidths.firmaResp / 2 - 4, rowY + rowHeight / 2 - 4);
+            doc.text('-', cellRespX + colWidths.firmaResp / 2 - 4, rowY + rowHeight / 2 - 4, { height: 10 });
           }
         } else {
-          doc.text('-', cellRespX + colWidths.firmaResp / 2 - 4, rowY + rowHeight / 2 - 4);
+          doc.text('-', cellRespX + colWidths.firmaResp / 2 - 4, rowY + rowHeight / 2 - 4, { height: 10 });
         }
 
         rowY += rowHeight;
