@@ -597,11 +597,12 @@ export class EppService {
             'detalles.epp',
             'solicitante',
             'solicitante.area',
+            'solicitante.empresa',
             'empresa',
             'entregadoPor',
             'entregadoPor.trabajador',
           ],
-          order: { fechaEntrega: 'ASC' },
+          order: { fechaEntrega: 'DESC' },
         });
         // La solicitud actual aún no está guardada con estado Entregada; incluirla explícitamente
         const solicitudActual = Object.assign(solicitudConDetalles, {
@@ -621,7 +622,7 @@ export class EppService {
         entregasParaKardex.sort((a, b) => {
           const dA = a.fechaEntrega ? new Date(a.fechaEntrega).getTime() : 0;
           const dB = b.fechaEntrega ? new Date(b.fechaEntrega).getTime() : 0;
-          return dA - dB;
+          return dB - dA;
         });
         try {
           const trabajador = solicitudConDetalles.solicitante;
@@ -890,11 +891,12 @@ export class EppService {
           'detalles.epp',
           'solicitante',
           'solicitante.area',
+          'solicitante.empresa',
           'empresa',
           'entregadoPor',
           'entregadoPor.trabajador',
         ],
-        order: { fechaEntrega: 'ASC' },
+        order: { fechaEntrega: 'DESC' },
       });
       const detallesCount = todasEntregas.reduce((s, sol) => s + (sol.detalles?.filter((d) => !d.exceptuado).length ?? 0), 0);
       if (detallesCount === 0) {

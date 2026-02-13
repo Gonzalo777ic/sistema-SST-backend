@@ -68,11 +68,11 @@ export class EppPdfService {
     const solicitante = solicitud.solicitante as any;
     const entregadoPor = solicitud.entregadoPor as any;
 
-    // Priorizar firma de transacción (capturada en entrega) sobre firma maestra (onboarding)
     const firmaTrabajadorUrl = solicitud.firmaRecepcionUrl ?? solicitante?.firmaDigitalUrl ?? null;
     const firmaResponsableUrl = entregadoPor?.firmaUrl ?? null;
 
-    const [firmaTrabajadorBuf, firmaResponsableBuf] = await Promise.all([
+    const [logoBuf, firmaTrabajadorBuf, firmaResponsableBuf] = await Promise.all([
+      this.fetchImageBuffer(empresa?.logoUrl),
       this.fetchImageBuffer(firmaTrabajadorUrl),
       this.fetchImageBuffer(firmaResponsableUrl),
     ]);
@@ -89,120 +89,150 @@ export class EppPdfService {
     const areaNombre = (solicitante?.area as any)?.nombre || solicitante?.area?.nombre || '-';
     const fechaEntrega = solicitud.fechaEntrega ? new Date(solicitud.fechaEntrega) : new Date();
     const hashAuditoria = EppPdfService.getHashAuditoria(solicitud.id);
+    const fechaStr = fechaEntrega.toLocaleDateString('es-PE');
+    const fechaHoraStr = fechaEntrega.toLocaleString('es-PE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
     const chunks: Buffer[] = [];
     doc.on('data', (chunk) => chunks.push(chunk));
 
+    const M = 40;
+    const pageW = 595.28 - M * 2;
+    const logoSize = 70;
+
     return new Promise((resolve, reject) => {
-      doc.on('end', () => {
-        resolve({ buffer: Buffer.concat(chunks), hashAuditoria });
-      });
+      doc.on('end', () => resolve({ buffer: Buffer.concat(chunks), hashAuditoria }));
       doc.on('error', reject);
+      doc.strokeColor('#000000');
 
-      doc.fontSize(10).text('', 40, 40);
-
-      doc.fontSize(12).font('Helvetica-Bold');
+      // Encabezado: logo izquierda, título derecha
+      if (logoBuf) {
+        try {
+          doc.rect(M, M, logoSize, logoSize).stroke();
+          doc.image(logoBuf, M + 4, M + 4, { width: logoSize - 8, height: logoSize - 8 });
+        } catch {
+          doc.rect(M, M, logoSize, logoSize).stroke();
+          doc.fontSize(7).font('Helvetica').text('Logo', M + 10, M + 25);
+        }
+      } else {
+        doc.rect(M, M, logoSize, logoSize).stroke();
+        doc.fontSize(7).font('Helvetica').text('Logo', M + 10, M + 25);
+      }
+      doc.fontSize(11).font('Helvetica-Bold');
       doc.text(
         'REGISTRO DE ENTREGA DE EQUIPO DE PROTECCIÓN PERSONAL Y UNIFORME',
-        200,
-        40,
-        { width: 350, align: 'right' }
+        M + logoSize + 8,
+        M + 20,
+        { width: pageW - logoSize - 8, align: 'center' }
       );
       doc.font('Helvetica');
 
-      let y = 90;
+      let y = M + logoSize + 16;
 
-      doc.fontSize(9).font('Helvetica-Bold');
-      doc.text('RAZÓN SOCIAL O DENOMINACIÓN SOCIAL:', 40, y);
+      // Grilla datos generales: 5 celdas (2 filas)
+      const colW = [130, 55, 120, 165, 46];
+      const gridW = colW.reduce((a, b) => a + b, 0);
+      const gridX = M + (pageW - gridW) / 2;
+      const rowH = 22;
+      doc.fontSize(7).font('Helvetica-Bold');
+      for (let c = 0; c < 5; c++) {
+        const x = gridX + colW.slice(0, c).reduce((a, b) => a + b, 0);
+        doc.rect(x, y, colW[c], rowH).stroke();
+        const labels = [
+          'RAZON SOCIAL O DENOMINACION SOCIAL',
+          'RUC',
+          'DIRECCIÓN',
+          'ACTIVIDAD ECONÓMICA',
+          'Nº TRABAJADORES',
+        ];
+        doc.text(labels[c], x + 3, y + 5, { width: colW[c] - 6, align: 'center' });
+      }
+      y += rowH;
       doc.font('Helvetica');
-      doc.text(empresa?.nombre || '-', 40, y + 14, { width: 250 });
-      doc.font('Helvetica-Bold');
-      doc.text('RUC:', 300, y);
-      doc.font('Helvetica');
-      doc.text(empresa?.ruc || '-', 300, y + 14);
-      y += 36;
+      const vals = [
+        empresa?.nombre || '-',
+        empresa?.ruc || '-',
+        empresa?.direccion || '-',
+        (empresa?.actividadEconomica || '-').substring(0, 50),
+        String(empresa?.numeroTrabajadores ?? '-'),
+      ];
+      for (let c = 0; c < 5; c++) {
+        const x = gridX + colW.slice(0, c).reduce((a, b) => a + b, 0);
+        doc.rect(x, y, colW[c], rowH).stroke();
+        doc.text(vals[c], x + 3, y + 5, { width: colW[c] - 6 });
+      }
+      y += rowH + 12;
 
+      // Responsable y empleado
       doc.font('Helvetica-Bold');
-      doc.text('DIRECCIÓN:', 40, y);
+      doc.text('RESPONSABLE DE ENTREGA:', M, y);
       doc.font('Helvetica');
-      doc.text(empresa?.direccion || '-', 40, y + 14, { width: 250 });
+      doc.text(responsableNombre, M + 155, y);
+      y += 14;
       doc.font('Helvetica-Bold');
-      doc.text('ACTIVIDAD ECONÓMICA:', 300, y);
+      doc.text('APELLIDOS Y NOMBRES:', M, y);
       doc.font('Helvetica');
-      doc.text((empresa?.actividadEconomica || '-').substring(0, 40), 300, y + 14, { width: 230 });
-      y += 36;
+      doc.text(solicitante?.nombreCompleto || '-', M + 155, y);
+      doc.font('Helvetica-Bold');
+      doc.text('DNI:', M + 350, y);
+      doc.font('Helvetica');
+      doc.text(solicitante?.documentoIdentidad || '-', M + 375, y);
+      y += 20;
 
-      doc.font('Helvetica-Bold');
-      doc.text('N° TRABAJADORES:', 40, y);
-      doc.font('Helvetica');
-      doc.text(String(empresa?.numeroTrabajadores ?? '-'), 150, y);
-      y += 30;
-
-      doc.font('Helvetica-Bold').fontSize(9);
-      doc.text('RESPONSABLE DE ENTREGA:', 40, y);
-      doc.font('Helvetica');
-      doc.text(responsableNombre, 40, y + 14);
-      y += 36;
-
-      doc.font('Helvetica-Bold');
-      doc.text('APELLIDOS Y NOMBRES:', 40, y);
-      doc.font('Helvetica');
-      doc.text(solicitante?.nombreCompleto || '-', 40, y + 14);
-      doc.font('Helvetica-Bold');
-      doc.text('DNI:', 300, y);
-      doc.font('Helvetica');
-      doc.text(solicitante?.documentoIdentidad || '-', 300, y + 14);
-      y += 36;
-
-      const tableTop = y + 10;
+      // Tabla detalle: encabezado con SE ENTREGO: (EPP | UNIFORME)
       const colWidths = {
-        desc: 140,
-        cant: 35,
-        fecha: 55,
-        area: 60,
-        epp: 35,
-        uni: 40,
-        firmaTrab: 90,
-        firmaResp: 90,
+        desc: 130,
+        cant: 38,
+        fecha: 52,
+        area: 75,
+        seEntrego: 38,
+        firmaTrab: 88,
+        firmaResp: 83,
       };
+      const rowHeight = 58;
+      const tableX = M;
 
-      doc.font('Helvetica-Bold').fontSize(8);
-      doc.fillColor('#e5e7eb').rect(40, tableTop, 516, 20).fill();
-      doc.strokeColor('#374151').rect(40, tableTop, 516, 20).stroke();
-      doc.fillColor('#111827');
-      doc.text('DESCRIPCIÓN', 45, tableTop + 6, { width: colWidths.desc - 10 });
-      doc.text('CANT.', 185, tableTop + 6, { width: colWidths.cant - 5 });
-      doc.text('FECHA ENTREGA', 220, tableTop + 6, { width: colWidths.fecha - 5 });
-      doc.text('ÁREA', 275, tableTop + 6, { width: colWidths.area - 5 });
-      doc.text('EPP', 335, tableTop + 6, { width: colWidths.epp - 5 });
-      doc.text('UNIF.', 370, tableTop + 6, { width: colWidths.uni - 5 });
-      doc.text('FIRMA TRABAJADOR', 410, tableTop + 6, { width: colWidths.firmaTrab - 5 });
-      doc.text('FIRMA RESPONSABLE', 500, tableTop + 6, { width: colWidths.firmaResp - 5 });
-      doc.font('Helvetica').fillColor('#000000');
+      doc.fontSize(7).font('Helvetica-Bold');
+      let x = tableX;
+      doc.rect(x, y, colWidths.desc, 28).stroke();
+      doc.text('DESCRIPCIÓN DE LO ENTREGADO', x + 2, y + 4, { width: colWidths.desc - 4 });
+      x += colWidths.desc;
+      doc.rect(x, y, colWidths.cant, 28).stroke();
+      doc.text('CANTIDAD', x + 2, y + 4, { width: colWidths.cant - 4, align: 'center' });
+      x += colWidths.cant;
+      doc.rect(x, y, colWidths.fecha, 28).stroke();
+      doc.text('FECHA DE ENTREGA', x + 2, y + 4, { width: colWidths.fecha - 4, align: 'center' });
+      x += colWidths.fecha;
+      doc.rect(x, y, colWidths.area, 28).stroke();
+      doc.text('AREA DE TRABAJO', x + 2, y + 4, { width: colWidths.area - 4, align: 'center' });
+      x += colWidths.area;
+      doc.rect(x, y, colWidths.seEntrego * 2, 14).stroke();
+      doc.text('SE ENTREGO:', x + 2, y + 2, { width: colWidths.seEntrego * 2 - 4, align: 'center' });
+      doc.rect(x, y + 14, colWidths.seEntrego, 14).stroke();
+      doc.text('EPP', x + 2, y + 16, { width: colWidths.seEntrego - 4, align: 'center' });
+      doc.rect(x + colWidths.seEntrego, y + 14, colWidths.seEntrego, 14).stroke();
+      doc.text('UNIF.', x + colWidths.seEntrego + 2, y + 16, { width: colWidths.seEntrego - 4, align: 'center' });
+      x += colWidths.seEntrego * 2;
+      doc.rect(x, y, colWidths.firmaTrab, 28).stroke();
+      doc.text('FIRMA DEL TRABAJADOR', x + 2, y + 4, { width: colWidths.firmaTrab - 4, align: 'center' });
+      x += colWidths.firmaTrab;
+      doc.rect(x, y, colWidths.firmaResp, 28).stroke();
+      doc.text('FIRMA DEL RESPONSABLE', x + 2, y + 4, { width: colWidths.firmaResp - 4, align: 'center' });
+      doc.font('Helvetica');
 
-      let rowY = tableTop + 28;
-      const rowHeight = 50;
-      const fechaStr = fechaEntrega.toLocaleDateString('es-PE');
-      const fechaHoraStr = fechaEntrega.toLocaleString('es-PE', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-
-      doc.fontSize(8).fillColor('#6b7280');
-      doc.text(
-        `Registro de auditoría: ${fechaHoraStr} - Hash: ${hashAuditoria}`,
-        40,
-        tableTop - 8,
-      );
-      doc.fillColor('#000000');
+      let rowY = y + 28;
+      const imgW = 60;
+      const imgH = 32;
 
       for (const det of detalles) {
         const epp = det.epp as any;
-        const desc = `${epp?.nombre || '-'}${epp?.descripcion ? `, ${epp.descripcion}` : ''}`.substring(0, 45);
+        const desc = `${epp?.nombre || '-'}${epp?.descripcion ? `, ${epp.descripcion}` : ''}`.substring(0, 40);
         const esEpp = epp?.categoria === CategoriaEPP.EPP;
         const horaStr = det.fechaHoraEntrega
           ? new Date(det.fechaHoraEntrega).toLocaleString('es-PE', {
@@ -213,41 +243,66 @@ export class EppPdfService {
               minute: '2-digit',
             })
           : fechaStr;
+        const hashLine = `${fechaHoraStr.replace(',', '')} - ${hashAuditoria}`;
 
-        doc.rect(40, rowY, 516, rowHeight).stroke();
-        doc.fontSize(8);
-        doc.text(desc, 45, rowY + 4, { width: colWidths.desc - 10 });
-        doc.text(String(det.cantidad), 185, rowY + 4);
-        doc.text(fechaStr, 220, rowY + 4);
-        doc.text(areaNombre, 275, rowY + 4, { width: colWidths.area - 5 });
-        doc.text(esEpp ? 'X' : '', 335, rowY + 4);
-        doc.text(!esEpp ? 'X' : '', 370, rowY + 4);
+        x = tableX;
+        doc.rect(x, rowY, colWidths.desc, rowHeight).stroke();
+        doc.text(desc, x + 3, rowY + 4, { width: colWidths.desc - 6 });
+        x += colWidths.desc;
+        doc.rect(x, rowY, colWidths.cant, rowHeight).stroke();
+        doc.text(String(det.cantidad), x + 3, rowY + 4, { width: colWidths.cant - 6, align: 'center' });
+        x += colWidths.cant;
+        doc.rect(x, rowY, colWidths.fecha, rowHeight).stroke();
+        doc.text(fechaStr, x + 3, rowY + 4, { width: colWidths.fecha - 6, align: 'center' });
+        x += colWidths.fecha;
+        doc.rect(x, rowY, colWidths.area, rowHeight).stroke();
+        doc.text(areaNombre, x + 3, rowY + 4, { width: colWidths.area - 6, align: 'center' });
+        x += colWidths.area;
+        doc.rect(x, rowY, colWidths.seEntrego, rowHeight).stroke();
+        doc.text(esEpp ? 'X' : '', x + 3, rowY + 4, { width: colWidths.seEntrego - 6, align: 'center' });
+        x += colWidths.seEntrego;
+        doc.rect(x, rowY, colWidths.seEntrego, rowHeight).stroke();
+        doc.text(!esEpp ? 'X' : '', x + 3, rowY + 4, { width: colWidths.seEntrego - 6, align: 'center' });
+        x += colWidths.seEntrego;
 
-        const imgW = 80;
-        const imgH = 40;
-        const centerTrab = 410 + (colWidths.firmaTrab - imgW) / 2;
-        const centerResp = 500 + (colWidths.firmaResp - imgW) / 2;
+        const cellTrabX = x;
+        const cellRespX = x + colWidths.firmaTrab;
+        doc.rect(cellTrabX, rowY, colWidths.firmaTrab, rowHeight).stroke();
+        doc.rect(cellRespX, rowY, colWidths.firmaResp, rowHeight).stroke();
+
+        const centerTrabX = cellTrabX + (colWidths.firmaTrab - imgW) / 2;
+        const centerRespX = cellRespX + (colWidths.firmaResp - imgW) / 2;
+        const hashH = 12;
+        const imgAreaH = rowHeight - hashH;
+        const centerTrabY = rowY + (imgAreaH - imgH) / 2;
+        const centerRespY = rowY + (rowHeight - imgH) / 2;
+
         if (firmaTrabajadorBuf) {
           try {
-            doc.image(firmaTrabajadorBuf, centerTrab, rowY + 4, { width: imgW, height: imgH });
+            doc.image(firmaTrabajadorBuf, centerTrabX, centerTrabY, { width: imgW, height: imgH });
           } catch {
-            doc.fontSize(7).fillColor('#6b7280').text('-', 410, rowY + 20);
+            doc.text('-', cellTrabX + colWidths.firmaTrab / 2 - 4, rowY + imgAreaH / 2 - 4);
           }
         } else {
-          doc.fontSize(7).fillColor('#6b7280').text('-', 410, rowY + 20);
+          doc.text('-', cellTrabX + colWidths.firmaTrab / 2 - 4, rowY + imgAreaH / 2 - 4);
         }
+        doc.fontSize(6).fillColor('#4b5563');
+        doc.text(hashLine, cellTrabX + 2, rowY + rowHeight - hashH - 1, {
+          width: colWidths.firmaTrab - 4,
+          align: 'center',
+        });
+        doc.fillColor('#000000').fontSize(7);
+
         if (firmaResponsableBuf) {
           try {
-            doc.image(firmaResponsableBuf, centerResp, rowY + 4, { width: imgW, height: imgH });
+            doc.image(firmaResponsableBuf, centerRespX, centerRespY, { width: imgW, height: imgH });
           } catch {
-            doc.fontSize(7).fillColor('#6b7280').text('-', 500, rowY + 20);
+            doc.text('-', cellRespX + colWidths.firmaResp / 2 - 4, rowY + rowHeight / 2 - 4);
           }
         } else {
-          doc.fontSize(7).fillColor('#6b7280').text('-', 500, rowY + 20);
+          doc.text('-', cellRespX + colWidths.firmaResp / 2 - 4, rowY + rowHeight / 2 - 4);
         }
-        doc.fontSize(7).fillColor('#6b7280');
-        doc.text(`${horaStr} - ${hashAuditoria}`, 40, rowY + rowHeight - 12, { width: 350 });
-        doc.fillColor('#000000');
+
         rowY += rowHeight;
       }
 
@@ -263,6 +318,12 @@ export class EppPdfService {
     trabajador: any,
     solicitudesEntregadas: SolicitudEPP[],
   ): Promise<Buffer> {
+    const solicitudesOrdenadas = [...solicitudesEntregadas].sort((a, b) => {
+      const dA = a.fechaEntrega ? new Date(a.fechaEntrega).getTime() : 0;
+      const dB = b.fechaEntrega ? new Date(b.fechaEntrega).getTime() : 0;
+      return dB - dA;
+    });
+
     const items: Array<{
       desc: string;
       cant: number;
@@ -275,7 +336,7 @@ export class EppPdfService {
       hashAuditoria: string;
     }> = [];
 
-    for (const sol of solicitudesEntregadas) {
+    for (const sol of solicitudesOrdenadas) {
       const empresa = sol.empresa as any;
       const solicitante = sol.solicitante as any;
       const entregadoPor = sol.entregadoPor as any;
@@ -319,7 +380,7 @@ export class EppPdfService {
       throw new Error('No hay items entregados para generar el kardex');
     }
 
-    const empresa = solicitudesEntregadas[0]?.empresa as any;
+    const empresa = (trabajador as any)?.empresa ?? (solicitudesOrdenadas[0]?.empresa as any);
     const solicitante = trabajador;
     const entregadoPor = solicitudesEntregadas[0]?.entregadoPor as any;
     const responsableNombre =
@@ -341,101 +402,202 @@ export class EppPdfService {
       return buf;
     };
 
+    const logoBuf = await this.fetchImageBuffer(empresa?.logoUrl);
+
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
     const chunks: Buffer[] = [];
     doc.on('data', (chunk) => chunks.push(chunk));
 
+    const M = 40;
+    const pageW = 595.28 - M * 2;
+    const logoSize = 70;
+    const colWidths = {
+      desc: 130,
+      cant: 38,
+      fecha: 52,
+      area: 75,
+      seEntrego: 38,
+      firmaTrab: 88,
+      firmaResp: 83,
+    };
+    const rowHeight = 58;
+    const imgW = 60;
+    const imgH = 30;
+    const hashH = 12;
+
     return new Promise(async (resolve, reject) => {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
+      doc.strokeColor('#000000');
 
-      doc.fontSize(12).font('Helvetica-Bold');
-      doc.text('KARDEX DE EPP - REGISTRO HISTÓRICO DE ENTREGAS', 40, 40, { width: 500 });
-      doc.font('Helvetica').fontSize(10);
-
-      let y = 75;
-      doc.font('Helvetica-Bold');
-      doc.text('RAZÓN SOCIAL:', 40, y);
+      // Encabezado: logo + título
+      if (logoBuf) {
+        try {
+          doc.rect(M, M, logoSize, logoSize).stroke();
+          doc.image(logoBuf, M + 4, M + 4, { width: logoSize - 8, height: logoSize - 8 });
+        } catch {
+          doc.rect(M, M, logoSize, logoSize).stroke();
+          doc.fontSize(7).font('Helvetica').text('Logo', M + 10, M + 25);
+        }
+      } else {
+        doc.rect(M, M, logoSize, logoSize).stroke();
+        doc.fontSize(7).font('Helvetica').text('Logo', M + 10, M + 25);
+      }
+      doc.fontSize(11).font('Helvetica-Bold');
+      doc.text(
+        'KARDEX DE EPP - REGISTRO HISTÓRICO DE ENTREGAS',
+        M + logoSize + 8,
+        M + 20,
+        { width: pageW - logoSize - 8, align: 'center' }
+      );
       doc.font('Helvetica');
-      doc.text(empresa?.nombre || '-', 40, y + 14, { width: 250 });
-      doc.text('RUC:', 300, y);
-      doc.text(empresa?.ruc || '-', 300, y + 14);
-      y += 36;
+
+      let y = M + logoSize + 16;
+
+      // Grilla datos generales
+      const colW = [130, 55, 120, 165, 46];
+      const gridW = colW.reduce((a, b) => a + b, 0);
+      const gridX = M + (pageW - gridW) / 2;
+      const rowH = 22;
+      doc.fontSize(7).font('Helvetica-Bold');
+      for (let c = 0; c < 5; c++) {
+        const x = gridX + colW.slice(0, c).reduce((a, b) => a + b, 0);
+        doc.rect(x, y, colW[c], rowH).stroke();
+        const labels = [
+          'RAZON SOCIAL O DENOMINACION SOCIAL',
+          'RUC',
+          'DIRECCIÓN',
+          'ACTIVIDAD ECONÓMICA',
+          'Nº TRABAJADORES',
+        ];
+        doc.text(labels[c], x + 3, y + 5, { width: colW[c] - 6, align: 'center' });
+      }
+      y += rowH;
+      doc.font('Helvetica');
+      const vals = [
+        empresa?.nombre || '-',
+        empresa?.ruc || '-',
+        empresa?.direccion || '-',
+        (empresa?.actividadEconomica || '-').substring(0, 50),
+        String(empresa?.numeroTrabajadores ?? '-'),
+      ];
+      for (let c = 0; c < 5; c++) {
+        const x = gridX + colW.slice(0, c).reduce((a, b) => a + b, 0);
+        doc.rect(x, y, colW[c], rowH).stroke();
+        doc.text(vals[c], x + 3, y + 5, { width: colW[c] - 6 });
+      }
+      y += rowH + 12;
 
       doc.font('Helvetica-Bold');
-      doc.text('TRABAJADOR:', 40, y);
+      doc.text('TRABAJADOR:', M, y);
       doc.font('Helvetica');
-      doc.text(solicitante?.nombreCompleto || '-', 40, y + 14);
-      doc.text('DNI:', 300, y);
-      doc.text(solicitante?.documentoIdentidad || '-', 300, y + 14);
-      y += 36;
-
+      doc.text(solicitante?.nombreCompleto || '-', M + 80, y);
       doc.font('Helvetica-Bold');
-      doc.text('RESPONSABLE DE ENTREGA:', 40, y);
+      doc.text('DNI:', M + 280, y);
       doc.font('Helvetica');
-      doc.text(responsableNombre, 40, y + 14);
-      y += 40;
+      doc.text(solicitante?.documentoIdentidad || '-', M + 305, y);
+      y += 14;
+      doc.font('Helvetica-Bold');
+      doc.text('RESPONSABLE DE ENTREGA:', M, y);
+      doc.font('Helvetica');
+      doc.text(responsableNombre, M + 155, y);
+      y += 20;
 
-      const tableTop = y + 10;
-      const colWidths = { desc: 140, cant: 35, fecha: 55, area: 60, epp: 35, uni: 40, firmaTrab: 90, firmaResp: 90 };
-      const rowHeight = 50;
+      const tableX = M;
+      doc.fontSize(7).font('Helvetica-Bold');
+      let x = tableX;
+      doc.rect(x, y, colWidths.desc, 28).stroke();
+      doc.text('DESCRIPCIÓN DE LO ENTREGADO', x + 2, y + 4, { width: colWidths.desc - 4 });
+      x += colWidths.desc;
+      doc.rect(x, y, colWidths.cant, 28).stroke();
+      doc.text('CANTIDAD', x + 2, y + 4, { width: colWidths.cant - 4, align: 'center' });
+      x += colWidths.cant;
+      doc.rect(x, y, colWidths.fecha, 28).stroke();
+      doc.text('FECHA DE ENTREGA', x + 2, y + 4, { width: colWidths.fecha - 4, align: 'center' });
+      x += colWidths.fecha;
+      doc.rect(x, y, colWidths.area, 28).stroke();
+      doc.text('AREA DE TRABAJO', x + 2, y + 4, { width: colWidths.area - 4, align: 'center' });
+      x += colWidths.area;
+      doc.rect(x, y, colWidths.seEntrego * 2, 14).stroke();
+      doc.text('SE ENTREGO:', x + 2, y + 2, { width: colWidths.seEntrego * 2 - 4, align: 'center' });
+      doc.rect(x, y + 14, colWidths.seEntrego, 14).stroke();
+      doc.text('EPP', x + 2, y + 16, { width: colWidths.seEntrego - 4, align: 'center' });
+      doc.rect(x + colWidths.seEntrego, y + 14, colWidths.seEntrego, 14).stroke();
+      doc.text('UNIF.', x + colWidths.seEntrego + 2, y + 16, { width: colWidths.seEntrego - 4, align: 'center' });
+      x += colWidths.seEntrego * 2;
+      doc.rect(x, y, colWidths.firmaTrab, 28).stroke();
+      doc.text('FIRMA DEL TRABAJADOR', x + 2, y + 4, { width: colWidths.firmaTrab - 4, align: 'center' });
+      x += colWidths.firmaTrab;
+      doc.rect(x, y, colWidths.firmaResp, 28).stroke();
+      doc.text('FIRMA DEL RESPONSABLE', x + 2, y + 4, { width: colWidths.firmaResp - 4, align: 'center' });
+      doc.font('Helvetica');
 
-      doc.font('Helvetica-Bold').fontSize(8);
-      doc.fillColor('#e5e7eb').rect(40, tableTop, 516, 20).fill();
-      doc.strokeColor('#374151').rect(40, tableTop, 516, 20).stroke();
-      doc.fillColor('#111827');
-      doc.text('DESCRIPCIÓN', 45, tableTop + 6, { width: colWidths.desc - 10 });
-      doc.text('CANT.', 185, tableTop + 6);
-      doc.text('FECHA ENTREGA', 220, tableTop + 6);
-      doc.text('ÁREA', 275, tableTop + 6);
-      doc.text('EPP', 335, tableTop + 6);
-      doc.text('UNIF.', 370, tableTop + 6);
-      doc.text('FIRMA TRABAJADOR', 410, tableTop + 6);
-      doc.text('FIRMA RESPONSABLE', 500, tableTop + 6);
-      doc.font('Helvetica').fillColor('#000000');
-
-      let rowY = tableTop + 28;
-      const imgW = 80;
-      const imgH = 40;
+      let rowY = y + 28;
 
       for (const it of items) {
         const [firmaTrabBuf, firmaRespBuf] = await Promise.all([
           fetchFirma(it.firmaTrabajadorUrl),
           fetchFirma(it.firmaResponsableUrl),
         ]);
+        const hashLine = `${it.horaStr.replace(',', '')} - ${it.hashAuditoria}`;
 
-        doc.rect(40, rowY, 516, rowHeight).stroke();
-        doc.fontSize(8);
-        doc.text(it.desc, 45, rowY + 4, { width: colWidths.desc - 10 });
-        doc.text(String(it.cant), 185, rowY + 4);
-        doc.text(it.fechaStr, 220, rowY + 4);
-        doc.text(it.areaNombre, 275, rowY + 4, { width: colWidths.area - 5 });
-        doc.text(it.esEpp ? 'X' : '', 335, rowY + 4);
-        doc.text(!it.esEpp ? 'X' : '', 370, rowY + 4);
+        x = tableX;
+        doc.rect(x, rowY, colWidths.desc, rowHeight).stroke();
+        doc.text(it.desc, x + 3, rowY + 4, { width: colWidths.desc - 6 });
+        x += colWidths.desc;
+        doc.rect(x, rowY, colWidths.cant, rowHeight).stroke();
+        doc.text(String(it.cant), x + 3, rowY + 4, { width: colWidths.cant - 6, align: 'center' });
+        x += colWidths.cant;
+        doc.rect(x, rowY, colWidths.fecha, rowHeight).stroke();
+        doc.text(it.fechaStr, x + 3, rowY + 4, { width: colWidths.fecha - 6, align: 'center' });
+        x += colWidths.fecha;
+        doc.rect(x, rowY, colWidths.area, rowHeight).stroke();
+        doc.text(it.areaNombre, x + 3, rowY + 4, { width: colWidths.area - 6, align: 'center' });
+        x += colWidths.area;
+        doc.rect(x, rowY, colWidths.seEntrego, rowHeight).stroke();
+        doc.text(it.esEpp ? 'X' : '', x + 3, rowY + 4, { width: colWidths.seEntrego - 6, align: 'center' });
+        x += colWidths.seEntrego;
+        doc.rect(x, rowY, colWidths.seEntrego, rowHeight).stroke();
+        doc.text(!it.esEpp ? 'X' : '', x + 3, rowY + 4, { width: colWidths.seEntrego - 6, align: 'center' });
+        x += colWidths.seEntrego;
 
-        const centerTrab = 410 + (colWidths.firmaTrab - imgW) / 2;
-        const centerResp = 500 + (colWidths.firmaResp - imgW) / 2;
+        const cellTrabX = x;
+        const cellRespX = x + colWidths.firmaTrab;
+        doc.rect(cellTrabX, rowY, colWidths.firmaTrab, rowHeight).stroke();
+        doc.rect(cellRespX, rowY, colWidths.firmaResp, rowHeight).stroke();
+
+        const centerTrabX = cellTrabX + (colWidths.firmaTrab - imgW) / 2;
+        const centerRespX = cellRespX + (colWidths.firmaResp - imgW) / 2;
+        const imgAreaH = rowHeight - hashH;
+        const centerTrabY = rowY + (imgAreaH - imgH) / 2;
+        const centerRespY = rowY + (rowHeight - imgH) / 2;
+
         if (firmaTrabBuf) {
           try {
-            doc.image(firmaTrabBuf, centerTrab, rowY + 4, { width: imgW, height: imgH });
+            doc.image(firmaTrabBuf, centerTrabX, centerTrabY, { width: imgW, height: imgH });
           } catch {
-            doc.fontSize(7).fillColor('#6b7280').text('-', 410, rowY + 20);
+            doc.text('-', cellTrabX + colWidths.firmaTrab / 2 - 4, rowY + imgAreaH / 2 - 4);
           }
         } else {
-          doc.fontSize(7).fillColor('#6b7280').text('-', 410, rowY + 20);
+          doc.text('-', cellTrabX + colWidths.firmaTrab / 2 - 4, rowY + imgAreaH / 2 - 4);
         }
+        doc.fontSize(6).fillColor('#4b5563');
+        doc.text(hashLine, cellTrabX + 2, rowY + rowHeight - hashH - 1, {
+          width: colWidths.firmaTrab - 4,
+          align: 'center',
+        });
+        doc.fillColor('#000000').fontSize(7);
+
         if (firmaRespBuf) {
           try {
-            doc.image(firmaRespBuf, centerResp, rowY + 4, { width: imgW, height: imgH });
+            doc.image(firmaRespBuf, centerRespX, centerRespY, { width: imgW, height: imgH });
           } catch {
-            doc.fontSize(7).fillColor('#6b7280').text('-', 500, rowY + 20);
+            doc.text('-', cellRespX + colWidths.firmaResp / 2 - 4, rowY + rowHeight / 2 - 4);
           }
         } else {
-          doc.fontSize(7).fillColor('#6b7280').text('-', 500, rowY + 20);
+          doc.text('-', cellRespX + colWidths.firmaResp / 2 - 4, rowY + rowHeight / 2 - 4);
         }
-        doc.fontSize(7).fillColor('#6b7280');
-        doc.text(`${it.horaStr} - ${it.hashAuditoria}`, 40, rowY + rowHeight - 12, { width: 350 });
-        doc.fillColor('#000000');
+
         rowY += rowHeight;
       }
 
