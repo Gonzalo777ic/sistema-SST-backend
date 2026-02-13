@@ -3,7 +3,7 @@ import { Storage } from '@google-cloud/storage';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
-export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'pdf_entrega' | 'logo_empresa';
+export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'pdf_entrega' | 'logo_empresa' | 'imagen_epp' | 'ficha_pdf_epp';
 
 @Injectable()
 export class StorageService {
@@ -59,7 +59,7 @@ export class StorageService {
     }
 
     let ext = 'png';
-    if (tipo === 'pdf_entrega') ext = 'pdf';
+    if (tipo === 'pdf_entrega' || tipo === 'ficha_pdf_epp') ext = 'pdf';
     else if (options?.contentType) {
       const m = options.contentType.match(/image\/(jpeg|jpg|png|webp|gif)/);
       if (m) ext = m[1] === 'jpg' ? 'jpeg' : m[1];
@@ -70,7 +70,7 @@ export class StorageService {
     const bucket = this.storage.bucket(this.bucketName);
     const file = bucket.file(objectPath);
 
-    const contentType = options?.contentType || (tipo === 'pdf_entrega' ? 'application/pdf' : 'image/png');
+    const contentType = options?.contentType || (tipo === 'pdf_entrega' || tipo === 'ficha_pdf_epp' ? 'application/pdf' : 'image/png');
 
     await file.save(buffer, {
       contentType,

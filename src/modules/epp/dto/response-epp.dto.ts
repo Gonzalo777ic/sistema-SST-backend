@@ -11,8 +11,7 @@ export class ResponseEppDto {
   costo: number | null;
   categoria_criticidad: CategoriaCriticidadEPP | null;
   adjunto_pdf_url: string | null;
-  stock: number;
-  empresa_id: string;
+  empresa_id: string | null;
   createdAt: Date;
   updatedAt: Date;
 
@@ -28,8 +27,7 @@ export class ResponseEppDto {
     dto.costo = epp.costo != null ? Number(epp.costo) : null;
     dto.categoria_criticidad = epp.categoriaCriticidad;
     dto.adjunto_pdf_url = epp.adjuntoPdfUrl;
-    dto.stock = epp.stock;
-    dto.empresa_id = epp.empresaId;
+    dto.empresa_id = epp.empresaId ?? null;
     dto.createdAt = epp.createdAt;
     dto.updatedAt = epp.updatedAt;
     return dto;

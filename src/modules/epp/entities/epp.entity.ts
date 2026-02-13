@@ -14,7 +14,7 @@ import { SolicitudEPPDetalle } from './solicitud-epp-detalle.entity';
 
 export enum TipoProteccionEPP {
   Manos = 'Manos',
-  Cuerpo = 'Cuerpo',
+  Cuerpo = 'Cuerpo',          
   Auditiva = 'Auditiva',
   Visual = 'Visual',
   Cabeza = 'Cabeza',
@@ -99,15 +99,12 @@ export class EPP {
   @Column({ name: 'adjunto_pdf_url', type: 'text', nullable: true })
   adjuntoPdfUrl: string | null;
 
-  @Column({ type: 'int', default: 0 })
-  stock: number;
+  @Column({ name: 'empresa_id', type: 'uuid', nullable: true })
+  empresaId: string | null;
 
-  @Column({ name: 'empresa_id', type: 'uuid' })
-  empresaId: string;
-
-  @ManyToOne(() => Empresa, { onDelete: 'RESTRICT' })
+  @ManyToOne(() => Empresa, { onDelete: 'RESTRICT', nullable: true })
   @JoinColumn({ name: 'empresa_id' })
-  empresa: Empresa;
+  empresa: Empresa | null;
 
   @OneToMany(() => SolicitudEPPDetalle, (detalle) => detalle.epp)
   detalles: SolicitudEPPDetalle[];

@@ -4,7 +4,6 @@ import {
   IsOptional,
   IsString,
   IsEnum,
-  IsInt,
   Min,
   IsUrl,
 } from 'class-validator';
@@ -48,9 +47,4 @@ export class UpdateEppDto extends PartialType(CreateEppDto) {
   @IsOptional()
   @IsUrl({}, { message: 'Debe ser una URL válida' })
   adjunto_pdf_url?: string;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  stock?: number;
 }

@@ -10,10 +10,13 @@ import {
   ParseUUIDPipe,
   ParseEnumPipe,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
   BadRequestException,
   NotFoundException,
   Res,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { EppService } from './epp.service';
 import { EppPdfService } from './epp-pdf.service';
@@ -37,6 +40,31 @@ export class EppController {
   ) {}
 
   // ========== CRUD EPP (Catálogo) ==========
+
+  @Post('catalogo/upload-imagen')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadEppImagen(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('empresa_id') empresaId?: string,
+  ): Promise<{ url: string }> {
+    if (!file) throw new BadRequestException('Debe seleccionar un archivo de imagen');
+    const url = await this.eppService.uploadEppImagen(empresaId, file.buffer, file.mimetype);
+    return { url };
+  }
+
+  @Post('catalogo/upload-ficha-pdf')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadEppFichaPdf(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('empresa_id') empresaId?: string,
+  ): Promise<{ url: string }> {
+    if (!file) throw new BadRequestException('Debe seleccionar un archivo PDF');
+    if (file.mimetype !== 'application/pdf') {
+      throw new BadRequestException('El archivo debe ser un PDF');
+    }
+    const url = await this.eppService.uploadEppFichaPdf(empresaId, file.buffer);
+    return { url };
+  }
 
   @Post('catalogo')
   async createEpp(@Body() dto: CreateEppDto): Promise<ResponseEppDto> {

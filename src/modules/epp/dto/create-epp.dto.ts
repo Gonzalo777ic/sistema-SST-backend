@@ -3,7 +3,6 @@ import {
   IsOptional,
   IsEnum,
   IsUUID,
-  IsInt,
   Min,
   IsUrl,
   IsNumber,
@@ -47,10 +46,6 @@ export class CreateEppDto {
   adjunto_pdf_url?: string;
 
   @IsOptional()
-  @IsInt()
-  @Min(0)
-  stock?: number;
-
   @IsUUID()
-  empresa_id: string;
+  empresa_id?: string | null;
 }

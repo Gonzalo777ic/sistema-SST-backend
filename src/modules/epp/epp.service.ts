@@ -24,6 +24,7 @@ import {
   EstadoVigenciaKardex,
 } from './dto/response-kardex-list.dto';
 import { Trabajador } from '../trabajadores/entities/trabajador.entity';
+import { Empresa } from '../empresas/entities/empresa.entity';
 import { ConfigEppService } from '../config-epp/config-epp.service';
 import { EppPdfService } from './epp-pdf.service';
 import { StorageService } from '../../common/services/storage.service';
@@ -59,12 +60,40 @@ export class EppService {
     private readonly eppRepository: Repository<EPP>,
     @InjectRepository(Trabajador)
     private readonly trabajadorRepository: Repository<Trabajador>,
+    @InjectRepository(Empresa)
+    private readonly empresaRepository: Repository<Empresa>,
     private readonly configEppService: ConfigEppService,
     private readonly eppPdfService: EppPdfService,
     private readonly storageService: StorageService,
   ) {}
 
   // ========== CRUD EPP (Catálogo) ==========
+
+  async uploadEppImagen(empresaId: string | null | undefined, buffer: Buffer, mimetype: string): Promise<string> {
+    if (!this.storageService.isAvailable()) {
+      throw new BadRequestException('El almacenamiento en la nube no está configurado. Use la opción de URL.');
+    }
+    let ruc = 'sistema';
+    if (empresaId?.trim()) {
+      const empresa = await this.empresaRepository.findOne({ where: { id: empresaId } });
+      if (!empresa) throw new NotFoundException('Empresa no encontrada');
+      ruc = (empresa as any).ruc?.replace(/[^a-zA-Z0-9]/g, '_') ?? 'sistema';
+    }
+    return this.storageService.uploadFile(ruc, buffer, 'imagen_epp', { contentType: mimetype });
+  }
+
+  async uploadEppFichaPdf(empresaId: string | null | undefined, buffer: Buffer): Promise<string> {
+    if (!this.storageService.isAvailable()) {
+      throw new BadRequestException('El almacenamiento en la nube no está configurado. Use la opción de URL.');
+    }
+    let ruc = 'sistema';
+    if (empresaId?.trim()) {
+      const empresa = await this.empresaRepository.findOne({ where: { id: empresaId } });
+      if (!empresa) throw new NotFoundException('Empresa no encontrada');
+      ruc = (empresa as any).ruc?.replace(/[^a-zA-Z0-9]/g, '_') ?? 'sistema';
+    }
+    return this.storageService.uploadFile(ruc, buffer, 'ficha_pdf_epp', { contentType: 'application/pdf' });
+  }
 
   async createEpp(dto: CreateEppDto): Promise<ResponseEppDto> {
     const epp = this.eppRepository.create({
@@ -77,23 +106,25 @@ export class EppService {
       costo: dto.costo ?? null,
       categoriaCriticidad: dto.categoria_criticidad ?? null,
       adjuntoPdfUrl: dto.adjunto_pdf_url ?? null,
-      stock: dto.stock ?? 0,
-      empresaId: dto.empresa_id,
+      empresaId: dto.empresa_id?.trim() ? dto.empresa_id : null,
     });
 
     const saved = await this.eppRepository.save(epp);
-    return ResponseEppDto.fromEntity(saved);
+    return this.applySignedUrls(ResponseEppDto.fromEntity(saved));
   }
 
   async findAllEpp(empresaId?: string, empresaIds?: string[]): Promise<ResponseEppDto[]> {
     const qb = this.eppRepository.createQueryBuilder('e').orderBy('e.nombre', 'ASC');
     if (empresaIds && empresaIds.length > 0) {
-      qb.andWhere('e.empresaId IN (:...empresaIds)', { empresaIds });
+      qb.andWhere('(e.empresaId IN (:...empresaIds) OR e.empresaId IS NULL)', { empresaIds });
     } else if (empresaId) {
-      qb.andWhere('e.empresaId = :empresaId', { empresaId });
+      qb.andWhere('(e.empresaId = :empresaId OR e.empresaId IS NULL)', { empresaId });
     }
     const epps = await qb.getMany();
-    return epps.map((e) => ResponseEppDto.fromEntity(e));
+    const dtos = await Promise.all(
+      epps.map((e) => this.applySignedUrls(ResponseEppDto.fromEntity(e))),
+    );
+    return dtos;
   }
 
   async findOneEpp(id: string): Promise<ResponseEppDto> {
@@ -103,7 +134,7 @@ export class EppService {
       throw new NotFoundException(`EPP con ID ${id} no encontrado`);
     }
 
-    return ResponseEppDto.fromEntity(epp);
+    return this.applySignedUrls(ResponseEppDto.fromEntity(epp));
   }
 
   async updateEpp(id: string, dto: UpdateEppDto): Promise<ResponseEppDto> {
@@ -117,15 +148,35 @@ export class EppService {
     if (dto.tipo_proteccion !== undefined) epp.tipoProteccion = dto.tipo_proteccion;
     if (dto.categoria !== undefined) epp.categoria = dto.categoria;
     if (dto.descripcion !== undefined) epp.descripcion = dto.descripcion ?? null;
-    if (dto.imagen_url !== undefined) epp.imagenUrl = dto.imagen_url ?? null;
+    if (dto.imagen_url !== undefined) {
+      const u = dto.imagen_url;
+      epp.imagenUrl = u != null ? (this.storageService.getCanonicalUrl(u) || u) : null;
+    }
     if (dto.vigencia !== undefined) epp.vigencia = dto.vigencia ?? null;
     if (dto.costo !== undefined) epp.costo = dto.costo ?? null;
     if (dto.categoria_criticidad !== undefined) epp.categoriaCriticidad = dto.categoria_criticidad ?? null;
-    if (dto.adjunto_pdf_url !== undefined) epp.adjuntoPdfUrl = dto.adjunto_pdf_url ?? null;
-    if (dto.stock !== undefined) epp.stock = dto.stock ?? 0;
+    if (dto.adjunto_pdf_url !== undefined) {
+      const u = dto.adjunto_pdf_url;
+      epp.adjuntoPdfUrl = u != null ? (this.storageService.getCanonicalUrl(u) || u) : null;
+    }
 
     const saved = await this.eppRepository.save(epp);
-    return ResponseEppDto.fromEntity(saved);
+    return this.applySignedUrls(ResponseEppDto.fromEntity(saved));
+  }
+
+  private async applySignedUrls(dto: ResponseEppDto): Promise<ResponseEppDto> {
+    if (!this.storageService.isAvailable()) return dto;
+    try {
+      if (dto.imagen_url?.includes('storage.googleapis.com')) {
+        dto.imagen_url = await this.storageService.getSignedUrl(dto.imagen_url, 60);
+      }
+      if (dto.adjunto_pdf_url?.includes('storage.googleapis.com')) {
+        dto.adjunto_pdf_url = await this.storageService.getSignedUrl(dto.adjunto_pdf_url, 60);
+      }
+    } catch {
+      // Mantener URLs originales si falla la firma
+    }
+    return dto;
   }
 
   // ========== CRUD Solicitudes ==========
