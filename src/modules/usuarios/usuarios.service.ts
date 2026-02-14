@@ -148,10 +148,20 @@ export class UsuariosService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    return ResponseUsuarioDto.fromEntity({
+    const dto = ResponseUsuarioDto.fromEntity({
       ...usuario,
       roles: usuario.roles as typeof usuario.roles,
     });
+
+    if (dto.firma_url && dto.firma_url.includes('storage.googleapis.com') && this.storageService.isAvailable()) {
+      try {
+        dto.firma_url = await this.storageService.getSignedUrl(dto.firma_url, 60);
+      } catch {
+        // mantener URL original si falla la firma
+      }
+    }
+
+    return dto;
   }
 
   async update(

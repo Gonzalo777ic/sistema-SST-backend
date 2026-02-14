@@ -28,6 +28,7 @@ export class ResponseSolicitudEppDto {
   solicitante_id: string;
   solicitante_nombre: string | null;
   solicitante_documento: string | null;
+  solicitante_firma_digital_url: string | null;
   solicitante_sexo: string | null;
   solicitante_puesto: string | null;
   solicitante_centro_costos: string | null;
@@ -77,6 +78,7 @@ export class ResponseSolicitudEppDto {
     dto.solicitante_id = solicitud.solicitanteId;
     dto.solicitante_nombre = solicitud.solicitante?.nombreCompleto || null;
     dto.solicitante_documento = solicitud.solicitante?.documentoIdentidad || null;
+    dto.solicitante_firma_digital_url = (solicitud.solicitante as any)?.firmaDigitalUrl || null;
     dto.solicitante_sexo = solicitud.solicitante?.sexo || null;
     dto.solicitante_puesto = (solicitud.solicitante as any)?.cargo || null;
     dto.solicitante_centro_costos = (solicitud.solicitante as any)?.centroCostos || null;

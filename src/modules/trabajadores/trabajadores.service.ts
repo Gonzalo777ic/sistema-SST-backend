@@ -123,6 +123,13 @@ export class TrabajadoresService {
         // mantener URL original si falla la firma
       }
     }
+    if (dto.firma_digital_url && dto.firma_digital_url.includes('storage.googleapis.com') && this.storageService.isAvailable()) {
+      try {
+        dto.firma_digital_url = await this.storageService.getSignedUrl(dto.firma_digital_url, 60); // 1h
+      } catch {
+        // mantener URL original si falla la firma
+      }
+    }
     return dto;
   }
 

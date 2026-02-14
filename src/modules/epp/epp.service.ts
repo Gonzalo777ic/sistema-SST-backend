@@ -378,8 +378,9 @@ export class EppService {
     query.orderBy('solicitud.createdAt', 'DESC');
 
     const solicitudes = await query.getMany();
-
-    return solicitudes.map((s) => ResponseSolicitudEppDto.fromEntity(s));
+    const dtos = solicitudes.map((s) => ResponseSolicitudEppDto.fromEntity(s));
+    await Promise.all(dtos.map((d) => this.applySignedUrlsToSolicitudDetalles(d)));
+    return dtos;
   }
 
   async findOne(id: string): Promise<ResponseSolicitudEppDto> {
@@ -415,14 +416,26 @@ export class EppService {
   }
 
   private async applySignedUrlsToSolicitudDetalles(dto: ResponseSolicitudEppDto): Promise<void> {
-    if (!this.storageService.isAvailable() || !dto.detalles?.length) return;
-    for (const detalle of dto.detalles) {
-      if (detalle.epp_imagen_url?.includes('storage.googleapis.com')) {
-        try {
-          detalle.epp_imagen_url = await this.storageService.getSignedUrl(detalle.epp_imagen_url, 60);
-        } catch {
-          // Mantener URL original si falla la firma
+    if (!this.storageService.isAvailable()) return;
+    if (dto.detalles?.length) {
+      for (const detalle of dto.detalles) {
+        if (detalle.epp_imagen_url?.includes('storage.googleapis.com')) {
+          try {
+            detalle.epp_imagen_url = await this.storageService.getSignedUrl(detalle.epp_imagen_url, 60);
+          } catch {
+            // Mantener URL original si falla la firma
+          }
         }
+      }
+    }
+    if (dto.solicitante_firma_digital_url?.includes('storage.googleapis.com')) {
+      try {
+        dto.solicitante_firma_digital_url = await this.storageService.getSignedUrl(
+          dto.solicitante_firma_digital_url,
+          60,
+        );
+      } catch {
+        // Mantener URL original
       }
     }
   }
@@ -673,15 +686,18 @@ export class EppService {
       } else if (opts?.firmaRecepcionBase64 && !this.storageService.isAvailable()) {
         solicitud.firmaRecepcionUrl = opts.firmaRecepcionBase64;
       } else if (!firmaRecepcionUrl && !opts?.firmaRecepcionBase64) {
-        // Usar firma del solicitante (onboarding) cuando no se proporciona firma en la entrega
+        // Usar firma del solicitante (perfil) cuando no se proporciona firma en la entrega
         const solConSolicitante = await this.solicitudRepository.findOne({
           where: { id },
           relations: ['solicitante'],
         });
         const firmaSolicitante = (solConSolicitante?.solicitante as any)?.firmaDigitalUrl;
-        if (firmaSolicitante) {
-          solicitud.firmaRecepcionUrl = firmaSolicitante;
+        if (!firmaSolicitante || !firmaSolicitante.trim()) {
+          throw new BadRequestException(
+            'El solicitante no tiene una firma registrada. El trabajador debe ingresar su firma en el momento de la entrega.',
+          );
         }
+        solicitud.firmaRecepcionUrl = firmaSolicitante;
       }
 
       const solicitudConDetalles = await this.solicitudRepository.findOne({
