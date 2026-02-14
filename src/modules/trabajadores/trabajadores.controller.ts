@@ -9,7 +9,10 @@ import {
   Query,
   ParseUUIDPipe,
   BadRequestException,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { TrabajadoresService } from './trabajadores.service';
 import { CreateTrabajadorDto } from './dto/create-trabajador.dto';
 import { UpdateTrabajadorDto, UpdatePersonalDataDto } from './dto/update-trabajador.dto';
@@ -52,6 +55,27 @@ export class TrabajadoresController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<ResponseTrabajadorDto> {
     return this.trabajadoresService.findOne(id);
+  }
+
+  @Post(':id/upload-foto')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFoto(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<{ url: string }> {
+    if (!file) {
+      throw new BadRequestException('Debe seleccionar un archivo de imagen');
+    }
+    const validMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validMimes.includes(file.mimetype)) {
+      throw new BadRequestException('El archivo debe ser una imagen (JPEG, PNG, WebP o GIF)');
+    }
+    const maxSize = 2 * 1024 * 1024; // 2 MB
+    if (file.size > maxSize) {
+      throw new BadRequestException('La imagen no debe superar 2 MB');
+    }
+    const url = await this.trabajadoresService.uploadFoto(id, file.buffer, file.mimetype);
+    return { url };
   }
 
   @Patch(':id')

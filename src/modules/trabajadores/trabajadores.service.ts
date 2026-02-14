@@ -1,5 +1,6 @@
 import {
   Injectable,
+  BadRequestException,
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
@@ -11,6 +12,7 @@ import { CreateTrabajadorDto } from './dto/create-trabajador.dto';
 import { UpdateTrabajadorDto, UpdatePersonalDataDto } from './dto/update-trabajador.dto';
 import { ResponseTrabajadorDto } from './dto/response-trabajador.dto';
 import { StorageService } from '../../common/services/storage.service';
+import { validateSignatureOrThrow } from '../../common/utils/signature-validation';
 
 @Injectable()
 export class TrabajadoresService {
@@ -109,7 +111,19 @@ export class TrabajadoresService {
       order: { nombreCompleto: 'ASC' },
       withDeleted: false,
     });
-    return trabajadores.map((t) => ResponseTrabajadorDto.fromEntity(t));
+    const dtos = trabajadores.map((t) => ResponseTrabajadorDto.fromEntity(t));
+    return Promise.all(dtos.map((d) => this.enrichFotoUrl(d)));
+  }
+
+  private async enrichFotoUrl(dto: ResponseTrabajadorDto): Promise<ResponseTrabajadorDto> {
+    if (dto.foto_url && dto.foto_url.includes('storage.googleapis.com') && this.storageService.isAvailable()) {
+      try {
+        dto.foto_url = await this.storageService.getSignedUrl(dto.foto_url, 60 * 24); // 24h
+      } catch {
+        // mantener URL original si falla la firma
+      }
+    }
+    return dto;
   }
 
   async findOne(id: string): Promise<ResponseTrabajadorDto> {
@@ -123,7 +137,8 @@ export class TrabajadoresService {
       throw new NotFoundException(`Trabajador con ID ${id} no encontrado`);
     }
 
-    return ResponseTrabajadorDto.fromEntity(trabajador);
+    const dto = ResponseTrabajadorDto.fromEntity(trabajador);
+    return this.enrichFotoUrl(dto);
   }
 
   async update(
@@ -191,6 +206,28 @@ export class TrabajadoresService {
     }
     if (dto.perfil_completado !== undefined) updateData.perfilCompletado = dto.perfil_completado;
 
+    if (dto.firma_digital_url !== undefined) {
+      if (dto.firma_digital_url !== '' && dto.firma_digital_url.startsWith('data:image/')) {
+        validateSignatureOrThrow(dto.firma_digital_url, 'firma digital');
+        if (this.storageService.isAvailable()) {
+          const base64Data = dto.firma_digital_url.replace(/^data:image\/\w+;base64,/, '');
+          const buffer = Buffer.from(base64Data, 'base64');
+          const empresa = trabajadorExistente.empresa as any;
+          const rucEmpresa = empresa?.ruc ?? 'sistema';
+          updateData.firmaDigitalUrl = await this.storageService.uploadFile(
+            rucEmpresa,
+            buffer,
+            'firma_trabajador',
+            { filename: `firma-${id}.png` },
+          );
+        } else {
+          updateData.firmaDigitalUrl = dto.firma_digital_url;
+        }
+      } else if (dto.firma_digital_url === '') {
+        updateData.firmaDigitalUrl = null;
+      }
+    }
+
     const trabajador = await this.trabajadorRepository.preload(updateData);
     if (!trabajador) {
       throw new NotFoundException(`Trabajador con ID ${id} no encontrado después de preload`);
@@ -225,7 +262,8 @@ export class TrabajadoresService {
       throw new NotFoundException(`Error al recuperar el trabajador actualizado con ID ${id}`);
     }
 
-    return ResponseTrabajadorDto.fromEntity(updated);
+    const responseDto = ResponseTrabajadorDto.fromEntity(updated);
+    return this.enrichFotoUrl(responseDto);
   }
 
   async remove(id: string): Promise<void> {
@@ -280,6 +318,7 @@ export class TrabajadoresService {
     let firmaUrl = trabajador.firmaDigitalUrl;
     if (dto.firma_digital_url !== undefined) {
       if (dto.firma_digital_url !== '' && dto.firma_digital_url.startsWith('data:image/')) {
+        validateSignatureOrThrow(dto.firma_digital_url, 'firma digital');
         if (this.storageService.isAvailable()) {
           const base64Data = dto.firma_digital_url.replace(/^data:image\/\w+;base64,/, '');
           const buffer = Buffer.from(base64Data, 'base64');
@@ -315,6 +354,40 @@ export class TrabajadoresService {
       withDeleted: false,
     });
     return ResponseTrabajadorDto.fromEntity(updated!);
+  }
+
+  async uploadFoto(
+    id: string,
+    buffer: Buffer,
+    mimetype: string,
+  ): Promise<string> {
+    const trabajador = await this.trabajadorRepository.findOne({
+      where: { id },
+      relations: ['empresa'],
+      withDeleted: false,
+    });
+    if (!trabajador) {
+      throw new NotFoundException(`Trabajador con ID ${id} no encontrado`);
+    }
+    if (!this.storageService.isAvailable()) {
+      throw new BadRequestException('El almacenamiento no está configurado');
+    }
+    const empresa = trabajador.empresa as any;
+    const rucEmpresa = empresa?.ruc ?? 'sistema';
+    // Nombre fijo por trabajador: sobrescribe la foto anterior para evitar llenar el bucket
+    const fixedFilename = `foto-${id}.jpg`;
+    if (trabajador.fotoUrl) {
+      await this.storageService.deleteFileByUrl(trabajador.fotoUrl).catch(() => {});
+    }
+    const url = await this.storageService.uploadFile(
+      rucEmpresa,
+      buffer,
+      'foto_trabajador',
+      { filename: fixedFilename, contentType: mimetype },
+    );
+    trabajador.fotoUrl = url;
+    await this.trabajadorRepository.save(trabajador);
+    return url;
   }
 
   async buscarPorDni(dni: string): Promise<ResponseTrabajadorDto | null> {

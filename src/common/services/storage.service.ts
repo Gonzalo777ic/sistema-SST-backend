@@ -3,7 +3,7 @@ import { Storage } from '@google-cloud/storage';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
-export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'firma_recepcion' | 'pdf_entrega' | 'kardex_pdf' | 'logo_empresa' | 'imagen_epp' | 'ficha_pdf_epp';
+export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'firma_recepcion' | 'pdf_entrega' | 'kardex_pdf' | 'logo_empresa' | 'imagen_epp' | 'ficha_pdf_epp' | 'foto_trabajador';
 
 @Injectable()
 export class StorageService {
@@ -85,6 +85,21 @@ export class StorageService {
    */
   isAvailable(): boolean {
     return !!process.env.GCP_BUCKET_NAME;
+  }
+
+  /**
+   * Elimina un archivo de GCS por su URL pública.
+   * Útil para borrar la foto anterior antes de sobrescribir.
+   */
+  async deleteFileByUrl(publicUrl: string): Promise<void> {
+    await this.ensureInit();
+    if (!this.storage || !publicUrl?.includes('storage.googleapis.com')) return;
+    const canonicalUrl = this.getCanonicalUrl(publicUrl);
+    const match = canonicalUrl.match(
+      new RegExp(`https://storage\\.googleapis\\.com/${this.bucketName}/(.+)`),
+    );
+    if (!match) return;
+    await this.storage.bucket(this.bucketName).file(match[1]).delete({ ignoreNotFound: true });
   }
 
   /**

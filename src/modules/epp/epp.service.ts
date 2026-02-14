@@ -39,6 +39,7 @@ import { Empresa } from '../empresas/entities/empresa.entity';
 import { ConfigEppService } from '../config-epp/config-epp.service';
 import { EppPdfService } from './epp-pdf.service';
 import { StorageService } from '../../common/services/storage.service';
+import { validateSignatureOrThrow } from '../../common/utils/signature-validation';
 import { UsuariosService } from '../usuarios/usuarios.service';
 
 function vigenciaToMonths(vigencia: VigenciaEPP | null): number {
@@ -626,6 +627,7 @@ export class EppService {
     // Entregada: firma del solicitante (recepción) - base64 o URL
     let firmaRecepcionUrl = opts?.firmaRecepcionUrl;
     if (nuevoEstado === EstadoSolicitudEPP.Entregada && opts?.firmaRecepcionBase64) {
+      validateSignatureOrThrow(opts.firmaRecepcionBase64, 'firma de recepción');
       const base64Data = opts.firmaRecepcionBase64.replace(/^data:image\/\w+;base64,/, '');
       const buffer = Buffer.from(base64Data, 'base64');
       const empresa = await this.empresaRepository.findOne({ where: { id: solicitud.empresaId } });

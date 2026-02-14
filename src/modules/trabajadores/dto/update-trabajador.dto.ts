@@ -31,6 +31,10 @@ export class UpdateTrabajadorDto extends PartialType(
   @IsOptional()
   @IsBoolean()
   perfil_completado?: boolean;
+
+  @IsOptional()
+  @IsString()
+  firma_digital_url?: string;
 }
 
 export class UpdatePersonalDataDto {
