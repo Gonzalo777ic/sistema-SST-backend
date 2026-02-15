@@ -6,6 +6,8 @@ export class ParticipanteResponseDto {
   asistencia: boolean;
   calificacion: number | null;
   aprobado: boolean;
+  firmo: boolean;
+  rendio_examen?: boolean;
 }
 
 export class ExamenResponseDto {
@@ -27,6 +29,9 @@ export class ResponseCapacitacionDto {
   fecha_fin: string | null;
   sede: string | null;
   unidad: string | null;
+  area: string | null;
+  grupo: string | null;
+  instrucciones: { id: string; descripcion: string; esEvaluacion: boolean; imagenUrl?: string }[] | null;
   hora_inicio: string | null;
   hora_fin: string | null;
   duracion_horas: number | null;
@@ -34,6 +39,7 @@ export class ResponseCapacitacionDto {
   duracion_hhmm: string | null;
   estado: EstadoCapacitacion;
   instructor: string | null;
+  firma_capacitador_url: string | null;
   material_url: string | null;
   certificado_url: string | null;
   participantes: ParticipanteResponseDto[];
@@ -60,6 +66,7 @@ export class ResponseCapacitacionDto {
     duracionMinutos?: number | null;
     estado: EstadoCapacitacion;
     instructorNombre: string | null;
+    firmaCapacitadorUrl?: string | null;
     materialUrl: string | null;
     certificadoUrl: string | null;
     empresaId: string;
@@ -71,6 +78,7 @@ export class ResponseCapacitacionDto {
       asistencia: boolean;
       calificacion: number | null;
       aprobado: boolean;
+      firmo?: boolean;
     }>;
     examenes?: Array<{
       id: string;
@@ -106,6 +114,9 @@ export class ResponseCapacitacionDto {
       : null;
     dto.sede = capacitacion.sede ?? null;
     dto.unidad = capacitacion.unidad ?? null;
+    dto.area = (capacitacion as any).area ?? null;
+    dto.grupo = (capacitacion as any).grupo ?? null;
+    dto.instrucciones = (capacitacion as any).instrucciones ?? null;
     dto.hora_inicio = capacitacion.horaInicio ?? null;
     dto.hora_fin = capacitacion.horaFin ?? null;
     dto.duracion_horas = capacitacion.duracionHoras != null ? Number(capacitacion.duracionHoras) : null;
@@ -116,6 +127,7 @@ export class ResponseCapacitacionDto {
         : null;
     dto.estado = capacitacion.estado;
     dto.instructor = capacitacion.instructorNombre;
+    dto.firma_capacitador_url = capacitacion.firmaCapacitadorUrl ?? null;
     dto.empresa_nombre = (capacitacion.empresa as any)?.nombre ?? null;
     dto.material_url = capacitacion.materialUrl;
     dto.certificado_url = capacitacion.certificadoUrl;
@@ -126,6 +138,7 @@ export class ResponseCapacitacionDto {
         asistencia: a.asistencia,
         calificacion: a.calificacion,
         aprobado: a.aprobado,
+        firmo: (a as any).firmo ?? false,
       })) || [];
     dto.examenes =
       capacitacion.examenes?.map((e) => ({

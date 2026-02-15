@@ -3,7 +3,7 @@ import { Storage } from '@google-cloud/storage';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
-export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'firma_recepcion' | 'pdf_entrega' | 'kardex_pdf' | 'logo_empresa' | 'imagen_epp' | 'ficha_pdf_epp' | 'foto_trabajador';
+export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'firma_recepcion' | 'firma_capacitador' | 'pdf_entrega' | 'kardex_pdf' | 'logo_empresa' | 'imagen_epp' | 'ficha_pdf_epp' | 'foto_trabajador' | 'adjunto_capacitacion';
 
 @Injectable()
 export class StorageService {
@@ -60,7 +60,14 @@ export class StorageService {
 
     let ext = 'png';
     if (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp') ext = 'pdf';
-    else if (options?.contentType) {
+    else if (tipo === 'adjunto_capacitacion' && options?.contentType) {
+      const ct = options.contentType.toLowerCase();
+      if (ct.includes('pdf')) ext = 'pdf';
+      else if (ct.includes('spreadsheet') || ct.includes('excel')) ext = 'xlsx';
+      else if (ct.includes('wordprocessing') || ct.includes('msword')) ext = 'docx';
+      else if (ct.includes('jpeg') || ct.includes('jpg')) ext = 'jpg';
+      else if (ct.includes('png')) ext = 'png';
+    } else if (options?.contentType) {
       const m = options.contentType.match(/image\/(jpeg|jpg|png|webp|gif)/);
       if (m) ext = m[1] === 'jpg' ? 'jpeg' : m[1];
     }
@@ -70,7 +77,7 @@ export class StorageService {
     const bucket = this.storage.bucket(this.bucketName);
     const file = bucket.file(objectPath);
 
-    const contentType = options?.contentType || (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp' ? 'application/pdf' : 'image/png');
+    const contentType = options?.contentType || (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp' ? 'application/pdf' : tipo === 'adjunto_capacitacion' ? 'application/octet-stream' : 'image/png');
 
     await file.save(buffer, {
       contentType,

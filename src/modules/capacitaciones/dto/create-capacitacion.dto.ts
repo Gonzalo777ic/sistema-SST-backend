@@ -13,6 +13,45 @@ import {
 import { Type } from 'class-transformer';
 import { TipoCapacitacion, EstadoCapacitacion } from '../entities/capacitacion.entity';
 
+export class PreguntaInstruccionDto {
+  @IsString()
+  texto_pregunta: string;
+
+  @IsString()
+  tipo: 'OpcionMultiple' | 'VerdaderoFalso';
+
+  @IsArray()
+  @IsString({ each: true })
+  opciones: string[];
+
+  @IsNumber()
+  respuesta_correcta_index: number;
+
+  @IsNumber()
+  puntaje: number;
+}
+
+export class PasoInstruccionDto {
+  @IsString()
+  id: string;
+
+  @IsString()
+  descripcion: string;
+
+  @IsBoolean()
+  esEvaluacion: boolean;
+
+  @IsOptional()
+  @IsString()
+  imagenUrl?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PreguntaInstruccionDto)
+  preguntas?: PreguntaInstruccionDto[];
+}
+
 export class ParticipanteDto {
   @IsUUID()
   trabajador_id: string;
@@ -31,6 +70,10 @@ export class ParticipanteDto {
   @IsOptional()
   @IsBoolean()
   aprobado?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  firmo?: boolean;
 }
 
 export class CreateCapacitacionDto {
@@ -66,6 +109,20 @@ export class CreateCapacitacionDto {
 
   @IsOptional()
   @IsString()
+  area?: string;
+
+  @IsOptional()
+  @IsString()
+  grupo?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PasoInstruccionDto)
+  instrucciones?: PasoInstruccionDto[];
+
+  @IsOptional()
+  @IsString()
   hora_inicio?: string;
 
   @IsOptional()
@@ -92,6 +149,10 @@ export class CreateCapacitacionDto {
   @IsOptional()
   @IsUUID()
   instructor_id?: string;
+
+  @IsOptional()
+  @IsString()
+  firma_capacitador_url?: string;
 
   @IsOptional()
   @IsUrl()

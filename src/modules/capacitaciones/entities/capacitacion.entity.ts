@@ -73,6 +73,15 @@ export class Capacitacion {
   @Column({ name: 'unidad', type: 'varchar', length: 200, nullable: true })
   unidad: string | null;
 
+  @Column({ name: 'area', type: 'varchar', length: 200, nullable: true })
+  area: string | null;
+
+  @Column({ name: 'grupo', type: 'varchar', length: 100, nullable: true })
+  grupo: string | null;
+
+  @Column({ name: 'instrucciones', type: 'jsonb', nullable: true })
+  instrucciones: { id: string; descripcion: string; esEvaluacion: boolean; imagenUrl?: string }[] | null;
+
   @Column({ name: 'hora_inicio', type: 'time', nullable: true })
   horaInicio: string | null;
 
@@ -121,6 +130,9 @@ export class Capacitacion {
 
   @Column({ name: 'instructor_nombre', type: 'varchar', nullable: true })
   instructorNombre: string | null;
+
+  @Column({ name: 'firma_capacitador_url', type: 'text', nullable: true })
+  firmaCapacitadorUrl: string | null;
 
   @Column({ name: 'creado_por_id', type: 'uuid' })
   creadoPorId: string;

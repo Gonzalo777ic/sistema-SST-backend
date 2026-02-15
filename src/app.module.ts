@@ -16,6 +16,7 @@ import { SaludModule } from './modules/salud/salud.module';
 import { DocumentosModule } from './modules/documentos/documentos.module';
 import { EppModule } from './modules/epp/epp.module';
 import { ConfigEppModule } from './modules/config-epp/config-epp.module';
+import { ConfigCapacitacionesModule } from './modules/config-capacitaciones/config-capacitaciones.module';
 import { CapacitacionesModule } from './modules/capacitaciones/capacitaciones.module';
 import { InspeccionesModule } from './modules/inspecciones/inspecciones.module';
 import { PetsModule } from './modules/pets/pets.module';
@@ -57,6 +58,7 @@ import { CommonModule } from './common/common.module';
     DocumentosModule,
     EppModule,
     ConfigEppModule,
+    ConfigCapacitacionesModule,
     CapacitacionesModule,
     InspeccionesModule,
     PetsModule,

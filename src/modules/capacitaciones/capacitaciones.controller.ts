@@ -9,13 +9,19 @@ import {
   Query,
   ParseUUIDPipe,
   UseGuards,
+  BadRequestException,
+  NotFoundException,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CapacitacionesService } from './capacitaciones.service';
 import { CreateCapacitacionDto } from './dto/create-capacitacion.dto';
 import { UpdateCapacitacionDto } from './dto/update-capacitacion.dto';
 import { ResponseCapacitacionDto } from './dto/response-capacitacion.dto';
 import { CreateExamenCapacitacionDto } from './dto/create-examen-capacitacion.dto';
+import { CreateEvaluacionFavoritaDto } from './dto/create-evaluacion-favorita.dto';
 import { CreateResultadoExamenDto } from './dto/create-resultado-examen.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -34,6 +40,30 @@ export class CapacitacionesController {
     @CurrentUser() currentUser: { id: string; empresaId?: string | null },
   ): Promise<ResponseCapacitacionDto> {
     return this.capacitacionesService.create(dto, currentUser);
+  }
+
+  @Get('evaluaciones-favoritas')
+  async obtenerEvaluacionesFavoritas(
+    @Query('empresa_id') empresaId?: string,
+    @CurrentUser() currentUser?: { empresaId?: string | null },
+  ) {
+    return this.capacitacionesService.obtenerEvaluacionesFavoritas(empresaId || currentUser?.empresaId);
+  }
+
+  @Post('evaluaciones-favoritas')
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  async crearEvaluacionFavorita(
+    @Body() dto: CreateEvaluacionFavoritaDto,
+    @CurrentUser() currentUser: { id: string; empresaId?: string | null },
+  ) {
+    return this.capacitacionesService.crearEvaluacionFavorita(dto, currentUser.id, currentUser.empresaId);
+  }
+
+  @Delete('evaluaciones-favoritas/:id')
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  async eliminarEvaluacionFavorita(@Param('id', ParseUUIDPipe) id: string) {
+    await this.capacitacionesService.eliminarEvaluacionFavorita(id);
+    return { message: 'Evaluación favorita eliminada' };
   }
 
   @Get()
@@ -100,24 +130,114 @@ export class CapacitacionesController {
     return this.capacitacionesService.obtenerExamenesPorCapacitacion(capacitacionId);
   }
 
+  @Post(':id/participantes')
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  async agregarParticipante(
+    @Param('id', ParseUUIDPipe) capacitacionId: string,
+    @Body('trabajador_id') trabajadorId: string,
+  ) {
+    if (!trabajadorId) throw new BadRequestException('trabajador_id es obligatorio');
+    return this.capacitacionesService.agregarParticipante(capacitacionId, trabajadorId);
+  }
+
   @Patch(':id/asistencias/:trabajadorId')
   async actualizarAsistencia(
     @Param('id', ParseUUIDPipe) capacitacionId: string,
     @Param('trabajadorId', ParseUUIDPipe) trabajadorId: string,
     @Body('asistencia') asistencia: boolean,
     @Body('calificacion') calificacion?: number,
+    @Body('aprobado') aprobado?: boolean,
+    @Body('firmo') firmo?: boolean,
   ) {
     await this.capacitacionesService.actualizarAsistencia(
       capacitacionId,
       trabajadorId,
       asistencia,
       calificacion,
+      aprobado,
+      firmo,
     );
     return { message: 'Asistencia actualizada correctamente' };
+  }
+
+  @Delete(':id/participantes/:trabajadorId')
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  async retirarParticipante(
+    @Param('id', ParseUUIDPipe) capacitacionId: string,
+    @Param('trabajadorId', ParseUUIDPipe) trabajadorId: string,
+  ) {
+    return this.capacitacionesService.retirarParticipante(capacitacionId, trabajadorId);
+  }
+
+  @Get(':id/certificado/:trabajadorId')
+  async obtenerUrlCertificado(
+    @Param('id', ParseUUIDPipe) capacitacionId: string,
+    @Param('trabajadorId', ParseUUIDPipe) trabajadorId: string,
+  ) {
+    const result = await this.capacitacionesService.obtenerUrlCertificado(capacitacionId, trabajadorId);
+    if (!result) throw new NotFoundException('Certificado no disponible para este trabajador');
+    return result;
+  }
+
+  @Get(':id/resultado-evaluacion/:trabajadorId')
+  async obtenerResultadoEvaluacion(
+    @Param('id', ParseUUIDPipe) capacitacionId: string,
+    @Param('trabajadorId', ParseUUIDPipe) trabajadorId: string,
+  ) {
+    const result = await this.capacitacionesService.obtenerResultadoEvaluacion(capacitacionId, trabajadorId);
+    if (!result) throw new NotFoundException('Resultado de evaluación no disponible');
+    return result;
   }
 
   @Post('examenes/rendir')
   async rendirExamen(@Body() dto: CreateResultadoExamenDto) {
     return this.capacitacionesService.rendirExamen(dto);
+  }
+
+  @Get(':id/adjuntos')
+  async obtenerAdjuntos(@Param('id', ParseUUIDPipe) capacitacionId: string) {
+    return this.capacitacionesService.obtenerAdjuntos(capacitacionId);
+  }
+
+  @Post(':id/adjuntos')
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @UseInterceptors(FileInterceptor('file'))
+  async crearAdjunto(
+    @Param('id', ParseUUIDPipe) capacitacionId: string,
+    @Body('titulo') titulo: string,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() currentUser: { id: string },
+  ) {
+    if (!file) throw new BadRequestException('Debe seleccionar un archivo');
+    if (!titulo?.trim()) throw new BadRequestException('El título es obligatorio');
+    const maxSize = 10 * 1024 * 1024; // 10 MB
+    if (file.size > maxSize) throw new BadRequestException('El archivo no debe superar 10 MB');
+    const allowedMimes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
+      'image/png',
+      'image/jpeg',
+      'image/jpg',
+    ];
+    if (!allowedMimes.includes(file.mimetype)) {
+      throw new BadRequestException('Formatos permitidos: Excel, Word, PDF, PNG, JPG, JPEG');
+    }
+    return this.capacitacionesService.crearAdjunto(
+      capacitacionId,
+      titulo.trim(),
+      file.buffer,
+      file.mimetype,
+      file.originalname,
+      currentUser.id,
+    );
+  }
+
+  @Delete('adjuntos/:adjuntoId')
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  async eliminarAdjunto(@Param('adjuntoId', ParseUUIDPipe) adjuntoId: string) {
+    await this.capacitacionesService.eliminarAdjunto(adjuntoId);
+    return { message: 'Adjunto eliminado' };
   }
 }

@@ -42,6 +42,9 @@ export class AsistenciaCapacitacion {
   @Column({ default: false })
   aprobado: boolean;
 
+  @Column({ name: 'firmo', type: 'boolean', default: false })
+  firmo: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
