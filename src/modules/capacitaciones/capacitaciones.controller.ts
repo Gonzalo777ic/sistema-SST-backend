@@ -10,6 +10,7 @@ import {
   ParseUUIDPipe,
   UseGuards,
 } from '@nestjs/common';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CapacitacionesService } from './capacitaciones.service';
 import { CreateCapacitacionDto } from './dto/create-capacitacion.dto';
 import { UpdateCapacitacionDto } from './dto/update-capacitacion.dto';
@@ -28,13 +29,40 @@ export class CapacitacionesController {
 
   @Post()
   @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
-  async create(@Body() dto: CreateCapacitacionDto): Promise<ResponseCapacitacionDto> {
-    return this.capacitacionesService.create(dto);
+  async create(
+    @Body() dto: CreateCapacitacionDto,
+    @CurrentUser() currentUser: { id: string; empresaId?: string | null },
+  ): Promise<ResponseCapacitacionDto> {
+    return this.capacitacionesService.create(dto, currentUser);
   }
 
   @Get()
-  async findAll(@Query('empresa_id') empresaId?: string): Promise<ResponseCapacitacionDto[]> {
-    return this.capacitacionesService.findAll(empresaId);
+  async findAll(
+    @Query('empresa_id') empresaId?: string,
+    @Query('tipo') tipo?: string,
+    @Query('tema') tema?: string,
+    @Query('fecha_desde') fechaDesde?: string,
+    @Query('fecha_hasta') fechaHasta?: string,
+    @Query('estado') estado?: string,
+    @Query('razon_social') razonSocial?: string,
+    @Query('grupo') grupo?: string,
+    @Query('area') area?: string,
+    @Query('responsable') responsable?: string,
+    @Query('unidad') unidad?: string,
+  ): Promise<ResponseCapacitacionDto[]> {
+    return this.capacitacionesService.findAll({
+      empresaId,
+      tipo,
+      tema,
+      fechaDesde,
+      fechaHasta,
+      estado,
+      razonSocial,
+      grupo,
+      area,
+      responsable,
+      unidad,
+    });
   }
 
   @Get(':id')

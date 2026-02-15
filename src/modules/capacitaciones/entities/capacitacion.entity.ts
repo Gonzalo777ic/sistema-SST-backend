@@ -14,6 +14,14 @@ import { AsistenciaCapacitacion } from './asistencia-capacitacion.entity';
 import { ExamenCapacitacion } from './examen-capacitacion.entity'
 
 export enum TipoCapacitacion {
+  Capacitacion = 'Capacitación',
+  CapacitacionObligatoria = 'Capacitación obligatoria',
+  Charla = 'Charla',
+  Charla5Minutos = 'Charla 5 minutos',
+  CharlaSST = 'Charla de seguridad y salud en el trabajo',
+  PausasActivas = 'Pausas activas',
+  SimulacroEmergencia = 'Simulacro de emergencia',
+  TomaConsciencia = 'Toma de consciencia',
   Induccion = 'Inducción',
   TrabajoAltura = 'Trabajo en Altura',
   EspaciosConfinados = 'Espacios Confinados',
@@ -27,8 +35,9 @@ export enum TipoCapacitacion {
 }
 
 export enum EstadoCapacitacion {
-  Programada = 'Programada',
-  Completada = 'Completada',
+  Pendiente = 'PENDIENTE',
+  Programada = 'PROGRAMADA',
+  Completada = 'COMPLETADA',
   Cancelada = 'Cancelada',
 }
 
@@ -43,8 +52,8 @@ export class Capacitacion {
   @Column({ type: 'text' })
   descripcion: string;
 
-  @Column()
-  lugar: string;
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  lugar: string | null;
 
   @Column({
     type: 'enum',
@@ -55,19 +64,31 @@ export class Capacitacion {
   @Column({ type: 'date' })
   fecha: Date;
 
-  @Column({ name: 'hora_inicio', type: 'time' })
-  horaInicio: string;
+  @Column({ name: 'fecha_fin', type: 'date', nullable: true })
+  fechaFin: Date | null;
 
-  @Column({ name: 'hora_fin', type: 'time' })
-  horaFin: string;
+  @Column({ name: 'sede', type: 'varchar', length: 200, nullable: true })
+  sede: string | null;
 
-  @Column({ name: 'duracion_horas', type: 'decimal', precision: 4, scale: 2 })
-  duracionHoras: number;
+  @Column({ name: 'unidad', type: 'varchar', length: 200, nullable: true })
+  unidad: string | null;
+
+  @Column({ name: 'hora_inicio', type: 'time', nullable: true })
+  horaInicio: string | null;
+
+  @Column({ name: 'hora_fin', type: 'time', nullable: true })
+  horaFin: string | null;
+
+  @Column({ name: 'duracion_horas', type: 'decimal', precision: 4, scale: 2, nullable: true })
+  duracionHoras: number | null;
+
+  @Column({ name: 'duracion_minutos', type: 'int', nullable: true })
+  duracionMinutos: number | null;
 
   @Column({
     type: 'enum',
     enum: EstadoCapacitacion,
-    default: EstadoCapacitacion.Programada,
+    default: EstadoCapacitacion.Pendiente,
   })
   estado: EstadoCapacitacion;
 

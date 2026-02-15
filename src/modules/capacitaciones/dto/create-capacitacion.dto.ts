@@ -40,8 +40,9 @@ export class CreateCapacitacionDto {
   @IsString()
   descripcion: string;
 
+  @IsOptional()
   @IsString()
-  lugar: string;
+  lugar?: string;
 
   @IsEnum(TipoCapacitacion)
   tipo: TipoCapacitacion;
@@ -50,14 +51,39 @@ export class CreateCapacitacionDto {
   @IsDateString()
   fecha: string;
 
+  @IsOptional()
   @IsString()
-  hora_inicio: string;
+  @IsDateString()
+  fecha_fin?: string;
 
+  @IsOptional()
   @IsString()
-  hora_fin: string;
+  sede?: string;
 
+  @IsOptional()
+  @IsString()
+  unidad?: string;
+
+  @IsOptional()
+  @IsString()
+  hora_inicio?: string;
+
+  @IsOptional()
+  @IsString()
+  hora_fin?: string;
+
+  @IsOptional()
   @IsNumber()
-  duracion_horas: number;
+  duracion_horas?: number;
+
+  /** Duración en formato "HH:MM" (ej: "02:40") */
+  @IsOptional()
+  @IsString()
+  duracion_hhmm?: string;
+
+  @IsOptional()
+  @IsNumber()
+  duracion_minutos?: number;
 
   @IsOptional()
   @IsString()
@@ -85,8 +111,9 @@ export class CreateCapacitacionDto {
   @Type(() => ParticipanteDto)
   participantes?: ParticipanteDto[];
 
+  @IsOptional()
   @IsUUID()
-  empresa_id: string;
+  empresa_id?: string;
 
   @IsUUID()
   creado_por_id: string;

@@ -34,33 +34,52 @@ export class CapacitacionesService {
     private readonly trabajadorRepository: Repository<Trabajador>,
   ) {}
 
-  async create(dto: CreateCapacitacionDto): Promise<ResponseCapacitacionDto> {
-    // Validar hora_fin > hora_inicio
-    if (dto.hora_fin <= dto.hora_inicio) {
+  async create(
+    dto: CreateCapacitacionDto,
+    currentUser?: { id: string; empresaId?: string | null },
+  ): Promise<ResponseCapacitacionDto> {
+    const empresaId = dto.empresa_id ?? currentUser?.empresaId ?? null;
+    if (!empresaId) {
+      throw new BadRequestException('Se requiere empresa_id o el usuario debe tener empresa asignada');
+    }
+
+    if (dto.hora_inicio && dto.hora_fin && dto.hora_fin <= dto.hora_inicio) {
       throw new BadRequestException(
         'La hora de fin debe ser posterior a la hora de inicio',
       );
     }
 
+    let duracionHoras: number | null = dto.duracion_horas ?? null;
+    let duracionMinutos: number | null = dto.duracion_minutos ?? null;
+    if (dto.duracion_hhmm) {
+      const [h, m] = dto.duracion_hhmm.split(':').map(Number);
+      duracionMinutos = (h || 0) * 60 + (m || 0);
+      duracionHoras = duracionMinutos / 60;
+    }
+
     const capacitacion = this.capacitacionRepository.create({
       titulo: dto.titulo,
       descripcion: dto.descripcion,
-      lugar: dto.lugar,
+      lugar: dto.lugar || null,
       tipo: dto.tipo,
       fecha: new Date(dto.fecha),
-      horaInicio: dto.hora_inicio,
-      horaFin: dto.hora_fin,
-      duracionHoras: dto.duracion_horas,
+      fechaFin: dto.fecha_fin ? new Date(dto.fecha_fin) : null,
+      sede: dto.sede || null,
+      unidad: dto.unidad || null,
+      horaInicio: dto.hora_inicio || null,
+      horaFin: dto.hora_fin || null,
+      duracionHoras: duracionHoras ?? undefined,
+      duracionMinutos: duracionMinutos ?? undefined,
       instructorId: dto.instructor_id ?? null,
       instructorNombre: dto.instructor ?? null,
       materialUrl: dto.material_url ?? null,
       certificadoUrl: dto.certificado_url ?? null,
-      estado: dto.estado ?? EstadoCapacitacion.Programada,
-      empresaId: dto.empresa_id,
+      estado: dto.estado ?? EstadoCapacitacion.Pendiente,
+      empresaId,
       creadoPorId: dto.creado_por_id,
-    });
+    } as any);
 
-    const saved = await this.capacitacionRepository.save(capacitacion);
+    const saved = (await this.capacitacionRepository.save(capacitacion)) as unknown as Capacitacion;
 
     // Guardar participantes
     if (dto.participantes && dto.participantes.length > 0) {
@@ -86,32 +105,75 @@ export class CapacitacionesService {
     return this.findOne(saved.id);
   }
 
-  async findAll(empresaId?: string): Promise<ResponseCapacitacionDto[]> {
-    const where: any = {};
-    if (empresaId) {
-      where.empresaId = empresaId;
+  async findAll(filters?: {
+    empresaId?: string;
+    tipo?: string;
+    tema?: string;
+    fechaDesde?: string;
+    fechaHasta?: string;
+    estado?: string;
+    razonSocial?: string;
+    grupo?: string;
+    area?: string;
+    responsable?: string;
+    unidad?: string;
+  }): Promise<ResponseCapacitacionDto[]> {
+    const qb = this.capacitacionRepository
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.asistencias', 'asistencias')
+      .leftJoinAndSelect('c.creadoPor', 'creadoPor')
+      .leftJoinAndSelect('c.examenes', 'examenes')
+      .leftJoinAndSelect('c.empresa', 'empresa')
+      .orderBy('c.fecha', 'DESC');
+
+    if (filters?.empresaId) {
+      qb.andWhere('c.empresaId = :empresaId', { empresaId: filters.empresaId });
+    }
+    if (filters?.tipo) {
+      qb.andWhere('c.tipo = :tipo', { tipo: filters.tipo });
+    }
+    if (filters?.tema) {
+      qb.andWhere('c.titulo ILIKE :tema', { tema: `%${filters.tema}%` });
+    }
+    if (filters?.fechaDesde) {
+      qb.andWhere('c.fecha >= :fechaDesde', { fechaDesde: filters.fechaDesde });
+    }
+    if (filters?.fechaHasta) {
+      qb.andWhere('c.fecha <= :fechaHasta', { fechaHasta: filters.fechaHasta });
+    }
+    if (filters?.estado) {
+      qb.andWhere('c.estado = :estado', { estado: filters.estado });
+    }
+    if (filters?.unidad) {
+      qb.andWhere('c.unidad ILIKE :unidad', { unidad: `%${filters.unidad}%` });
+    }
+    if (filters?.responsable) {
+      qb.andWhere(
+        '(creadoPor.nombres ILIKE :responsable OR creadoPor.dni ILIKE :responsable)',
+        { responsable: `%${filters.responsable}%` },
+      );
+    }
+    if (filters?.razonSocial) {
+      qb.andWhere('empresa.nombre ILIKE :razonSocial', {
+        razonSocial: `%${filters.razonSocial}%`,
+      });
     }
 
-    const capacitaciones = await this.capacitacionRepository.find({
-      where,
-      relations: ['asistencias', 'creadoPor', 'examenes'],
-      order: { fecha: 'DESC' },
-    });
-
-    return capacitaciones.map((c) => ResponseCapacitacionDto.fromEntity(c));
+    const capacitaciones = await qb.getMany();
+    return capacitaciones.map((c) => ResponseCapacitacionDto.fromEntity(c as any));
   }
 
   async findOne(id: string): Promise<ResponseCapacitacionDto> {
     const capacitacion = await this.capacitacionRepository.findOne({
       where: { id },
-      relations: ['asistencias', 'creadoPor', 'examenes'],
+      relations: ['asistencias', 'creadoPor', 'examenes', 'empresa'],
     });
 
     if (!capacitacion) {
       throw new NotFoundException(`Capacitación con ID ${id} no encontrada`);
     }
 
-    return ResponseCapacitacionDto.fromEntity(capacitacion);
+    return ResponseCapacitacionDto.fromEntity(capacitacion as any);
   }
 
   async update(
@@ -271,12 +333,13 @@ export class CapacitacionesService {
 
       if (capacitacion) {
         const numeroCertificado = await this.generarNumeroCertificado();
+        const duracionH = capacitacion.duracionHoras ?? (capacitacion.duracionMinutos != null ? capacitacion.duracionMinutos / 60 : 0);
         const certificado = this.certificadoRepository.create({
           numeroCertificado,
           capacitacionId: capacitacion.id,
           capacitacionTitulo: capacitacion.titulo,
           fechaCapacitacion: capacitacion.fecha,
-          duracionHoras: capacitacion.duracionHoras,
+          duracionHoras: duracionH,
           instructor: capacitacion.instructorNombre || 'N/A',
           puntajeExamen: puntajePorcentaje,
           trabajadorId: trabajador.id,
