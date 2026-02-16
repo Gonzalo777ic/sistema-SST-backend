@@ -46,6 +46,10 @@ export class PasoInstruccionDto {
   imagenUrl?: string;
 
   @IsOptional()
+  @IsBoolean()
+  firmaRegistro?: boolean;
+
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => PreguntaInstruccionDto)

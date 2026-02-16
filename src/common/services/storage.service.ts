@@ -3,7 +3,7 @@ import { Storage } from '@google-cloud/storage';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
-export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'firma_recepcion' | 'firma_capacitador' | 'pdf_entrega' | 'kardex_pdf' | 'logo_empresa' | 'imagen_epp' | 'ficha_pdf_epp' | 'foto_trabajador' | 'adjunto_capacitacion';
+export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'firma_recepcion' | 'firma_capacitador' | 'firma_gerente' | 'pdf_entrega' | 'kardex_pdf' | 'certificado_capacitacion' | 'logo_empresa' | 'imagen_epp' | 'ficha_pdf_epp' | 'foto_trabajador' | 'adjunto_capacitacion';
 
 @Injectable()
 export class StorageService {
@@ -59,7 +59,7 @@ export class StorageService {
     }
 
     let ext = 'png';
-    if (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp') ext = 'pdf';
+    if (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp' || tipo === 'certificado_capacitacion') ext = 'pdf';
     else if (tipo === 'adjunto_capacitacion' && options?.contentType) {
       const ct = options.contentType.toLowerCase();
       if (ct.includes('pdf')) ext = 'pdf';
@@ -77,7 +77,7 @@ export class StorageService {
     const bucket = this.storage.bucket(this.bucketName);
     const file = bucket.file(objectPath);
 
-    const contentType = options?.contentType || (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp' ? 'application/pdf' : tipo === 'adjunto_capacitacion' ? 'application/octet-stream' : 'image/png');
+    const contentType = options?.contentType || (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp' || tipo === 'certificado_capacitacion' ? 'application/pdf' : tipo === 'adjunto_capacitacion' ? 'application/octet-stream' : 'image/png');
 
     await file.save(buffer, {
       contentType,

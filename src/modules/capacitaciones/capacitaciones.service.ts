@@ -22,6 +22,10 @@ import { StorageService } from '../../common/services/storage.service';
 import { Empresa } from '../empresas/entities/empresa.entity';
 import { EvaluacionFavorita } from './entities/evaluacion-favorita.entity';
 import { CreateEvaluacionFavoritaDto } from './dto/create-evaluacion-favorita.dto';
+import { ResultadoEvaluacionPaso } from './entities/resultado-evaluacion-paso.entity';
+import { ConfigCapacitacionesService } from '../config-capacitaciones/config-capacitaciones.service';
+import { EvaluarPasoDto } from './dto/evaluar-paso.dto';
+import { CertificadoCapacitacionPdfService } from './certificado-capacitacion-pdf.service';
 
 @Injectable()
 export class CapacitacionesService {
@@ -39,12 +43,16 @@ export class CapacitacionesService {
     private readonly examenRepository: Repository<ExamenCapacitacion>,
     @InjectRepository(ResultadoExamen)
     private readonly resultadoRepository: Repository<ResultadoExamen>,
+    @InjectRepository(ResultadoEvaluacionPaso)
+    private readonly resultadoEvaluacionPasoRepository: Repository<ResultadoEvaluacionPaso>,
     @InjectRepository(CertificadoCapacitacion)
     private readonly certificadoRepository: Repository<CertificadoCapacitacion>,
     @InjectRepository(Trabajador)
     private readonly trabajadorRepository: Repository<Trabajador>,
     @InjectRepository(EvaluacionFavorita)
     private readonly evaluacionFavoritaRepository: Repository<EvaluacionFavorita>,
+    private readonly configCapacitacionesService: ConfigCapacitacionesService,
+    private readonly certificadoPdfService: CertificadoCapacitacionPdfService,
   ) {}
 
   async create(
@@ -194,6 +202,61 @@ export class CapacitacionesService {
     return capacitaciones.map((c) => ResponseCapacitacionDto.fromEntity(c as any));
   }
 
+  async findMisCapacitaciones(
+    trabajadorId: string,
+    filters?: {
+      estadoRegistro?: string; // 'pendiente' | 'completado'
+      grupo?: string;
+      tipo?: string;
+    },
+  ): Promise<ResponseCapacitacionDto[]> {
+    const qb = this.capacitacionRepository
+      .createQueryBuilder('c')
+      .innerJoin('c.asistencias', 'a', 'a.trabajadorId = :trabajadorId', { trabajadorId })
+      .leftJoinAndSelect('c.asistencias', 'asistencias')
+      .leftJoinAndSelect('c.creadoPor', 'creadoPor')
+      .leftJoinAndSelect('c.examenes', 'examenes')
+      .leftJoinAndSelect('c.empresa', 'empresa')
+      .orderBy('c.fecha', 'DESC');
+
+    if (filters?.grupo) {
+      qb.andWhere('c.grupo = :grupo', { grupo: filters.grupo });
+    }
+    if (filters?.tipo) {
+      qb.andWhere('c.tipo = :tipo', { tipo: filters.tipo });
+    }
+
+    const capacitaciones = await qb.getMany();
+    const resultados = await this.resultadoRepository.find({
+      where: { trabajadorId },
+    });
+
+    let dtos = capacitaciones.map((c) => ResponseCapacitacionDto.fromEntity(c as any));
+    dtos = dtos.map((d) => {
+      d.participantes = d.participantes.map((p) => ({
+        ...p,
+        rendio_examen: resultados.some(
+          (r) => r.trabajadorId === p.trabajador_id && r.capacitacionId === d.id,
+        ),
+      }));
+      return d;
+    });
+
+    if (filters?.estadoRegistro === 'pendiente') {
+      dtos = dtos.filter((d) => {
+        const p = d.participantes.find((x) => x.trabajador_id === trabajadorId);
+        return p && !p.firmo;
+      });
+    } else if (filters?.estadoRegistro === 'completado') {
+      dtos = dtos.filter((d) => {
+        const p = d.participantes.find((x) => x.trabajador_id === trabajadorId);
+        return p && p.firmo;
+      });
+    }
+
+    return dtos;
+  }
+
   async findOne(id: string): Promise<ResponseCapacitacionDto> {
     const capacitacion = await this.capacitacionRepository.findOne({
       where: { id },
@@ -211,6 +274,117 @@ export class CapacitacionesService {
       rendio_examen: resultados.some((r) => r.trabajadorId === p.trabajador_id),
     }));
     return dto;
+  }
+
+  async findOneParaTrabajador(id: string, trabajadorId: string): Promise<ResponseCapacitacionDto> {
+    const dto = await this.findOne(id);
+    const participante = dto.participantes?.find((p) => p.trabajador_id === trabajadorId);
+    if (!participante) {
+      throw new BadRequestException('No estás registrado en esta capacitación');
+    }
+    const inst = dto.instrucciones ?? [];
+    dto.instrucciones = inst.map((p: any) => {
+      if (!p.esEvaluacion || !Array.isArray(p.preguntas)) return p;
+      return {
+        ...p,
+        preguntas: p.preguntas.map((pr: any) => ({
+          texto_pregunta: pr.texto_pregunta,
+          tipo: pr.tipo,
+          opciones: pr.opciones,
+        })),
+      };
+    });
+    return dto;
+  }
+
+  async evaluarPaso(
+    capacitacionId: string,
+    trabajadorId: string,
+    dto: EvaluarPasoDto,
+  ): Promise<{
+    aprobado: boolean;
+    puntaje: number;
+    puntaje_total: number;
+    intentos_usados: number;
+    intentos_restantes: number;
+  }> {
+    const capacitacion = await this.capacitacionRepository.findOne({
+      where: { id: capacitacionId },
+      relations: ['asistencias'],
+    });
+    if (!capacitacion) {
+      throw new NotFoundException(`Capacitación con ID ${capacitacionId} no encontrada`);
+    }
+    const isParticipant = capacitacion.asistencias?.some((a) => a.trabajadorId === trabajadorId);
+    if (!isParticipant) {
+      throw new BadRequestException('No estás registrado en esta capacitación');
+    }
+    const inst = (capacitacion.instrucciones ?? []) as any[];
+    const paso = inst.find((p) => p.id === dto.paso_id);
+    if (!paso || !paso.esEvaluacion || !Array.isArray(paso.preguntas) || paso.preguntas.length === 0) {
+      throw new BadRequestException('Paso de evaluación no encontrado o sin preguntas');
+    }
+    const config = await this.configCapacitacionesService.getConfig();
+    const intentosPrevios = await this.resultadoEvaluacionPasoRepository.count({
+      where: { capacitacionId, trabajadorId, pasoId: dto.paso_id },
+    });
+    if (intentosPrevios >= config.limite_intentos) {
+      throw new BadRequestException(
+        `Has alcanzado el límite de ${config.limite_intentos} intentos para esta evaluación`,
+      );
+    }
+    const aprobadoPrev = await this.resultadoEvaluacionPasoRepository.findOne({
+      where: { capacitacionId, trabajadorId, pasoId: dto.paso_id, aprobado: true },
+    });
+    if (aprobadoPrev && config.bloquear_despues_aprobacion) {
+      throw new BadRequestException('Ya aprobaste esta evaluación');
+    }
+    let puntajeTotal = 0;
+    let puntajeObtenido = 0;
+    const respuestas = dto.respuestas.map((r) => {
+      const pregunta = paso.preguntas[r.pregunta_index];
+      if (!pregunta) {
+        throw new BadRequestException(`Pregunta con índice ${r.pregunta_index} no existe`);
+      }
+      const puntaje = Number(pregunta.puntaje ?? 1);
+      puntajeTotal += puntaje;
+      const esCorrecta = pregunta.respuesta_correcta_index === r.respuesta_seleccionada;
+      if (esCorrecta) puntajeObtenido += puntaje;
+      return {
+        pregunta_index: r.pregunta_index,
+        respuesta_seleccionada: r.respuesta_seleccionada,
+        es_correcta: esCorrecta,
+      };
+    });
+    const notaMin = config.nota_minima_aprobatoria ?? 11;
+    const aprobado = puntajeTotal > 0 && (puntajeObtenido / puntajeTotal) * 20 >= notaMin;
+    const resultado = this.resultadoEvaluacionPasoRepository.create({
+      capacitacionId,
+      trabajadorId,
+      pasoId: dto.paso_id,
+      intentoNum: intentosPrevios + 1,
+      puntajeObtenido,
+      puntajeTotal,
+      aprobado,
+      respuestas,
+    });
+    await this.resultadoEvaluacionPasoRepository.save(resultado);
+    if (aprobado) {
+      const asistencia = capacitacion.asistencias?.find((a) => a.trabajadorId === trabajadorId);
+      if (asistencia) {
+        asistencia.calificacion = (puntajeObtenido / puntajeTotal) * 20;
+        asistencia.aprobado = true;
+        await this.asistenciaRepository.save(asistencia);
+      }
+    }
+    const intentosRestantes = Math.max(0, config.limite_intentos - intentosPrevios - 1);
+    return {
+      aprobado,
+      puntaje: puntajeTotal > 0 ? (puntajeObtenido / puntajeTotal) * 20 : 0,
+      puntaje_total: 20,
+      intentos_usados: intentosPrevios + 1,
+      intentos_restantes: intentosRestantes,
+    };
   }
 
   async update(
@@ -465,13 +639,68 @@ export class CapacitacionesService {
     asistenciaRecord.asistencia = asistencia;
     if (calificacion !== undefined) {
       asistenciaRecord.calificacion = calificacion;
-      // Nota sobre 20: aprobado si calificacion >= 11 (configurable)
       asistenciaRecord.aprobado = aprobado ?? (calificacion >= 11);
     }
     if (aprobado !== undefined) asistenciaRecord.aprobado = aprobado;
     if (firmo !== undefined) asistenciaRecord.firmo = firmo;
 
     await this.asistenciaRepository.save(asistenciaRecord);
+
+    if (firmo && asistenciaRecord.aprobado) {
+      const certExistente = await this.certificadoRepository.findOne({
+        where: { capacitacionId, trabajadorId },
+      });
+      if (!certExistente) {
+        const capacitacion = await this.capacitacionRepository.findOne({
+          where: { id: capacitacionId },
+          relations: ['empresa'],
+        });
+        const trabajador = await this.trabajadorRepository.findOne({
+          where: { id: trabajadorId },
+        });
+        if (capacitacion && trabajador) {
+          const nota = Number(asistenciaRecord.calificacion ?? 0);
+          const numeroCertificado = await this.generarNumeroCertificado();
+          const duracionH = capacitacion.duracionHoras ?? (capacitacion.duracionMinutos != null ? capacitacion.duracionMinutos / 60 : 0);
+          const certificado = this.certificadoRepository.create({
+            numeroCertificado,
+            capacitacionId,
+            capacitacionTitulo: capacitacion.titulo,
+            fechaCapacitacion: capacitacion.fecha,
+            duracionHoras: duracionH,
+            instructor: capacitacion.instructorNombre || 'N/A',
+            puntajeExamen: nota,
+            trabajadorId,
+            trabajadorNombre: trabajador.nombreCompleto,
+            trabajadorDocumento: trabajador.documentoIdentidad,
+            trabajadorEmail: trabajador.emailPersonal,
+            resultadoExamenId: null,
+          });
+          const saved = await this.certificadoRepository.save(certificado);
+          if (this.storageService.isAvailable()) {
+            try {
+              const pdfBuffer = await this.certificadoPdfService.generateCertificadoPdf(
+                capacitacion,
+                trabajador,
+                nota,
+                capacitacion.firmaCapacitadorUrl,
+                capacitacion.instructorNombre,
+              );
+              const empresa = capacitacion.empresa as any;
+              const ruc = empresa?.ruc ?? 'sistema';
+              const pdfUrl = await this.storageService.uploadFile(ruc, pdfBuffer, 'certificado_capacitacion', {
+                filename: `cert-${saved.id}.pdf`,
+                contentType: 'application/pdf',
+              });
+              saved.pdfUrl = pdfUrl;
+              await this.certificadoRepository.save(saved);
+            } catch (err) {
+              console.error('Error generando PDF de certificado:', err);
+            }
+          }
+        }
+      }
+    }
   }
 
   async retirarParticipante(

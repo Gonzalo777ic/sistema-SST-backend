@@ -23,6 +23,7 @@ import { ResponseCapacitacionDto } from './dto/response-capacitacion.dto';
 import { CreateExamenCapacitacionDto } from './dto/create-examen-capacitacion.dto';
 import { CreateEvaluacionFavoritaDto } from './dto/create-evaluacion-favorita.dto';
 import { CreateResultadoExamenDto } from './dto/create-resultado-examen.dto';
+import { EvaluarPasoDto } from './dto/evaluar-paso.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -66,6 +67,23 @@ export class CapacitacionesController {
     return { message: 'Evaluación favorita eliminada' };
   }
 
+  @Get('mis-capacitaciones')
+  async findMisCapacitaciones(
+    @CurrentUser() currentUser: { trabajadorId?: string | null },
+    @Query('estado_registro') estadoRegistro?: string, // 'pendiente' | 'completado'
+    @Query('grupo') grupo?: string,
+    @Query('tipo') tipo?: string,
+  ) {
+    if (!currentUser?.trabajadorId) {
+      throw new BadRequestException('El usuario debe tener un trabajador vinculado para ver sus capacitaciones');
+    }
+    return this.capacitacionesService.findMisCapacitaciones(currentUser.trabajadorId, {
+      estadoRegistro,
+      grupo,
+      tipo,
+    });
+  }
+
   @Get()
   async findAll(
     @Query('empresa_id') empresaId?: string,
@@ -93,6 +111,29 @@ export class CapacitacionesController {
       responsable,
       unidad,
     });
+  }
+
+  @Get(':id/para-trabajador')
+  async findOneParaTrabajador(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: { trabajadorId?: string | null },
+  ) {
+    if (!currentUser?.trabajadorId) {
+      throw new BadRequestException('El usuario debe tener un trabajador vinculado');
+    }
+    return this.capacitacionesService.findOneParaTrabajador(id, currentUser.trabajadorId);
+  }
+
+  @Post(':id/evaluar-paso')
+  async evaluarPaso(
+    @Param('id', ParseUUIDPipe) capacitacionId: string,
+    @CurrentUser() currentUser: { trabajadorId?: string | null },
+    @Body() dto: EvaluarPasoDto,
+  ) {
+    if (!currentUser?.trabajadorId) {
+      throw new BadRequestException('El usuario debe tener un trabajador vinculado');
+    }
+    return this.capacitacionesService.evaluarPaso(capacitacionId, currentUser.trabajadorId, dto);
   }
 
   @Get(':id')

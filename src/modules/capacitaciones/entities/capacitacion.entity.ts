@@ -80,7 +80,7 @@ export class Capacitacion {
   grupo: string | null;
 
   @Column({ name: 'instrucciones', type: 'jsonb', nullable: true })
-  instrucciones: { id: string; descripcion: string; esEvaluacion: boolean; imagenUrl?: string }[] | null;
+  instrucciones: { id: string; descripcion: string; esEvaluacion: boolean; imagenUrl?: string; firmaRegistro?: boolean }[] | null;
 
   @Column({ name: 'hora_inicio', type: 'time', nullable: true })
   horaInicio: string | null;

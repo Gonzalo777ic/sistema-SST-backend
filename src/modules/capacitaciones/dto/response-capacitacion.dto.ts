@@ -31,7 +31,7 @@ export class ResponseCapacitacionDto {
   unidad: string | null;
   area: string | null;
   grupo: string | null;
-  instrucciones: { id: string; descripcion: string; esEvaluacion: boolean; imagenUrl?: string }[] | null;
+  instrucciones: { id: string; descripcion: string; esEvaluacion: boolean; imagenUrl?: string; firmaRegistro?: boolean }[] | null;
   hora_inicio: string | null;
   hora_fin: string | null;
   duracion_horas: number | null;
