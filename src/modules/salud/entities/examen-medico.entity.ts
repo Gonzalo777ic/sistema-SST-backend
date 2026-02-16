@@ -14,9 +14,12 @@ import { Usuario } from '../../usuarios/entities/usuario.entity';
 export enum TipoExamen {
   Ingreso = 'Ingreso',
   Periodico = 'Periódico',
+  PreOcupacional = 'Pre-Ocupacional',
   Retiro = 'Retiro',
   Reingreso = 'Reingreso',
   PorExposicion = 'Por Exposición',
+  Otros = 'Otros',
+  Reubicacion = 'Reubicación',
 }
 
 export enum ResultadoExamen {
@@ -49,8 +52,23 @@ export class ExamenMedico {
   @Column({ name: 'centro_medico', type: 'varchar' })
   centroMedico: string;
 
-  @Column({ name: 'medico_evaluador', type: 'varchar' })
-  medicoEvaluador: string;
+  @Column({ name: 'medico_evaluador', type: 'varchar', nullable: true })
+  medicoEvaluador: string | null;
+
+  @Column({ name: 'hora_programacion', type: 'varchar', length: 10, nullable: true })
+  horaProgramacion: string | null;
+
+  @Column({ name: 'perfil_emo_id', type: 'uuid', nullable: true })
+  perfilEmoId: string | null;
+
+  @Column({ name: 'proyecto', type: 'varchar', length: 200, nullable: true })
+  proyecto: string | null;
+
+  @Column({ name: 'adicionales', type: 'text', nullable: true })
+  adicionales: string | null;
+
+  @Column({ name: 'recomendaciones_personalizadas', type: 'text', nullable: true })
+  recomendacionesPersonalizadas: string | null;
 
   @Column({ name: 'fecha_programada', type: 'date' })
   fechaProgramada: Date;

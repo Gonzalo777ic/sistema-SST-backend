@@ -32,8 +32,29 @@ export class CreateExamenMedicoDto {
   @IsString()
   centro_medico: string;
 
+  @IsOptional()
   @IsString()
-  medico_evaluador: string;
+  medico_evaluador?: string;
+
+  @IsOptional()
+  @IsString()
+  hora_programacion?: string;
+
+  @IsOptional()
+  @IsUUID()
+  perfil_emo_id?: string;
+
+  @IsOptional()
+  @IsString()
+  proyecto?: string;
+
+  @IsOptional()
+  @IsString()
+  adicionales?: string;
+
+  @IsOptional()
+  @IsString()
+  recomendaciones_personalizadas?: string;
 
   @IsOptional()
   @IsEnum(ResultadoExamen)

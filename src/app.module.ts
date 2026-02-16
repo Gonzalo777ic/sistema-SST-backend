@@ -17,6 +17,7 @@ import { DocumentosModule } from './modules/documentos/documentos.module';
 import { EppModule } from './modules/epp/epp.module';
 import { ConfigEppModule } from './modules/config-epp/config-epp.module';
 import { ConfigCapacitacionesModule } from './modules/config-capacitaciones/config-capacitaciones.module';
+import { ConfigEmoModule } from './modules/config-emo/config-emo.module';
 import { CapacitacionesModule } from './modules/capacitaciones/capacitaciones.module';
 import { InspeccionesModule } from './modules/inspecciones/inspecciones.module';
 import { PetsModule } from './modules/pets/pets.module';
@@ -59,6 +60,7 @@ import { CommonModule } from './common/common.module';
     EppModule,
     ConfigEppModule,
     ConfigCapacitacionesModule,
+    ConfigEmoModule,
     CapacitacionesModule,
     InspeccionesModule,
     PetsModule,
