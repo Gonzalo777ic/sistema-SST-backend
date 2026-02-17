@@ -40,6 +40,11 @@ export class ResponseCapacitacionDto {
   estado: EstadoCapacitacion;
   instructor: string | null;
   firma_capacitador_url: string | null;
+  responsable_registro_nombre: string | null;
+  responsable_registro_firma_url: string | null;
+  responsable_rrhh_gerente_id: string | null;
+  responsable_registro_gerente_id: string | null;
+  responsable_certificacion_gerente_id: string | null;
   material_url: string | null;
   certificado_url: string | null;
   participantes: ParticipanteResponseDto[];
@@ -67,6 +72,11 @@ export class ResponseCapacitacionDto {
     estado: EstadoCapacitacion;
     instructorNombre: string | null;
     firmaCapacitadorUrl?: string | null;
+    responsableRegistroNombre?: string | null;
+    responsableRegistroFirmaUrl?: string | null;
+    responsableRrhhGerenteId?: string | null;
+    responsableRegistroGerenteId?: string | null;
+    responsableCertificacionGerenteId?: string | null;
     materialUrl: string | null;
     certificadoUrl: string | null;
     empresaId: string;
@@ -128,6 +138,11 @@ export class ResponseCapacitacionDto {
     dto.estado = capacitacion.estado;
     dto.instructor = capacitacion.instructorNombre;
     dto.firma_capacitador_url = capacitacion.firmaCapacitadorUrl ?? null;
+    dto.responsable_registro_nombre = capacitacion.responsableRegistroNombre ?? null;
+    dto.responsable_registro_firma_url = capacitacion.responsableRegistroFirmaUrl ?? null;
+    dto.responsable_rrhh_gerente_id = capacitacion.responsableRrhhGerenteId ?? null;
+    dto.responsable_registro_gerente_id = capacitacion.responsableRegistroGerenteId ?? null;
+    dto.responsable_certificacion_gerente_id = capacitacion.responsableCertificacionGerenteId ?? null;
     dto.empresa_nombre = (capacitacion.empresa as any)?.nombre ?? null;
     dto.material_url = capacitacion.materialUrl;
     dto.certificado_url = capacitacion.certificadoUrl;

@@ -26,6 +26,7 @@ import { ResultadoEvaluacionPaso } from './entities/resultado-evaluacion-paso.en
 import { ConfigCapacitacionesService } from '../config-capacitaciones/config-capacitaciones.service';
 import { EvaluarPasoDto } from './dto/evaluar-paso.dto';
 import { CertificadoCapacitacionPdfService } from './certificado-capacitacion-pdf.service';
+import { FirmasGerenteService } from '../empresas/firmas-gerente.service';
 
 @Injectable()
 export class CapacitacionesService {
@@ -53,6 +54,7 @@ export class CapacitacionesService {
     private readonly evaluacionFavoritaRepository: Repository<EvaluacionFavorita>,
     private readonly configCapacitacionesService: ConfigCapacitacionesService,
     private readonly certificadoPdfService: CertificadoCapacitacionPdfService,
+    private readonly firmasGerenteService: FirmasGerenteService,
   ) {}
 
   async create(
@@ -91,6 +93,22 @@ export class CapacitacionesService {
       firmaUrl = dto.firma_capacitador_url;
     }
 
+    let responsableRegistroFirmaUrl: string | null = null;
+    if (dto.responsable_registro_firma_url?.startsWith('data:image/') && this.storageService.isAvailable()) {
+      const base64Data = dto.responsable_registro_firma_url.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      if (buffer.length > 2 * 1024 * 1024) {
+        throw new BadRequestException('La imagen de firma del responsable de registro no debe superar 2 MB');
+      }
+      const empresa = await this.empresaRepository.findOne({ where: { id: empresaId } });
+      const ruc = empresa?.ruc ?? 'sistema';
+      responsableRegistroFirmaUrl = await this.storageService.uploadFile(ruc, buffer, 'firma_capacitador', {
+        filename: `firma-registro-${randomUUID()}.png`,
+      });
+    } else if (dto.responsable_registro_firma_url && !dto.responsable_registro_firma_url.startsWith('data:')) {
+      responsableRegistroFirmaUrl = dto.responsable_registro_firma_url;
+    }
+
     const capacitacion = this.capacitacionRepository.create({
       titulo: dto.titulo,
       descripcion: dto.descripcion,
@@ -110,6 +128,11 @@ export class CapacitacionesService {
       instructorId: dto.instructor_id ?? null,
       instructorNombre: dto.instructor ?? null,
       firmaCapacitadorUrl: firmaUrl,
+      responsableRegistroNombre: dto.responsable_registro_nombre ?? null,
+      responsableRegistroFirmaUrl: responsableRegistroFirmaUrl,
+      responsableRrhhGerenteId: dto.responsable_rrhh_gerente_id ?? null,
+      responsableRegistroGerenteId: dto.responsable_registro_gerente_id ?? null,
+      responsableCertificacionGerenteId: dto.responsable_certificacion_gerente_id ?? null,
       materialUrl: dto.material_url ?? null,
       certificadoUrl: dto.certificado_url ?? null,
       estado: dto.estado ?? EstadoCapacitacion.Pendiente,
@@ -217,6 +240,7 @@ export class CapacitacionesService {
       .leftJoinAndSelect('c.creadoPor', 'creadoPor')
       .leftJoinAndSelect('c.examenes', 'examenes')
       .leftJoinAndSelect('c.empresa', 'empresa')
+      .andWhere('c.estado = :estadoProgramada', { estadoProgramada: EstadoCapacitacion.Programada })
       .orderBy('c.fecha', 'DESC');
 
     if (filters?.grupo) {
@@ -278,6 +302,11 @@ export class CapacitacionesService {
 
   async findOneParaTrabajador(id: string, trabajadorId: string): Promise<ResponseCapacitacionDto> {
     const dto = await this.findOne(id);
+    if (dto.estado !== EstadoCapacitacion.Programada) {
+      throw new BadRequestException(
+        'Esta capacitación aún no está disponible. Solo puedes acceder cuando esté en estado Programada.',
+      );
+    }
     const participante = dto.participantes?.find((p) => p.trabajador_id === trabajadorId);
     if (!participante) {
       throw new BadRequestException('No estás registrado en esta capacitación');
@@ -411,6 +440,32 @@ export class CapacitacionesService {
       capacitacion.firmaCapacitadorUrl = dto.firma_capacitador_url || null;
     }
 
+    if (dto.responsable_registro_firma_url?.startsWith('data:image/') && this.storageService.isAvailable()) {
+      const base64Data = dto.responsable_registro_firma_url.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      if (buffer.length > 2 * 1024 * 1024) {
+        throw new BadRequestException('La imagen de firma del responsable de registro no debe superar 2 MB');
+      }
+      const ruc = (capacitacion.empresa as any)?.ruc ?? 'sistema';
+      capacitacion.responsableRegistroFirmaUrl = await this.storageService.uploadFile(ruc, buffer, 'firma_capacitador', {
+        filename: `firma-registro-${id}.png`,
+      });
+    } else if (dto.responsable_registro_firma_url !== undefined) {
+      capacitacion.responsableRegistroFirmaUrl = dto.responsable_registro_firma_url || null;
+    }
+    if (dto.responsable_registro_nombre !== undefined) {
+      capacitacion.responsableRegistroNombre = dto.responsable_registro_nombre || null;
+    }
+    if (dto.responsable_rrhh_gerente_id !== undefined) {
+      capacitacion.responsableRrhhGerenteId = dto.responsable_rrhh_gerente_id || null;
+    }
+    if (dto.responsable_registro_gerente_id !== undefined) {
+      capacitacion.responsableRegistroGerenteId = dto.responsable_registro_gerente_id || null;
+    }
+    if (dto.responsable_certificacion_gerente_id !== undefined) {
+      capacitacion.responsableCertificacionGerenteId = dto.responsable_certificacion_gerente_id || null;
+    }
+
     if (capacitacion.estado === EstadoCapacitacion.Cancelada && dto.participantes) {
       throw new BadRequestException(
         'No se pueden agregar participantes a una capacitación cancelada',
@@ -450,6 +505,37 @@ export class CapacitacionesService {
     });
     if (dto.empresa_id) {
       capacitacion.empresaId = dto.empresa_id;
+    }
+
+    if (capacitacion.estado === EstadoCapacitacion.Programada) {
+        const errores: string[] = [];
+        if (!capacitacion.instructorNombre?.trim()) {
+          errores.push('El capacitador es obligatorio');
+        }
+        if (!capacitacion.firmaCapacitadorUrl?.trim()) {
+          errores.push('La firma del capacitador es obligatoria');
+        }
+        if (!capacitacion.responsableRegistroGerenteId) {
+          errores.push('Debe seleccionar un Responsable del registro');
+        } else {
+          const gReg = await this.firmasGerenteService.findByIdForCertificado(capacitacion.responsableRegistroGerenteId);
+          if (!gReg?.firma_url?.trim()) {
+            errores.push('El Responsable del registro debe tener firma registrada en Jerarquía Organizacional');
+          }
+        }
+        if (!capacitacion.responsableCertificacionGerenteId) {
+          errores.push('Debe seleccionar un Responsable de certificación');
+        } else {
+          const gCert = await this.firmasGerenteService.findByIdForCertificado(capacitacion.responsableCertificacionGerenteId);
+          if (!gCert?.firma_url?.trim()) {
+            errores.push('El Responsable de certificación debe tener firma registrada en Jerarquía Organizacional');
+          }
+        }
+        if (errores.length > 0) {
+          throw new BadRequestException(
+            `Para programar la capacitación se requiere: ${errores.join('. ')}`,
+          );
+        }
     }
 
     await this.capacitacionRepository.save(capacitacion);
@@ -685,6 +771,8 @@ export class CapacitacionesService {
                 nota,
                 capacitacion.firmaCapacitadorUrl,
                 capacitacion.instructorNombre,
+                capacitacion.responsableRegistroNombre,
+                capacitacion.responsableRegistroFirmaUrl,
               );
               const empresa = capacitacion.empresa as any;
               const ruc = empresa?.ruc ?? 'sistema';

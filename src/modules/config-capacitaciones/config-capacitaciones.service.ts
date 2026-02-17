@@ -43,10 +43,10 @@ export class ConfigCapacitacionesService {
         responsablesCertificacion: [],
         registroAsistencia: null,
         firmasCertificado: {
-          responsable_rrhh: false,
-          responsable_sst: false,
-          capacitador: false,
-          responsable_certificacion: false,
+          responsable_rrhh: true,
+          responsable_sst: true,
+          capacitador: true,
+          responsable_certificacion: true,
         },
       });
       await this.configRepo.save(config);
@@ -70,10 +70,10 @@ export class ConfigCapacitacionesService {
         responsablesCertificacion: [],
         registroAsistencia: null,
         firmasCertificado: {
-          responsable_rrhh: false,
-          responsable_sst: false,
-          capacitador: false,
-          responsable_certificacion: false,
+          responsable_rrhh: true,
+          responsable_sst: true,
+          capacitador: true,
+          responsable_certificacion: true,
         },
       });
     }
@@ -94,10 +94,10 @@ export class ConfigCapacitacionesService {
     if (dto.registro_asistencia !== undefined) config.registroAsistencia = dto.registro_asistencia;
     if (dto.firmas_certificado !== undefined) {
       const prev = config.firmasCertificado ?? {
-        responsable_rrhh: false,
-        responsable_sst: false,
-        capacitador: false,
-        responsable_certificacion: false,
+        responsable_rrhh: true,
+        responsable_sst: true,
+        capacitador: true,
+        responsable_certificacion: true,
       };
       config.firmasCertificado = {
         responsable_rrhh: dto.firmas_certificado.responsable_rrhh ?? prev.responsable_rrhh,

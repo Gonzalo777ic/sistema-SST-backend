@@ -160,6 +160,13 @@ export class FirmasGerenteService {
     return dtos;
   }
 
+  /** Obtiene un gerente por ID para certificado (retorna null si no existe o está inactivo) */
+  async findByIdForCertificado(id: string): Promise<{ rol: string; nombre_completo: string; cargo: string; firma_url: string | null } | null> {
+    const f = await this.firmaGerenteRepo.findOne({ where: { id, activo: true } });
+    if (!f) return null;
+    return { rol: f.rol, nombre_completo: f.nombreCompleto, cargo: f.cargo, firma_url: f.firmaUrl };
+  }
+
   /** Para generación de PDF: retorna gerentes activos con firma_url raw (sin firmar) */
   async findForCertificado(empresaId: string): Promise<Array<{ rol: string; nombre_completo: string; cargo: string; firma_url: string | null }>> {
     const firmas = await this.firmaGerenteRepo.find({

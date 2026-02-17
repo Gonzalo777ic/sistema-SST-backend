@@ -134,6 +134,24 @@ export class Capacitacion {
   @Column({ name: 'firma_capacitador_url', type: 'text', nullable: true })
   firmaCapacitadorUrl: string | null;
 
+  @Column({ name: 'responsable_registro_nombre', type: 'varchar', length: 300, nullable: true })
+  responsableRegistroNombre: string | null;
+
+  @Column({ name: 'responsable_registro_firma_url', type: 'text', nullable: true })
+  responsableRegistroFirmaUrl: string | null;
+
+  /** Referencia a Jerarquía Organizacional (firmas_gerente rol RRHH) */
+  @Column({ name: 'responsable_rrhh_gerente_id', type: 'uuid', nullable: true })
+  responsableRrhhGerenteId: string | null;
+
+  /** Referencia a Jerarquía Organizacional (firmas_gerente rol SST) */
+  @Column({ name: 'responsable_registro_gerente_id', type: 'uuid', nullable: true })
+  responsableRegistroGerenteId: string | null;
+
+  /** Referencia a Jerarquía Organizacional (firmas_gerente rol CERTIFICACION) */
+  @Column({ name: 'responsable_certificacion_gerente_id', type: 'uuid', nullable: true })
+  responsableCertificacionGerenteId: string | null;
+
   @Column({ name: 'creado_por_id', type: 'uuid' })
   creadoPorId: string;
 

@@ -95,7 +95,17 @@ export class EppService {
       if (!empresa) throw new NotFoundException('Empresa no encontrada');
       ruc = (empresa as any).ruc?.replace(/[^a-zA-Z0-9]/g, '_') ?? 'sistema';
     }
-    return this.storageService.uploadFile(ruc, buffer, 'imagen_epp', { contentType: mimetype });
+    try {
+      return await this.storageService.uploadFile(ruc, buffer, 'imagen_epp', { contentType: mimetype });
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || err?.message || 'Error al subir imagen';
+      if (msg.includes('billing') || msg.includes('delinquent') || err?.response?.status === 403) {
+        throw new BadRequestException(
+          'No se pudo subir la imagen: la cuenta de facturación de Google Cloud está deshabilitada. Use la opción "ingresar URL de imagen" para vincular una imagen externa.',
+        );
+      }
+      throw new BadRequestException(`Error al subir imagen: ${msg}`);
+    }
   }
 
   async uploadEppFichaPdf(empresaId: string | null | undefined, buffer: Buffer): Promise<string> {
@@ -108,7 +118,17 @@ export class EppService {
       if (!empresa) throw new NotFoundException('Empresa no encontrada');
       ruc = (empresa as any).ruc?.replace(/[^a-zA-Z0-9]/g, '_') ?? 'sistema';
     }
-    return this.storageService.uploadFile(ruc, buffer, 'ficha_pdf_epp', { contentType: 'application/pdf' });
+    try {
+      return await this.storageService.uploadFile(ruc, buffer, 'ficha_pdf_epp', { contentType: 'application/pdf' });
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || err?.message || 'Error al subir PDF';
+      if (msg.includes('billing') || msg.includes('delinquent') || err?.response?.status === 403) {
+        throw new BadRequestException(
+          'No se pudo subir el PDF: la cuenta de facturación de Google Cloud está deshabilitada. Use la opción "ingresar URL del PDF" para vincular un documento externo.',
+        );
+      }
+      throw new BadRequestException(`Error al subir PDF: ${msg}`);
+    }
   }
 
   async createEpp(dto: CreateEppDto): Promise<ResponseEppDto> {
@@ -646,12 +666,24 @@ export class EppService {
       const empresa = await this.empresaRepository.findOne({ where: { id: solicitud.empresaId } });
       const rucEmpresa = (empresa as any)?.ruc ?? 'sistema';
       if (this.storageService.isAvailable()) {
-        firmaRecepcionUrl = await this.storageService.uploadFile(
-          rucEmpresa,
-          buffer,
-          'firma_recepcion',
-          { filename: `firma-recepcion-${solicitud.id}.png` },
-        );
+        try {
+          firmaRecepcionUrl = await this.storageService.uploadFile(
+            rucEmpresa,
+            buffer,
+            'firma_recepcion',
+            { filename: `firma-recepcion-${solicitud.id}.png` },
+          );
+        } catch (err: any) {
+          if (err?.response?.status === 403 || err?.message?.includes('billing')) {
+            firmaRecepcionUrl = opts.firmaRecepcionBase64;
+          } else {
+            throw new BadRequestException(
+              `Error al subir firma: ${err?.response?.data?.error?.message || err?.message || 'Error de almacenamiento'}`,
+            );
+          }
+        }
+      } else {
+        firmaRecepcionUrl = opts.firmaRecepcionBase64;
       }
     }
 
@@ -743,12 +775,21 @@ export class EppService {
           const empresa = solicitudConDetalles.empresa as any;
           const rucEmpresa = empresa?.ruc ?? 'sistema';
           if (this.storageService.isAvailable()) {
-            solicitud.registroEntregaPdfUrl = await this.storageService.uploadFile(
-              rucEmpresa,
-              buffer,
-              'pdf_entrega',
-              { filename: `registro-${solicitud.id}.pdf` },
-            );
+            try {
+              solicitud.registroEntregaPdfUrl = await this.storageService.uploadFile(
+                rucEmpresa,
+                buffer,
+                'pdf_entrega',
+                { filename: `registro-${solicitud.id}.pdf` },
+              );
+            } catch (err: any) {
+              if (err?.response?.status === 403 || err?.message?.includes('billing')) {
+                this.eppPdfService.saveBufferToDisk(solicitud.id, buffer);
+                solicitud.registroEntregaPdfUrl = `/epp/registro-pdf/${solicitud.id}`;
+              } else {
+                throw err;
+              }
+            }
           } else {
             this.eppPdfService.saveBufferToDisk(solicitud.id, buffer);
             solicitud.registroEntregaPdfUrl = `/epp/registro-pdf/${solicitud.id}`;
@@ -816,15 +857,22 @@ export class EppService {
           if (trabajadorEntity) {
             let kardexUrl: string | null = null;
             if (this.storageService.isAvailable()) {
-              const timestamp = Date.now();
-              kardexUrl = await this.storageService.uploadFile(
-                rucEmpresa,
-                kardexBuffer,
-                'kardex_pdf',
-                { filename: `kardex-${trabajadorId}-${solicitud.id}-${timestamp}.pdf` },
-              );
-              trabajadorEntity.kardexPdfUrl = kardexUrl;
-              solicitud.kardexPdfUrl = kardexUrl;
+              try {
+                const timestamp = Date.now();
+                kardexUrl = await this.storageService.uploadFile(
+                  rucEmpresa,
+                  kardexBuffer,
+                  'kardex_pdf',
+                  { filename: `kardex-${trabajadorId}-${solicitud.id}-${timestamp}.pdf` },
+                );
+                trabajadorEntity.kardexPdfUrl = kardexUrl;
+                solicitud.kardexPdfUrl = kardexUrl;
+              } catch (err: any) {
+                if (err?.response?.status === 403 || err?.message?.includes('billing')) {
+                  this.eppPdfService.saveKardexToDisk(trabajadorId, kardexBuffer);
+                  trabajadorEntity.kardexPdfUrl = `/epp/kardex-pdf/${trabajadorId}`;
+                }
+              }
             } else {
               this.eppPdfService.saveKardexToDisk(trabajadorId, kardexBuffer);
               trabajadorEntity.kardexPdfUrl = `/epp/kardex-pdf/${trabajadorId}`;

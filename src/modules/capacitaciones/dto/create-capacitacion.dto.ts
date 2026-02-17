@@ -159,6 +159,29 @@ export class CreateCapacitacionDto {
   firma_capacitador_url?: string;
 
   @IsOptional()
+  @IsString()
+  responsable_registro_nombre?: string;
+
+  @IsOptional()
+  @IsString()
+  responsable_registro_firma_url?: string;
+
+  /** Referencia a firmas_gerente (rol RRHH) - Jerarquía Organizacional */
+  @IsOptional()
+  @IsUUID()
+  responsable_rrhh_gerente_id?: string;
+
+  /** Referencia a firmas_gerente (rol SST) - Jerarquía Organizacional */
+  @IsOptional()
+  @IsUUID()
+  responsable_registro_gerente_id?: string;
+
+  /** Referencia a firmas_gerente (rol CERTIFICACION) - Jerarquía Organizacional */
+  @IsOptional()
+  @IsUUID()
+  responsable_certificacion_gerente_id?: string;
+
+  @IsOptional()
   @IsUrl()
   material_url?: string;
 
