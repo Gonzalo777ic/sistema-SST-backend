@@ -12,6 +12,10 @@ export class ResponseExamenMedicoDto {
   proyecto: string | null;
   sede: string | null;
   tipo_examen: TipoExamen;
+  hora_programacion: string | null;
+  perfil_emo_id: string | null;
+  adicionales: string | null;
+  recomendaciones_personalizadas: string | null;
   fecha_programada: string;
   fecha_realizado: string | null;
   fecha_vencimiento: string | null;
@@ -49,6 +53,10 @@ export class ResponseExamenMedicoDto {
     fechaRevisionDoctor: Date | null;
     cargadoPorId: string;
     proyecto?: string | null;
+    horaProgramacion?: string | null;
+    perfilEmoId?: string | null;
+    adicionales?: string | null;
+    recomendacionesPersonalizadas?: string | null;
     trabajador?: { nombreCompleto: string; documentoIdentidad?: string; sede?: string | null } | null;
     cargadoPor?: { nombreCompleto?: string; dni?: string } | null;
     createdAt: Date;
@@ -67,6 +75,10 @@ export class ResponseExamenMedicoDto {
     dto.proyecto = examen.proyecto ?? null;
     dto.sede = examen.trabajador?.sede ?? null;
     dto.tipo_examen = examen.tipoExamen;
+    dto.hora_programacion = examen.horaProgramacion ?? null;
+    dto.perfil_emo_id = examen.perfilEmoId ?? null;
+    dto.adicionales = examen.adicionales ?? null;
+    dto.recomendaciones_personalizadas = examen.recomendacionesPersonalizadas ?? null;
     dto.fecha_programada = toDateStr(examen.fechaProgramada as Date | string) ?? '';
     dto.fecha_realizado = toDateStr(examen.fechaRealizado as Date | string | null);
     dto.fecha_vencimiento = toDateStr(examen.fechaVencimiento as Date | string | null);

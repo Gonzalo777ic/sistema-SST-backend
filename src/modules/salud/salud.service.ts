@@ -139,6 +139,14 @@ export class SaludService {
     if (dto.centro_medico !== undefined) examen.centroMedico = dto.centro_medico;
     if (dto.medico_evaluador !== undefined)
       examen.medicoEvaluador = dto.medico_evaluador;
+    if (dto.hora_programacion !== undefined)
+      examen.horaProgramacion = dto.hora_programacion ?? null;
+    if (dto.perfil_emo_id !== undefined)
+      examen.perfilEmoId = dto.perfil_emo_id ?? null;
+    if (dto.proyecto !== undefined) examen.proyecto = dto.proyecto ?? null;
+    if (dto.adicionales !== undefined) examen.adicionales = dto.adicionales ?? null;
+    if (dto.recomendaciones_personalizadas !== undefined)
+      examen.recomendacionesPersonalizadas = dto.recomendaciones_personalizadas ?? null;
     if (dto.resultado !== undefined) examen.resultado = dto.resultado;
     if (dto.restricciones !== undefined) examen.restricciones = dto.restricciones;
     if (dto.observaciones !== undefined) examen.observaciones = dto.observaciones;
