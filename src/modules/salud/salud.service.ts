@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -22,6 +23,7 @@ import { ResponseComentarioMedicoDto } from './dto/response-comentario-medico.dt
 import { CreateHorarioDoctorDto } from './dto/create-horario-doctor.dto';
 import { UpdateHorarioDoctorDto } from './dto/update-horario-doctor.dto';
 import { ResponseHorarioDoctorDto } from './dto/response-horario-doctor.dto';
+import { UsuarioRol } from '../usuarios/entities/usuario.entity';
 
 @Injectable()
 export class SaludService {
@@ -36,8 +38,17 @@ export class SaludService {
     private readonly horarioRepository: Repository<HorarioDoctor>,
   ) {}
 
+  private isProfesionalSalud(roles: string[]): boolean {
+    return roles?.some(
+      (r) => r === UsuarioRol.MEDICO || r === UsuarioRol.CENTRO_MEDICO,
+    ) ?? false;
+  }
+
   // ========== EXÁMENES MÉDICOS ==========
-  async createExamen(dto: CreateExamenMedicoDto): Promise<ResponseExamenMedicoDto> {
+  async createExamen(
+    dto: CreateExamenMedicoDto,
+    user?: { id: string; roles: string[] },
+  ): Promise<ResponseExamenMedicoDto> {
     // Validar restricciones si es "Apto con Restricciones"
     if (dto.resultado === ResultadoExamen.AptoConRestricciones && !dto.restricciones) {
       throw new BadRequestException(
@@ -73,7 +84,7 @@ export class SaludService {
       console.log(`⚠️ ALERTA CRÍTICA: Examen No Apto - Trabajador: ${dto.trabajador_id}`);
     }
 
-    return this.findOneExamen(saved.id);
+    return this.findOneExamen(saved.id, user);
   }
 
   async findAllExamenes(trabajadorId?: string): Promise<ResponseExamenMedicoDto[]> {
@@ -91,7 +102,10 @@ export class SaludService {
     return examenes.map((e) => ResponseExamenMedicoDto.fromEntity(e));
   }
 
-  async findOneExamen(id: string): Promise<ResponseExamenMedicoDto> {
+  async findOneExamen(
+    id: string,
+    user?: { id: string; roles: string[] },
+  ): Promise<ResponseExamenMedicoDto> {
     const examen = await this.examenRepository.findOne({
       where: { id },
       relations: ['trabajador', 'cargadoPor'],
@@ -101,17 +115,48 @@ export class SaludService {
       throw new NotFoundException(`Examen médico con ID ${id} no encontrado`);
     }
 
-    return ResponseExamenMedicoDto.fromEntity(examen);
+    const dto = ResponseExamenMedicoDto.fromEntity(examen);
+    const esProfesionalSalud = user && this.isProfesionalSalud(user.roles);
+
+    if (!esProfesionalSalud) {
+      dto.resultado_archivo_url = null;
+      dto.resultado_archivo_existe = !!examen.resultadoArchivoUrl;
+      dto.restricciones = null;
+      dto.observaciones = null;
+    }
+
+    return dto;
   }
 
   async updateExamen(
     id: string,
     dto: UpdateExamenMedicoDto,
+    user?: { id: string; roles: string[] },
   ): Promise<ResponseExamenMedicoDto> {
     const examen = await this.examenRepository.findOne({ where: { id } });
 
     if (!examen) {
       throw new NotFoundException(`Examen médico con ID ${id} no encontrado`);
+    }
+
+    const esProfesionalSalud = user && this.isProfesionalSalud(user.roles);
+    if (!esProfesionalSalud) {
+      const camposRestringidos = [
+        'resultado',
+        'restricciones',
+        'observaciones',
+        'fecha_realizado',
+        'fecha_vencimiento',
+        'resultado_archivo_url',
+      ];
+      const intentaModificar = camposRestringidos.some(
+        (c) => (dto as any)[c] !== undefined,
+      );
+      if (intentaModificar) {
+        throw new ForbiddenException(
+          'Solo el profesional de salud (Médico Ocupacional / Centro Médico) puede registrar o modificar diagnósticos, aptitud, restricciones y conclusiones clínicas.',
+        );
+      }
     }
 
     // Validar restricciones si cambia a "Apto con Restricciones"
@@ -160,7 +205,7 @@ export class SaludService {
       console.log(`⚠️ ALERTA CRÍTICA: Examen actualizado a No Apto - ID: ${id}`);
     }
 
-    return this.findOneExamen(id);
+    return this.findOneExamen(id, user);
   }
 
   async removeExamen(id: string): Promise<void> {

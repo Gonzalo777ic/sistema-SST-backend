@@ -25,6 +25,8 @@ export class ResponseExamenMedicoDto {
   restricciones: string | null;
   observaciones: string | null;
   resultado_archivo_url: string | null;
+  /** Indica si existe archivo EMO (para admin sin acceso a descarga) */
+  resultado_archivo_existe?: boolean;
   estado: EstadoExamen;
   revisado_por_doctor: boolean;
   doctor_interno_id: string | null;

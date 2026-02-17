@@ -8,7 +8,10 @@ import {
   Param,
   Query,
   ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { SaludService } from './salud.service';
 import { CreateExamenMedicoDto } from './dto/create-examen-medico.dto';
 import { UpdateExamenMedicoDto } from './dto/update-examen-medico.dto';
@@ -24,13 +27,17 @@ import { UpdateHorarioDoctorDto } from './dto/update-horario-doctor.dto';
 import { ResponseHorarioDoctorDto } from './dto/response-horario-doctor.dto';
 
 @Controller('salud')
+@UseGuards(JwtAuthGuard)
 export class SaludController {
   constructor(private readonly saludService: SaludService) {}
 
   // ========== EXÁMENES MÉDICOS ==========
   @Post('examenes')
-  async createExamen(@Body() dto: CreateExamenMedicoDto): Promise<ResponseExamenMedicoDto> {
-    return this.saludService.createExamen(dto);
+  async createExamen(
+    @Body() dto: CreateExamenMedicoDto,
+    @CurrentUser() user: { id: string; roles: string[] },
+  ): Promise<ResponseExamenMedicoDto> {
+    return this.saludService.createExamen(dto, user);
   }
 
   @Get('examenes')
@@ -43,16 +50,18 @@ export class SaludController {
   @Get('examenes/:id')
   async findOneExamen(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: { id: string; roles: string[] },
   ): Promise<ResponseExamenMedicoDto> {
-    return this.saludService.findOneExamen(id);
+    return this.saludService.findOneExamen(id, user);
   }
 
   @Patch('examenes/:id')
   async updateExamen(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateExamenMedicoDto,
+    @CurrentUser() user: { id: string; roles: string[] },
   ): Promise<ResponseExamenMedicoDto> {
-    return this.saludService.updateExamen(id, dto);
+    return this.saludService.updateExamen(id, dto, user);
   }
 
   @Delete('examenes/:id')
