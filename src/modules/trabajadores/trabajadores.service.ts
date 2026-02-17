@@ -9,7 +9,7 @@ import { Repository } from 'typeorm';
 import { Trabajador, EstadoTrabajador, TipoDocumento } from './entities/trabajador.entity';
 import { Usuario } from '../usuarios/entities/usuario.entity';
 import { CreateTrabajadorDto } from './dto/create-trabajador.dto';
-import { UpdateTrabajadorDto, UpdatePersonalDataDto } from './dto/update-trabajador.dto';
+import { UpdateTrabajadorDto, UpdatePersonalDataDto, UpdateMedicoPersonalDataDto } from './dto/update-trabajador.dto';
 import { ResponseTrabajadorDto } from './dto/response-trabajador.dto';
 import { StorageService } from '../../common/services/storage.service';
 import { validateSignatureOrThrow } from '../../common/utils/signature-validation';
@@ -351,6 +351,80 @@ export class TrabajadoresService {
       tallaPantalon: dto.talla_pantalon !== undefined ? dto.talla_pantalon : trabajador.tallaPantalon,
       tallaCalzado: dto.talla_calzado !== undefined ? parseInt(dto.talla_calzado) : trabajador.tallaCalzado,
       firmaDigitalUrl: firmaUrl,
+      perfilCompletado: true,
+    });
+
+    await this.trabajadorRepository.save(trabajador);
+    const updated = await this.trabajadorRepository.findOne({
+      where: { id },
+      relations: ['usuario', 'area', 'empresa'],
+      withDeleted: false,
+    });
+    return ResponseTrabajadorDto.fromEntity(updated!);
+  }
+
+  async updateMedicoPersonalData(
+    id: string,
+    dto: UpdateMedicoPersonalDataDto,
+  ): Promise<ResponseTrabajadorDto> {
+    const trabajador = await this.trabajadorRepository.findOne({
+      where: { id },
+      relations: ['empresa'],
+      withDeleted: false,
+    });
+
+    if (!trabajador) {
+      throw new NotFoundException(`Trabajador con ID ${id} no encontrado`);
+    }
+
+    let firmaUrl = trabajador.firmaDigitalUrl;
+    const firmaFinal = dto.firma_imagen_base64 || dto.firma_digital_url;
+    if (firmaFinal !== undefined && firmaFinal && firmaFinal.startsWith('data:image/')) {
+      validateSignatureOrThrow(firmaFinal, 'firma digital');
+      if (this.storageService.isAvailable()) {
+        const base64Data = firmaFinal.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+        const empresa = trabajador.empresa as any;
+        const rucEmpresa = empresa?.ruc ?? 'sistema';
+        firmaUrl = await this.storageService.uploadFile(
+          rucEmpresa,
+          buffer,
+          'firma_medico',
+          { filename: `firma-medico-${id}.png` },
+        );
+      } else {
+        firmaUrl = firmaFinal;
+      }
+    }
+
+    let selloUrl = trabajador.selloUrl;
+    if (dto.sello_base64 !== undefined && dto.sello_base64 && dto.sello_base64.startsWith('data:image/')) {
+      if (this.storageService.isAvailable()) {
+        const base64Data = dto.sello_base64.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+        const empresa = trabajador.empresa as any;
+        const rucEmpresa = empresa?.ruc ?? 'sistema';
+        selloUrl = await this.storageService.uploadFile(
+          rucEmpresa,
+          buffer,
+          'sello_medico',
+          { filename: `sello-medico-${id}.png` },
+        );
+      } else {
+        selloUrl = dto.sello_base64;
+      }
+    }
+
+    Object.assign(trabajador, {
+      cmp: dto.cmp !== undefined ? dto.cmp : trabajador.cmp,
+      rne: dto.rne !== undefined ? dto.rne : trabajador.rne,
+      firmaDigitalUrl: firmaUrl,
+      selloUrl: selloUrl !== undefined ? selloUrl : trabajador.selloUrl,
+      tituloSello: dto.titulo_sello !== undefined ? dto.titulo_sello : trabajador.tituloSello,
+      tallaCasco: dto.talla_casco !== undefined ? dto.talla_casco : trabajador.tallaCasco,
+      tallaCamisa: dto.talla_camisa !== undefined ? dto.talla_camisa : trabajador.tallaCamisa,
+      tallaPantalon: dto.talla_pantalon !== undefined ? dto.talla_pantalon : trabajador.tallaPantalon,
+      tallaCalzado: dto.talla_calzado !== undefined ? parseInt(dto.talla_calzado) : trabajador.tallaCalzado,
       perfilCompletado: true,
     });
 

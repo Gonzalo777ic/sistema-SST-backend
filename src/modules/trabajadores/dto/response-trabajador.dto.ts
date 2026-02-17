@@ -52,6 +52,10 @@ export class ResponseTrabajadorDto {
   gerencia: string | null;
   puesto_capacitacion: string | null;
   protocolos_emo: string | null;
+  cmp: string | null;
+  rne: string | null;
+  sello_url: string | null;
+  titulo_sello: string | null;
   createdAt: Date;
   updatedAt: Date;
 
@@ -103,6 +107,9 @@ export class ResponseTrabajadorDto {
     gerencia: string | null;
     puestoCapacitacion: string | null;
     protocolosEmo: string | null;
+    cmp?: string | null;
+    rne?: string | null;
+    selloUrl?: string | null;
     createdAt: Date;
     updatedAt: Date;
   }): ResponseTrabajadorDto {
@@ -162,6 +169,10 @@ export class ResponseTrabajadorDto {
     dto.gerencia = t.gerencia;
     dto.puesto_capacitacion = t.puestoCapacitacion;
     dto.protocolos_emo = t.protocolosEmo;
+    dto.cmp = (t as any).cmp ?? null;
+    dto.rne = (t as any).rne ?? null;
+    dto.sello_url = (t as any).selloUrl ?? null;
+    dto.titulo_sello = (t as any).tituloSello ?? null;
     dto.createdAt = t.createdAt;
     dto.updatedAt = t.updatedAt;
     return dto;

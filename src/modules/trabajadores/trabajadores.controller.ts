@@ -15,7 +15,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TrabajadoresService } from './trabajadores.service';
 import { CreateTrabajadorDto } from './dto/create-trabajador.dto';
-import { UpdateTrabajadorDto, UpdatePersonalDataDto } from './dto/update-trabajador.dto';
+import { UpdateTrabajadorDto, UpdatePersonalDataDto, UpdateMedicoPersonalDataDto } from './dto/update-trabajador.dto';
 import { ResponseTrabajadorDto } from './dto/response-trabajador.dto';
 
 @Controller('trabajadores')
@@ -97,5 +97,13 @@ export class TrabajadoresController {
     @Body() dto: UpdatePersonalDataDto,
   ): Promise<ResponseTrabajadorDto> {
     return this.trabajadoresService.updatePersonalData(id, dto);
+  }
+
+  @Patch(':id/medico-personal-data')
+  async updateMedicoPersonalData(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateMedicoPersonalDataDto,
+  ): Promise<ResponseTrabajadorDto> {
+    return this.trabajadoresService.updateMedicoPersonalData(id, dto);
   }
 }

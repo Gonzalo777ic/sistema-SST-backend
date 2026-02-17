@@ -161,6 +161,22 @@ export class Trabajador {
   @Column({ name: 'protocolos_emo', type: 'varchar', nullable: true })
   protocolosEmo: string | null;
 
+  /** Médico Ocupacional: número de colegiatura (CMP) */
+  @Column({ name: 'cmp', type: 'varchar', length: 20, nullable: true })
+  cmp: string | null;
+
+  /** Médico Ocupacional: registro nacional de especialistas (RNE) */
+  @Column({ name: 'rne', type: 'varchar', length: 30, nullable: true })
+  rne: string | null;
+
+  /** Médico Ocupacional: URL del sello digital en GCS */
+  @Column({ name: 'sello_url', type: 'varchar', nullable: true })
+  selloUrl: string | null;
+
+  /** Médico Ocupacional: texto debajo del nombre en el sello (ej. MÉDICO OCUPACIONAL, o con especialidad) */
+  @Column({ name: 'titulo_sello', type: 'varchar', length: 100, nullable: true })
+  tituloSello: string | null;
+
   @Column({
     type: 'enum',
     enum: EstadoTrabajador,

@@ -58,3 +58,49 @@ export class UpdatePersonalDataDto {
   @IsString()
   firma_digital_url?: string;
 }
+
+/** DTO para onboarding de Médico Ocupacional */
+export class UpdateMedicoPersonalDataDto {
+  @IsOptional()
+  @IsString()
+  cmp?: string;
+
+  @IsOptional()
+  @IsString()
+  rne?: string;
+
+  @IsOptional()
+  @IsString()
+  firma_digital_url?: string;
+
+  /** Base64 de firma procesada (imagen subida) - prevalece sobre dibujo */
+  @IsOptional()
+  @IsString()
+  firma_imagen_base64?: string;
+
+  /** Base64 del sello final (generado por sistema o custom) */
+  @IsOptional()
+  @IsString()
+  sello_base64?: string;
+
+  /** Texto debajo del nombre en el sello (ej. MÉDICO OCUPACIONAL) */
+  @IsOptional()
+  @IsString()
+  titulo_sello?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_casco?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_camisa?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_pantalon?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_calzado?: string;
+}
