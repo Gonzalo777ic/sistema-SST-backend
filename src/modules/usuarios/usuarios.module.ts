@@ -7,10 +7,11 @@ import { AdminSeederService } from './admin-seeder.service';
 import { EmpresasModule } from '../empresas/empresas.module';
 import { Trabajador } from '../trabajadores/entities/trabajador.entity';
 import { Empresa } from '../empresas/entities/empresa.entity';
+import { CentroMedico } from '../config-emo/entities/centro-medico.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Usuario, Trabajador, Empresa]),
+    TypeOrmModule.forFeature([Usuario, Trabajador, Empresa, CentroMedico]),
     EmpresasModule,
   ],
   controllers: [UsuariosController],

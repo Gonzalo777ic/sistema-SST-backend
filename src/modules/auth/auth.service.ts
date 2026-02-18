@@ -49,21 +49,31 @@ export class AuthService {
       throw new UnauthorizedException('La cuenta está desactivada');
     }
 
-    // REGLA DE BLOQUEO CRÍTICO: Verificar estado del trabajador vinculado según el rol
-    // Solo SUPER_ADMIN y ADMIN_EMPRESA pueden hacer login sin trabajador vinculado
-    // Roles operativos (EMPLEADO, SUPERVISOR, MEDICO, INGENIERO_SST, AUDITOR) OBLIGATORIAMENTE requieren trabajador activo
+    // REGLA DE BLOQUEO CRÍTICO: Verificar vínculo según el rol
+    // CENTRO_MEDICO: puede tener centro_medico_id (sin trabajador) o trabajador
+    // Otros roles operativos: requieren trabajador activo
+    const esCentroMedico = usuario.roles.includes(UsuarioRol.CENTRO_MEDICO);
     const rolesOperativos = [
       UsuarioRol.EMPLEADO,
       UsuarioRol.SUPERVISOR,
       UsuarioRol.MEDICO,
       UsuarioRol.INGENIERO_SST,
       UsuarioRol.AUDITOR,
-      UsuarioRol.CENTRO_MEDICO,
     ];
     const esRolOperativo = usuario.roles.some((rol) => rolesOperativos.includes(rol));
-    
-    if (esRolOperativo) {
-      // BLOQUEO OBLIGATORIO: Roles operativos DEBEN tener trabajador vinculado y activo
+
+    if (esCentroMedico) {
+      if (!usuario.trabajador && !usuario.centroMedicoId) {
+        throw new UnauthorizedException(
+          'Acceso denegado: Su cuenta requiere estar vinculada a un centro médico. Contacte al administrador.',
+        );
+      }
+      if (usuario.trabajador && usuario.trabajador.estado !== EstadoTrabajador.Activo) {
+        throw new UnauthorizedException(
+          'Acceso denegado: Su vínculo laboral no está activo. Contacte al administrador.',
+        );
+      }
+    } else if (esRolOperativo) {
       if (!usuario.trabajador) {
         throw new UnauthorizedException(
           'Acceso denegado: Su cuenta requiere un vínculo laboral activo. Contacte al administrador.',

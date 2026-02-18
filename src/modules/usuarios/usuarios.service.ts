@@ -66,6 +66,7 @@ export class UsuariosService {
       trabajador: dto.trabajadorId
         ? ({ id: dto.trabajadorId } as any)
         : undefined,
+      centroMedicoId: dto.centroMedicoId ?? null,
       activo: true,
       debeCambiarPassword: true,
     });
@@ -298,6 +299,10 @@ export class UsuariosService {
       } else {
         usuario.trabajador = null;
       }
+    }
+
+    if (dto.centroMedicoId !== undefined) {
+      usuario.centroMedicoId = dto.centroMedicoId || null;
     }
 
     const updated = await this.usuarioRepository.save(usuario);

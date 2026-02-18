@@ -10,6 +10,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Empresa } from '../../empresas/entities/empresa.entity';
+import { CentroMedico } from '../../config-emo/entities/centro-medico.entity';
 import type { Trabajador } from '../../trabajadores/entities/trabajador.entity';
 
 export enum AuthProvider {
@@ -99,6 +100,13 @@ export class Usuario {
   @OneToOne('Trabajador', 'usuario', { nullable: true })
   @JoinColumn({ name: 'trabajador_id' })
   trabajador: Trabajador | null;
+
+  @Column({ name: 'centro_medico_id', type: 'uuid', nullable: true })
+  centroMedicoId: string | null;
+
+  @ManyToOne(() => CentroMedico, { nullable: true })
+  @JoinColumn({ name: 'centro_medico_id' })
+  centroMedico: CentroMedico | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

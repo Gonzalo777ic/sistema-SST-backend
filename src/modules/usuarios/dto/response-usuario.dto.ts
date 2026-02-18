@@ -21,6 +21,7 @@ export class ResponseUsuarioDto {
   ultimoAcceso: Date | null;
   empresaId: string | null;
   trabajadorId: string | null;
+  centroMedicoId: string | null;
   trabajador?: TrabajadorInfo | null;
   perfil_completado?: boolean;
   createdAt: Date;
@@ -62,6 +63,7 @@ export class ResponseUsuarioDto {
     dto.ultimoAcceso = usuario.ultimoAcceso;
     dto.empresaId = usuario.empresaId;
     dto.trabajadorId = usuario.trabajador?.id ?? null;
+    dto.centroMedicoId = (usuario as any).centroMedicoId ?? null;
     dto.perfil_completado = usuario.trabajador
       ? usuario.trabajador.perfilCompletado ?? false
       : (usuario as any).perfilCompletado ?? false;

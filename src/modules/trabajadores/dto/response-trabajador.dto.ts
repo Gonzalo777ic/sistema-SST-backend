@@ -33,6 +33,7 @@ export class ResponseTrabajadorDto {
   perfil_completado: boolean;
   empresa_id: string;
   empresa_nombre?: string | null;
+  acceso_todas_empresas?: boolean;
   usuario_id: string | null;
   sede: string | null;
   unidad: string | null;
@@ -87,6 +88,7 @@ export class ResponseTrabajadorDto {
     tallaCalzado: number | null;
     perfilCompletado: boolean;
     empresaId: string;
+    accesoTodasEmpresas?: boolean;
     empresa?: { nombre: string } | null;
     usuario?: { id: string } | null;
     sede: string | null;
@@ -144,6 +146,7 @@ export class ResponseTrabajadorDto {
     dto.talla_calzado = t.tallaCalzado;
     dto.perfil_completado = t.perfilCompletado;
     dto.empresa_id = t.empresaId;
+    dto.acceso_todas_empresas = (t as any).accesoTodasEmpresas ?? false;
     dto.empresa_nombre = t.empresa?.nombre ?? null;
     dto.usuario_id = t.usuario?.id ?? null;
     dto.sede = t.sede;

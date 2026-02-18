@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsEnum,
   IsUUID,
+  IsBoolean,
   IsDateString,
   IsUrl,
   ValidateIf,
@@ -164,4 +165,8 @@ export class CreateTrabajadorDto {
 
   @IsUUID()
   empresa_id: string;
+
+  @IsOptional()
+  @IsBoolean()
+  acceso_todas_empresas?: boolean;
 }

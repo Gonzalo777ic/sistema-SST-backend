@@ -74,6 +74,7 @@ export class TrabajadoresService {
       contactoEmergenciaTelefono: dto.contacto_emergencia_telefono ?? null,
       fotoUrl: dto.foto_url ?? null,
       empresaId: dto.empresa_id,
+      accesoTodasEmpresas: dto.acceso_todas_empresas ?? false,
       sede: dto.sede ?? null,
       unidad: dto.unidad ?? null,
       jefeDirecto: dto.jefe_directo ?? null,

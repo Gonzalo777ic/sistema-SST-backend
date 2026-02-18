@@ -44,4 +44,8 @@ export class CreateUsuarioDto {
   @IsOptional()
   @IsUUID()
   trabajadorId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  centroMedicoId?: string;
 }

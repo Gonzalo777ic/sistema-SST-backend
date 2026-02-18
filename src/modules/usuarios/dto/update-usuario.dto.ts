@@ -28,4 +28,8 @@ export class UpdateUsuarioDto {
   @IsOptional()
   @IsUUID()
   trabajadorId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  centroMedicoId?: string | null;
 }
