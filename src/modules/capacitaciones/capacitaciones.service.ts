@@ -179,6 +179,8 @@ export class CapacitacionesService {
     area?: string;
     responsable?: string;
     unidad?: string;
+    sede?: string;
+    gerencia?: string;
   }): Promise<ResponseCapacitacionDto[]> {
     const qb = this.capacitacionRepository
       .createQueryBuilder('c')
@@ -208,6 +210,15 @@ export class CapacitacionesService {
     }
     if (filters?.unidad) {
       qb.andWhere('c.unidad ILIKE :unidad', { unidad: `%${filters.unidad}%` });
+    }
+    if (filters?.sede) {
+      qb.andWhere('c.sede ILIKE :sede', { sede: `%${filters.sede}%` });
+    }
+    if (filters?.grupo) {
+      qb.andWhere('c.grupo ILIKE :grupo', { grupo: `%${filters.grupo}%` });
+    }
+    if (filters?.area) {
+      qb.andWhere('c.area ILIKE :area', { area: `%${filters.area}%` });
     }
     if (filters?.responsable) {
       qb.andWhere(

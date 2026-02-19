@@ -97,6 +97,8 @@ export class CapacitacionesController {
     @Query('area') area?: string,
     @Query('responsable') responsable?: string,
     @Query('unidad') unidad?: string,
+    @Query('sede') sede?: string,
+    @Query('gerencia') gerencia?: string,
   ): Promise<ResponseCapacitacionDto[]> {
     return this.capacitacionesService.findAll({
       empresaId,
@@ -110,6 +112,8 @@ export class CapacitacionesController {
       area,
       responsable,
       unidad,
+      sede,
+      gerencia,
     });
   }
 
