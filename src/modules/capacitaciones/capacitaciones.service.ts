@@ -297,6 +297,17 @@ export class CapacitacionesService {
       ...p,
       rendio_examen: resultados.some((r) => r.trabajadorId === p.trabajador_id),
     }));
+
+    // Firmar URLs de GCS para que la imagen se cargue en el frontend (bucket privado)
+    if (this.storageService.isAvailable()) {
+      if (dto.firma_capacitador_url?.includes('storage.googleapis.com')) {
+        dto.firma_capacitador_url = await this.storageService.getSignedUrl(dto.firma_capacitador_url, 60);
+      }
+      if (dto.responsable_registro_firma_url?.includes('storage.googleapis.com')) {
+        dto.responsable_registro_firma_url = await this.storageService.getSignedUrl(dto.responsable_registro_firma_url, 60);
+      }
+    }
+
     return dto;
   }
 
