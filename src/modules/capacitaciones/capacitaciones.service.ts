@@ -505,6 +505,7 @@ export class CapacitacionesService {
     });
     if (dto.empresa_id) {
       capacitacion.empresaId = dto.empresa_id;
+      (capacitacion as any).empresa = undefined;
     }
 
     if (capacitacion.estado === EstadoCapacitacion.Programada) {
