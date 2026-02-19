@@ -43,6 +43,28 @@ export class CapacitacionesController {
     return this.capacitacionesService.create(dto, currentUser);
   }
 
+  @Get('reportes/cumplimiento-anual')
+  async getCumplimientoAnual(
+    @Query('empresa_id') empresaId: string,
+    @Query('anio') anio?: string,
+    @Query('unidad') unidad?: string,
+    @Query('area') area?: string,
+    @Query('sede') sede?: string,
+    @Query('gerencia') gerencia?: string,
+    @CurrentUser() currentUser?: { empresaId?: string | null },
+  ) {
+    const empId = empresaId || currentUser?.empresaId;
+    if (!empId) throw new BadRequestException('Se requiere empresa_id');
+    const year = anio ? parseInt(anio, 10) : new Date().getFullYear();
+    if (isNaN(year)) throw new BadRequestException('Año inválido');
+    return this.capacitacionesService.getCumplimientoAnualTrabajadores(empId, year, {
+      unidad: unidad || undefined,
+      area: area || undefined,
+      sede: sede || undefined,
+      gerencia: gerencia || undefined,
+    });
+  }
+
   @Get('evaluaciones-favoritas')
   async obtenerEvaluacionesFavoritas(
     @Query('empresa_id') empresaId?: string,

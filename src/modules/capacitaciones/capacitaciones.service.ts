@@ -16,7 +16,7 @@ import { UpdateCapacitacionDto } from './dto/update-capacitacion.dto';
 import { ResponseCapacitacionDto } from './dto/response-capacitacion.dto';
 import { CreateExamenCapacitacionDto } from './dto/create-examen-capacitacion.dto';
 import { CreateResultadoExamenDto } from './dto/create-resultado-examen.dto';
-import { Trabajador } from '../trabajadores/entities/trabajador.entity';
+import { Trabajador, EstadoTrabajador } from '../trabajadores/entities/trabajador.entity';
 import { randomUUID } from 'crypto';
 import { StorageService } from '../../common/services/storage.service';
 import { Empresa } from '../empresas/entities/empresa.entity';
@@ -1053,5 +1053,98 @@ export class CapacitacionesService {
     const ev = await this.evaluacionFavoritaRepository.findOne({ where: { id } });
     if (!ev) throw new NotFoundException('Evaluación favorita no encontrada');
     await this.evaluacionFavoritaRepository.remove(ev);
+  }
+
+  /**
+   * Cumplimiento anual por trabajador (año calendario).
+   * Regla: cada trabajador debe tener al menos 4 capacitaciones anuales completadas.
+   * Cuenta Asistencia donde asistencia=true y capacitacion.estado in (COMPLETADA, Cancelada).
+   */
+  async getCumplimientoAnualTrabajadores(
+    empresaId: string,
+    anio: number,
+    filtros?: { unidad?: string; area?: string; sede?: string; gerencia?: string },
+  ): Promise<{
+    total_trabajadores_activos: number;
+    trabajadores: Array<{
+      trabajador_id: string;
+      nombre: string;
+      documento: string;
+      area: string | null;
+      cantidad_certificados: number;
+      capacitaciones: Array<{ titulo: string; fecha: string; tipo: string }>;
+    }>;
+  }> {
+    const inicioAnio = new Date(anio, 0, 1);
+    const finAnio = new Date(anio, 11, 31);
+
+    const qb = this.trabajadorRepository
+      .createQueryBuilder('t')
+      .leftJoinAndSelect('t.area', 'area')
+      .where('t.empresa_id = :empresaId', { empresaId })
+      .andWhere('t.estado = :estado', { estado: EstadoTrabajador.Activo });
+    if (filtros?.unidad) qb.andWhere('t.unidad = :unidad', { unidad: filtros.unidad });
+    if (filtros?.sede) qb.andWhere('t.sede = :sede', { sede: filtros.sede });
+    if (filtros?.gerencia) qb.andWhere('t.gerencia = :gerencia', { gerencia: filtros.gerencia });
+    if (filtros?.area) qb.andWhere('area.nombre = :areaNombre', { areaNombre: filtros.area });
+    const trabajadoresActivos = await qb.getMany();
+
+    const asistencias = await this.asistenciaRepository
+      .createQueryBuilder('a')
+      .innerJoinAndSelect('a.capacitacion', 'cap')
+      .where('cap.empresaId = :empresaId', { empresaId })
+      .andWhere('a.asistencia = :asistencia', { asistencia: true })
+      .andWhere('cap.fecha >= :inicio', { inicio: inicioAnio })
+      .andWhere('cap.fecha <= :fin', { fin: finAnio })
+      .andWhere('cap.estado IN (:...estados)', {
+        estados: [EstadoCapacitacion.Completada, EstadoCapacitacion.Cancelada],
+      })
+      .getMany();
+
+    const porTrabajador: Record<
+      string,
+      { nombre: string; documento: string; area: string | null; capacitaciones: Array<{ titulo: string; fecha: string; tipo: string }> }
+    > = {};
+
+    trabajadoresActivos.forEach((t) => {
+      porTrabajador[t.id] = {
+        nombre: t.nombreCompleto,
+        documento: t.documentoIdentidad,
+        area: (t.area as any)?.nombre ?? null,
+        capacitaciones: [],
+      };
+    });
+
+    const idsActivos = new Set(trabajadoresActivos.map((t) => t.id));
+    const seenCapPorTrabajador: Record<string, Set<string>> = {};
+    asistencias.forEach((a) => {
+      const cap = a.capacitacion;
+      const tid = a.trabajadorId;
+      if (!idsActivos.has(tid)) return;
+      if (!seenCapPorTrabajador[tid]) seenCapPorTrabajador[tid] = new Set();
+      if (seenCapPorTrabajador[tid].has(cap.id)) return;
+      seenCapPorTrabajador[tid].add(cap.id);
+
+      const fechaCap = cap.fecha instanceof Date ? cap.fecha : new Date(cap.fecha);
+      porTrabajador[tid].capacitaciones.push({
+        titulo: cap.titulo,
+        fecha: fechaCap.toISOString().split('T')[0],
+        tipo: cap.tipo ?? 'Capacitación',
+      });
+    });
+
+    const trabajadores = trabajadoresActivos.map((t) => ({
+      trabajador_id: t.id,
+      nombre: porTrabajador[t.id]?.nombre ?? t.nombreCompleto,
+      documento: porTrabajador[t.id]?.documento ?? t.documentoIdentidad,
+      area: porTrabajador[t.id]?.area ?? (t.area as any)?.nombre ?? null,
+      cantidad_certificados: porTrabajador[t.id]?.capacitaciones?.length ?? 0,
+      capacitaciones: porTrabajador[t.id]?.capacitaciones ?? [],
+    }));
+
+    return {
+      total_trabajadores_activos: trabajadoresActivos.length,
+      trabajadores,
+    };
   }
 }
