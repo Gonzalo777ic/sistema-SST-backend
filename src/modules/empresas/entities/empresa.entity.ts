@@ -8,6 +8,9 @@ import {
 } from 'typeorm';
 import { Usuario } from '../../usuarios/entities/usuario.entity';
 import { Area } from './area.entity';
+import { Unidad } from './unidad.entity';
+import { Sede } from './sede.entity';
+import { Gerencia } from './gerencia.entity';
 
 @Entity('empresas')
 export class Empresa {
@@ -43,6 +46,15 @@ export class Empresa {
 
   @OneToMany(() => Area, (area) => area.empresa)
   areas: Area[];
+
+  @OneToMany(() => Unidad, (unidad) => unidad.empresa)
+  unidades: Unidad[];
+
+  @OneToMany(() => Sede, (sede) => sede.empresa)
+  sedes: Sede[];
+
+  @OneToMany(() => Gerencia, (gerencia) => gerencia.empresa)
+  gerencias: Gerencia[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
