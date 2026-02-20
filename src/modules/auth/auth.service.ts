@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UsuariosService } from '../usuarios/usuarios.service';
+import { UsuarioCentroMedicoService } from '../usuario-centro-medico/usuario-centro-medico.service';
 import { Usuario, AuthProvider, UsuarioRol } from '../usuarios/entities/usuario.entity';
 import { CreateUsuarioDto } from '../usuarios/dto/create-usuario.dto';
 import { ResponseUsuarioDto } from '../usuarios/dto/response-usuario.dto';
@@ -32,6 +33,7 @@ export class AuthService {
   constructor(
     private readonly usuariosService: UsuariosService,
     private readonly jwtService: JwtService,
+    private readonly usuarioCentroMedicoService: UsuarioCentroMedicoService,
     @InjectRepository(Trabajador)
     private readonly trabajadorRepository: Repository<Trabajador>,
     @InjectRepository(Empresa)
@@ -63,7 +65,11 @@ export class AuthService {
     const esRolOperativo = usuario.roles.some((rol) => rolesOperativos.includes(rol));
 
     if (esCentroMedico) {
-      if (!usuario.trabajador && !usuario.centroMedicoId) {
+      const tieneParticipacion = await this.usuarioCentroMedicoService.tieneAccesoCentro(
+        usuario.id,
+        usuario.centroMedicoId,
+      );
+      if (!usuario.trabajador && !tieneParticipacion) {
         throw new UnauthorizedException(
           'Acceso denegado: Su cuenta requiere estar vinculada a un centro médico. Contacte al administrador.',
         );

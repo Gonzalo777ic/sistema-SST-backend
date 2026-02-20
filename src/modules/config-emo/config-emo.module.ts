@@ -9,6 +9,7 @@ import { ConfigEmoController } from './config-emo.controller';
 import { ConfigEmoService } from './config-emo.service';
 import { CommonModule } from '../../common/common.module';
 import { UsuariosModule } from '../usuarios/usuarios.module';
+import { UsuarioCentroMedicoModule } from '../usuario-centro-medico/usuario-centro-medico.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { UsuariosModule } from '../usuarios/usuarios.module';
     ]),
     CommonModule,
     UsuariosModule,
+    UsuarioCentroMedicoModule,
   ],
   controllers: [ConfigEmoController],
   providers: [ConfigEmoService],

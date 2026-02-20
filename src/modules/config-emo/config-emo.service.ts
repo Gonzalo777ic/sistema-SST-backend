@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { PerfilEmo } from './entities/perfil-emo.entity';
 import { CentroMedico } from './entities/centro-medico.entity';
 import { ResultadoAdicionalEmo } from './entities/resultado-adicional-emo.entity';
@@ -19,6 +19,7 @@ import { ResponseResultadoAdicionalDto } from './dto/response-resultado-adiciona
 import { ResponseEmoDiferidoDto } from './dto/response-emo-diferido.dto';
 import { StorageService } from '../../common/services/storage.service';
 import { UsuariosService } from '../usuarios/usuarios.service';
+import { UsuarioCentroMedicoService } from '../usuario-centro-medico/usuario-centro-medico.service';
 
 @Injectable()
 export class ConfigEmoService {
@@ -35,6 +36,8 @@ export class ConfigEmoService {
     private readonly diferidoRepo: Repository<EmoDiferido>,
     private readonly storageService: StorageService,
     private readonly usuariosService: UsuariosService,
+    private readonly usuarioCentroMedicoService: UsuarioCentroMedicoService,
+    private readonly dataSource: DataSource,
   ) {}
 
   private async getUsuarioNombre(usuarioId: string): Promise<string> {
@@ -166,25 +169,58 @@ export class ConfigEmoService {
         );
       }
     }
-    const centro = this.centroRepo.create({
-      nombre: dto.nombre,
-      direccion: dto.direccion ?? null,
-      archivoPdfUrl,
-    });
-    const saved = await this.centroRepo.save(centro);
-    return {
-      id: saved.id,
-      fecha_registro: saved.createdAt.toLocaleString('es-PE', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      centro_medico: saved.nombre,
-      direccion: saved.direccion,
-      archivo_pdf_url: saved.archivoPdfUrl,
+
+    const runInTransaction = !!dto.usuario_crear;
+
+    const doCreate = async (manager?: import('typeorm').EntityManager) => {
+      const centroRepo = manager ? manager.getRepository(CentroMedico) : this.centroRepo;
+      const centro = centroRepo.create({
+        nombre: dto.nombre,
+        direccion: dto.direccion ?? null,
+        archivoPdfUrl,
+      });
+      const saved = await centroRepo.save(centro);
+
+      if (dto.usuario_crear) {
+        const usuario = await this.usuariosService.createForCentroMedico(
+          {
+            dni: dto.usuario_crear.dni,
+            password: dto.usuario_crear.password,
+            nombres: dto.usuario_crear.nombres,
+            apellido_paterno: dto.usuario_crear.apellido_paterno,
+            apellido_materno: dto.usuario_crear.apellido_materno,
+          },
+          manager,
+        );
+        await this.usuarioCentroMedicoService.addParticipacionForCentroMedico(
+          usuario.id,
+          saved.id,
+          manager,
+        );
+      }
+
+      return {
+        id: saved.id,
+        fecha_registro: saved.createdAt.toLocaleString('es-PE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        centro_medico: saved.nombre,
+        direccion: saved.direccion,
+        archivo_pdf_url: saved.archivoPdfUrl,
+        usuario_creado: dto.usuario_crear
+          ? { dni: dto.usuario_crear.dni, mensaje: 'Credencial: DNI. Contraseña temporal: número de documento.' }
+          : undefined,
+      };
     };
+
+    if (runInTransaction) {
+      return this.dataSource.transaction((manager) => doCreate(manager));
+    }
+    return doCreate();
   }
 
   async updateCentro(

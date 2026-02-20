@@ -7,6 +7,15 @@ export interface TrabajadorInfo {
   estado: string;
 }
 
+export interface ParticipacionCentroInfo {
+  id: string;
+  centroMedicoId: string;
+  centroMedicoNombre: string;
+  estado: string;
+  fechaInicio: string;
+  fechaFin: string | null;
+}
+
 export class ResponseUsuarioDto {
   id: string;
   dni: string;
@@ -22,6 +31,8 @@ export class ResponseUsuarioDto {
   empresaId: string | null;
   trabajadorId: string | null;
   centroMedicoId: string | null;
+  centroMedicoNombre: string | null;
+  participacionesCentroMedico?: ParticipacionCentroInfo[];
   trabajador?: TrabajadorInfo | null;
   perfil_completado?: boolean;
   createdAt: Date;
@@ -47,6 +58,14 @@ export class ResponseUsuarioDto {
       estado?: string;
       perfilCompletado?: boolean;
     } | null;
+    participacionesCentroMedico?: Array<{
+      id: string;
+      centroMedicoId: string;
+      estado: string;
+      fechaInicio: Date;
+      fechaFin: Date | null;
+      centroMedico?: { nombre: string } | null;
+    }> | null;
     createdAt: Date;
   }): ResponseUsuarioDto {
     const dto = new ResponseUsuarioDto();
@@ -63,7 +82,20 @@ export class ResponseUsuarioDto {
     dto.ultimoAcceso = usuario.ultimoAcceso;
     dto.empresaId = usuario.empresaId;
     dto.trabajadorId = usuario.trabajador?.id ?? null;
-    dto.centroMedicoId = (usuario as any).centroMedicoId ?? null;
+    const participaciones = (usuario as any).participacionesCentroMedico as Array<{ centroMedicoId: string; centroMedico?: { nombre: string }; estado: string }> | undefined;
+    const participacionActiva = participaciones?.find((p) => p.estado === 'activo');
+    dto.centroMedicoId = (usuario as any).centroMedicoId ?? participacionActiva?.centroMedicoId ?? null;
+    dto.centroMedicoNombre = (usuario as any).centroMedico?.nombre ?? participacionActiva?.centroMedico?.nombre ?? null;
+    dto.participacionesCentroMedico = participaciones
+      ?.filter((p) => p.estado === 'activo')
+      .map((p) => ({
+        id: (p as any).id,
+        centroMedicoId: p.centroMedicoId,
+        centroMedicoNombre: p.centroMedico?.nombre ?? '',
+        estado: p.estado,
+        fechaInicio: (p as any).fechaInicio?.toISOString?.()?.split?.('T')?.[0] ?? '',
+        fechaFin: (p as any).fechaFin?.toISOString?.()?.split?.('T')?.[0] ?? null,
+      })) ?? [];
     dto.perfil_completado = usuario.trabajador
       ? usuario.trabajador.perfilCompletado ?? false
       : (usuario as any).perfilCompletado ?? false;

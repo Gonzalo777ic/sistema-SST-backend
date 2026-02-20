@@ -6,12 +6,14 @@ import { AuthService } from '../auth.service';
 import { JwtPayload } from '../auth.service';
 import { EstadoTrabajador } from '../../trabajadores/entities/trabajador.entity';
 import { UsuarioRol } from '../../usuarios/entities/usuario.entity';
+import { UsuarioCentroMedicoService } from '../../usuario-centro-medico/usuario-centro-medico.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly usuarioCentroMedicoService: UsuarioCentroMedicoService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -32,21 +34,37 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('La cuenta está desactivada');
     }
 
-    // REGLA DE BLOQUEO CRÍTICO: Verificar estado del trabajador vinculado según el rol
-    // Solo SUPER_ADMIN y ADMIN_EMPRESA pueden hacer requests sin trabajador vinculado
-    // Roles operativos (EMPLEADO, SUPERVISOR, MEDICO, INGENIERO_SST, AUDITOR) OBLIGATORIAMENTE requieren trabajador activo
-    const rolesOperativos = [
+    // REGLA DE BLOQUEO CRÍTICO: Verificar vínculo según el rol
+    // CENTRO_MEDICO: puede tener centroMedicoId (sin trabajador) o trabajador
+    // Otros roles operativos: requieren trabajador activo
+    const esCentroMedico = usuario.roles.includes(UsuarioRol.CENTRO_MEDICO);
+    const rolesOperativosSinCentro = [
       UsuarioRol.EMPLEADO,
       UsuarioRol.SUPERVISOR,
       UsuarioRol.MEDICO,
       UsuarioRol.INGENIERO_SST,
       UsuarioRol.AUDITOR,
-      UsuarioRol.CENTRO_MEDICO,
     ];
-    const esRolOperativo = usuario.roles.some((rol) => rolesOperativos.includes(rol));
-    
-    if (esRolOperativo) {
-      // BLOQUEO OBLIGATORIO: Roles operativos DEBEN tener trabajador vinculado y activo
+    const esRolOperativoOtro = usuario.roles.some((rol) => rolesOperativosSinCentro.includes(rol));
+
+    if (esCentroMedico) {
+      // CENTRO_MEDICO: requiere participación activa en centro(s) O trabajador vinculado
+      const tieneParticipacion = await this.usuarioCentroMedicoService.tieneAccesoCentro(
+        usuario.id,
+        usuario.centroMedicoId,
+      );
+      if (!usuario.trabajador && !tieneParticipacion) {
+        throw new UnauthorizedException(
+          'Acceso denegado: Su cuenta requiere estar vinculada a un centro médico. Contacte al administrador.',
+        );
+      }
+      if (usuario.trabajador && usuario.trabajador.estado !== EstadoTrabajador.Activo) {
+        throw new UnauthorizedException(
+          'Acceso denegado: Su vínculo laboral no está activo. Contacte al administrador.',
+        );
+      }
+    } else if (esRolOperativoOtro) {
+      // Otros roles operativos: requieren trabajador activo
       if (!usuario.trabajador) {
         throw new UnauthorizedException(
           'Acceso denegado: Su cuenta requiere un vínculo laboral activo. Contacte al administrador.',
@@ -66,12 +84,18 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       }
     }
 
+    const centrosActivos = await this.usuarioCentroMedicoService.getCentrosActivosPorUsuario(
+      usuario.id,
+      usuario.centroMedicoId,
+    );
     return {
       id: usuario.id,
       dni: usuario.dni,
       roles: usuario.roles,
       trabajadorId: usuario.trabajador?.id ?? null,
       empresaId: usuario.empresaId ?? null,
+      centroMedicoId: centrosActivos[0] ?? usuario.centroMedicoId ?? null,
+      centrosMedicosActivos: centrosActivos,
     };
   }
 }

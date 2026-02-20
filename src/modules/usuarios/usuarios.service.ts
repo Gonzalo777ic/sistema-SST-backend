@@ -8,7 +8,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ArrayContains } from 'typeorm';
+import { Repository, ArrayContains, EntityManager } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Usuario, AuthProvider, UsuarioRol } from './entities/usuario.entity';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
@@ -78,6 +78,44 @@ export class UsuariosService {
     });
   }
 
+  /**
+   * Crea un usuario para Centro Médico. Usado internamente al crear un centro (operación atómica).
+   * La vinculación al centro se realiza mediante UsuarioCentroMedico (participación operativa).
+   * Soporta EntityManager para transacciones.
+   */
+  async createForCentroMedico(
+    dto: {
+      dni: string;
+      password?: string;
+      nombres?: string;
+      apellido_paterno?: string;
+      apellido_materno?: string;
+    },
+    manager?: EntityManager,
+  ): Promise<Usuario> {
+    const repo = manager ? manager.getRepository(Usuario) : this.usuarioRepository;
+    const existing = await repo.findOne({ where: { dni: dto.dni } });
+    if (existing) {
+      throw new ConflictException('Ya existe un usuario registrado con este DNI');
+    }
+    const passwordToHash = dto.password || dto.dni;
+    const passwordHash = await bcrypt.hash(passwordToHash, 10);
+    const usuario = repo.create({
+      dni: dto.dni,
+      passwordHash,
+      authProvider: AuthProvider.LOCAL,
+      providerId: null,
+      roles: [UsuarioRol.CENTRO_MEDICO],
+      empresaId: null,
+      nombres: dto.nombres ?? null,
+      apellidoPaterno: dto.apellido_paterno ?? null,
+      apellidoMaterno: dto.apellido_materno ?? null,
+      activo: true,
+      debeCambiarPassword: true,
+    });
+    return repo.save(usuario);
+  }
+
   async findByDni(dni: string): Promise<Usuario | null> {
     return this.usuarioRepository.findOne({
       where: { dni },
@@ -106,9 +144,9 @@ export class UsuariosService {
     let usuarios: Usuario[] = [];
     
     if (isSuperAdmin) {
-      // SUPER_ADMIN ve a todos (con sus trabajadores) excepto otros SUPER_ADMIN
+      // SUPER_ADMIN ve a todos (con sus trabajadores, centros y participaciones) excepto otros SUPER_ADMIN
       const allUsers = await this.usuarioRepository.find({
-        relations: ['trabajador'], // Carga la relación para el seed
+        relations: ['trabajador', 'centroMedico', 'participacionesCentroMedico', 'participacionesCentroMedico.centroMedico'],
         order: { createdAt: 'DESC' },
       });
       usuarios = allUsers.filter(u => !u.roles.includes(UsuarioRol.SUPER_ADMIN) || u.id === currentUserId);
@@ -116,13 +154,13 @@ export class UsuariosService {
       // ADMIN_EMPRESA ve su empresa + SUPER_ADMINs (para auditoría)
       const empresaUsers = await this.usuarioRepository.find({
         where: { empresaId: currentUserEmpresaId },
-        relations: ['trabajador'],
+        relations: ['trabajador', 'centroMedico', 'participacionesCentroMedico', 'participacionesCentroMedico.centroMedico'],
         order: { createdAt: 'DESC' },
       });
-      
+
       const superAdmins = await this.usuarioRepository.find({
         where: { roles: ArrayContains([UsuarioRol.SUPER_ADMIN]) },
-        relations: ['trabajador'],
+        relations: ['trabajador', 'centroMedico', 'participacionesCentroMedico', 'participacionesCentroMedico.centroMedico'],
       });
       
       usuarios = [...empresaUsers, ...superAdmins];

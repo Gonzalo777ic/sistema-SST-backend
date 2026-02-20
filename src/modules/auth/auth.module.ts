@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UsuariosModule } from '../usuarios/usuarios.module';
+import { UsuarioCentroMedicoModule } from '../usuario-centro-medico/usuario-centro-medico.module';
 import { TrabajadoresModule } from '../trabajadores/trabajadores.module';
 import { Trabajador } from '../trabajadores/entities/trabajador.entity';
 import { Empresa } from '../empresas/entities/empresa.entity';
@@ -14,6 +15,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 @Module({
   imports: [
     UsuariosModule,
+    UsuarioCentroMedicoModule,
     TrabajadoresModule,
     TypeOrmModule.forFeature([Trabajador, Empresa]),
     PassportModule.register({ defaultStrategy: 'jwt' }),

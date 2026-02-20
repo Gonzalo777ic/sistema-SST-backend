@@ -7,10 +7,12 @@ import {
   DeleteDateColumn,
   ManyToOne,
   OneToOne,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { Empresa } from '../../empresas/entities/empresa.entity';
 import { CentroMedico } from '../../config-emo/entities/centro-medico.entity';
+import { UsuarioCentroMedico } from '../../usuario-centro-medico/entities/usuario-centro-medico.entity';
 import type { Trabajador } from '../../trabajadores/entities/trabajador.entity';
 
 export enum AuthProvider {
@@ -107,6 +109,9 @@ export class Usuario {
   @ManyToOne(() => CentroMedico, { nullable: true })
   @JoinColumn({ name: 'centro_medico_id' })
   centroMedico: CentroMedico | null;
+
+  @OneToMany(() => UsuarioCentroMedico, (p) => p.usuario)
+  participacionesCentroMedico: UsuarioCentroMedico[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
