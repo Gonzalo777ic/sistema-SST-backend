@@ -717,6 +717,43 @@ export class SaludService {
     return pruebas.map((p) => ({ id: p.id, nombre: p.nombre }));
   }
 
+  async findAllPruebasMedicasAdmin(incluirInactivos = false): Promise<Array<{ id: string; nombre: string; activo: boolean }>> {
+    const where = incluirInactivos ? {} : { activo: true };
+    const pruebas = await this.pruebaMedicaRepository.find({
+      where,
+      order: { nombre: 'ASC' },
+      select: ['id', 'nombre', 'activo'],
+    });
+    return pruebas.map((p) => ({ id: p.id, nombre: p.nombre, activo: p.activo }));
+  }
+
+  async createPruebaMedica(nombre: string): Promise<{ id: string; nombre: string; activo: boolean }> {
+    const existente = await this.pruebaMedicaRepository.findOne({
+      where: { nombre: nombre.trim() },
+    });
+    if (existente) {
+      throw new ConflictException(`Ya existe una prueba médica con el nombre "${nombre.trim()}"`);
+    }
+    const prueba = this.pruebaMedicaRepository.create({
+      nombre: nombre.trim(),
+      activo: true,
+    });
+    const saved = await this.pruebaMedicaRepository.save(prueba);
+    return { id: saved.id, nombre: saved.nombre, activo: saved.activo };
+  }
+
+  async updatePruebaMedica(
+    id: string,
+    dto: { nombre?: string; activo?: boolean },
+  ): Promise<{ id: string; nombre: string; activo: boolean }> {
+    const prueba = await this.pruebaMedicaRepository.findOne({ where: { id } });
+    if (!prueba) throw new NotFoundException('Prueba médica no encontrada');
+    if (dto.nombre !== undefined) prueba.nombre = dto.nombre.trim();
+    if (dto.activo !== undefined) prueba.activo = dto.activo;
+    const saved = await this.pruebaMedicaRepository.save(prueba);
+    return { id: saved.id, nombre: saved.nombre, activo: saved.activo };
+  }
+
   // ========== DOCUMENTOS EXAMEN (Centro Médico - Etiquetado por PruebaMedica) ==========
   async findDocumentosExamen(examenId: string): Promise<
     Array<{ id: string; tipo_etiqueta: string; prueba_medica?: { id: string; nombre: string }; nombre_archivo: string; url: string; created_at: string }>

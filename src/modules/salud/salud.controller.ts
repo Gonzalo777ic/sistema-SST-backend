@@ -75,8 +75,30 @@ export class SaludController {
   }
 
   @Get('pruebas-medicas')
-  async getPruebasMedicas(): Promise<Array<{ id: string; nombre: string }>> {
+  async getPruebasMedicas(
+    @Query('incluir_inactivos') incluirInactivos?: string,
+  ): Promise<Array<{ id: string; nombre: string; activo?: boolean }>> {
+    const incluir = incluirInactivos === 'true' || incluirInactivos === '1';
+    if (incluir) {
+      return this.saludService.findAllPruebasMedicasAdmin(true);
+    }
     return this.saludService.findAllPruebasMedicas();
+  }
+
+  @Post('pruebas-medicas')
+  async createPruebaMedica(@Body('nombre') nombre: string) {
+    if (!nombre?.trim()) {
+      throw new BadRequestException('El nombre es obligatorio');
+    }
+    return this.saludService.createPruebaMedica(nombre);
+  }
+
+  @Patch('pruebas-medicas/:id')
+  async updatePruebaMedica(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { nombre?: string; activo?: boolean },
+  ) {
+    return this.saludService.updatePruebaMedica(id, dto);
   }
 
   @Get('examenes/:id/documentos')
