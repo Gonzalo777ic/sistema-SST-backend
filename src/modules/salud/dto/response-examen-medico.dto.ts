@@ -28,11 +28,21 @@ export class ResponseExamenMedicoDto {
   /** Indica si existe archivo EMO (para admin sin acceso a descarga) */
   resultado_archivo_existe?: boolean;
   estado: EstadoExamen;
+  visto_por_admin: boolean;
   revisado_por_doctor: boolean;
   doctor_interno_id: string | null;
   fecha_revision_doctor: string | null;
   cargado_por: string | null;
   cargado_por_id: string;
+  /** Documentos subidos por centro médico (solo cuando aplica) */
+  documentos?: Array<{
+    id: string;
+    tipo_etiqueta: string;
+    prueba_medica?: { id: string; nombre: string };
+    nombre_archivo: string;
+    url: string;
+    created_at: string;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 
@@ -50,6 +60,7 @@ export class ResponseExamenMedicoDto {
     observaciones: string | null;
     resultadoArchivoUrl: string | null;
     estado: EstadoExamen;
+    vistoPorAdmin?: boolean;
     revisadoPorDoctor: boolean;
     doctorInternoId: string | null;
     fechaRevisionDoctor: Date | null;
@@ -91,6 +102,7 @@ export class ResponseExamenMedicoDto {
     dto.observaciones = examen.observaciones;
     dto.resultado_archivo_url = examen.resultadoArchivoUrl;
     dto.estado = examen.estado;
+    dto.visto_por_admin = examen.vistoPorAdmin ?? false;
     dto.revisado_por_doctor = examen.revisadoPorDoctor;
     dto.doctor_interno_id = examen.doctorInternoId;
     dto.fecha_revision_doctor = examen.fechaRevisionDoctor

@@ -157,6 +157,11 @@ export class SaludService {
       dto.observaciones = null;
     }
 
+    // Incluir documentos en la respuesta para centro médico/médico (evita ruta separada)
+    if (esProfesionalSalud) {
+      dto.documentos = await this.findDocumentosExamen(id);
+    }
+
     return dto;
   }
 
@@ -230,6 +235,22 @@ export class SaludService {
     if (dto.resultado_archivo_url !== undefined)
       examen.resultadoArchivoUrl = dto.resultado_archivo_url;
     if (dto.estado !== undefined) examen.estado = dto.estado;
+
+    // Cuando el médico ocupacional guarda la aptitud (Apto/No Apto), estado → COMPLETADO
+    const estadoActual = dto.estado ?? examen.estado;
+    if (
+      esProfesionalSalud &&
+      user?.id &&
+      dto.resultado !== undefined &&
+      dto.resultado !== ResultadoExamen.Pendiente &&
+      estadoActual !== EstadoExamen.Completado &&
+      estadoActual !== EstadoExamen.Entregado
+    ) {
+      examen.estado = EstadoExamen.Completado;
+      examen.revisadoPorDoctor = true;
+      examen.fechaRevisionDoctor = new Date();
+      examen.doctorInternoId = user.id;
+    }
 
     await this.examenRepository.save(examen);
 
@@ -894,12 +915,15 @@ export class SaludService {
     await this.documentoExamenRepo.remove(doc);
   }
 
-  async notificarResultadosListos(examenId: string): Promise<ResponseExamenMedicoDto> {
+  async notificarResultadosListos(
+    examenId: string,
+    user?: { id: string; roles: string[] },
+  ): Promise<ResponseExamenMedicoDto> {
     const examen = await this.examenRepository.findOne({ where: { id: examenId } });
     if (!examen) throw new NotFoundException('Examen no encontrado');
-    examen.estado = EstadoExamen.Realizado;
+    examen.estado = EstadoExamen.PruebasCargadas;
     examen.fechaRealizado = new Date();
     await this.examenRepository.save(examen);
-    return this.findOneExamen(examenId);
+    return this.findOneExamen(examenId, user);
   }
 }

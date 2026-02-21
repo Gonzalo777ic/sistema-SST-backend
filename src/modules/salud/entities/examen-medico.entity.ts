@@ -30,11 +30,22 @@ export enum ResultadoExamen {
 }
 
 export enum EstadoExamen {
+  /** Estado inicial. La cita existe pero no hay evidencias aún. */
   Programado = 'Programado',
-  Realizado = 'Realizado',
+  /** El Centro Médico subió los resultados. Disparador para el médico ocupacional. */
+  PruebasCargadas = 'Pruebas Cargadas',
+  /** El Médico Ocupacional ya revisó, dio la aptitud y generó el certificado. */
+  Completado = 'Completado',
+  /** El trabajador ya recibió sus resultados y se tiene el cargo firmado (Cierre legal). */
+  Entregado = 'Entregado',
+  /** Se cambió la fecha original. Sirve para auditoría. */
+  Reprogramado = 'Reprogramado',
+  /** La cita no se dará (inasistencia o error). */
+  Cancelado = 'Cancelado',
+  /** Examen vencido (por fecha_vencimiento). */
   Vencido = 'Vencido',
+  /** Por vencer (alerta). */
   PorVencer = 'Por Vencer',
-  Revisado = 'Revisado',
 }
 
 @Entity('examenes_medicos')
@@ -101,6 +112,10 @@ export class ExamenMedico {
     default: EstadoExamen.Programado,
   })
   estado: EstadoExamen;
+
+  /** Se marca true cuando un Admin descarga el certificado de aptitud. */
+  @Column({ name: 'visto_por_admin', default: false })
+  vistoPorAdmin: boolean;
 
   @Column({ name: 'revisado_por_doctor', default: false })
   revisadoPorDoctor: boolean;

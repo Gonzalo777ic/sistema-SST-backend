@@ -52,6 +52,12 @@ export class SaludController {
     return this.saludService.findAllExamenes(trabajadorId, centroMedicoId);
   }
 
+  /** IMPORTANTE: Rutas más específicas ANTES de examenes/:id para evitar que :id capture "123/documentos" */
+  @Get('examenes/:id/documentos')
+  async findDocumentosExamen(@Param('id', ParseUUIDPipe) id: string) {
+    return this.saludService.findDocumentosExamen(id);
+  }
+
   @Get('examenes/:id')
   async findOneExamen(
     @Param('id', ParseUUIDPipe) id: string,
@@ -101,11 +107,6 @@ export class SaludController {
     return this.saludService.updatePruebaMedica(id, dto);
   }
 
-  @Get('examenes/:id/documentos')
-  async findDocumentosExamen(@Param('id', ParseUUIDPipe) id: string) {
-    return this.saludService.findDocumentosExamen(id);
-  }
-
   @Post('examenes/:id/documentos')
   @UseInterceptors(FileInterceptor('file'))
   async uploadDocumentoExamen(
@@ -142,8 +143,9 @@ export class SaludController {
   @Post('examenes/:id/notificar-resultados')
   async notificarResultadosListos(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: { id: string; roles: string[] },
   ) {
-    return this.saludService.notificarResultadosListos(id);
+    return this.saludService.notificarResultadosListos(id, user);
   }
 
   // ========== CITAS MÉDICAS ==========
