@@ -35,7 +35,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     }
 
     // REGLA DE BLOQUEO CRÍTICO: Verificar vínculo según el rol
-    // CENTRO_MEDICO: puede tener centroMedicoId (sin trabajador) o trabajador
+    // CENTRO_MEDICO: requiere participación activa en UsuarioCentroMedico (sin trabajador) o trabajador
     // Otros roles operativos: requieren trabajador activo
     const esCentroMedico = usuario.roles.includes(UsuarioRol.CENTRO_MEDICO);
     const rolesOperativosSinCentro = [
@@ -51,7 +51,6 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       // CENTRO_MEDICO: requiere participación activa en centro(s) O trabajador vinculado
       const tieneParticipacion = await this.usuarioCentroMedicoService.tieneAccesoCentro(
         usuario.id,
-        usuario.centroMedicoId,
       );
       if (!usuario.trabajador && !tieneParticipacion) {
         throw new UnauthorizedException(
@@ -86,7 +85,6 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     const centrosActivos = await this.usuarioCentroMedicoService.getCentrosActivosPorUsuario(
       usuario.id,
-      usuario.centroMedicoId,
     );
     return {
       id: usuario.id,
@@ -94,7 +92,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       roles: usuario.roles,
       trabajadorId: usuario.trabajador?.id ?? null,
       empresaId: usuario.empresaId ?? null,
-      centroMedicoId: centrosActivos[0] ?? usuario.centroMedicoId ?? null,
+      centroMedicoId: centrosActivos[0] ?? null,
       centrosMedicosActivos: centrosActivos,
     };
   }

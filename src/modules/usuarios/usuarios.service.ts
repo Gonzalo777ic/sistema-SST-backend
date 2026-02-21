@@ -11,6 +11,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ArrayContains, EntityManager } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Usuario, AuthProvider, UsuarioRol } from './entities/usuario.entity';
+import { UsuarioCentroMedico } from '../usuario-centro-medico/entities/usuario-centro-medico.entity';
+import { EstadoParticipacion } from '../usuario-centro-medico/entities/usuario-centro-medico.entity';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { UpdatePerfilAdminDto } from './dto/update-perfil-admin.dto';
@@ -22,6 +24,8 @@ export class UsuariosService {
   constructor(
     @InjectRepository(Usuario)
     private readonly usuarioRepository: Repository<Usuario>,
+    @InjectRepository(UsuarioCentroMedico)
+    private readonly participacionRepo: Repository<UsuarioCentroMedico>,
     private readonly storageService: StorageService,
   ) {}
 
@@ -66,7 +70,6 @@ export class UsuariosService {
       trabajador: dto.trabajadorId
         ? ({ id: dto.trabajadorId } as any)
         : undefined,
-      centroMedicoId: dto.centroMedicoId ?? null,
       activo: true,
       debeCambiarPassword: true,
     });
@@ -117,10 +120,32 @@ export class UsuariosService {
   }
 
   async findByDni(dni: string): Promise<Usuario | null> {
-    return this.usuarioRepository.findOne({
+    const usuario = await this.usuarioRepository.findOne({
       where: { dni },
-      relations: ['trabajador'],
+      relations: ['trabajador', 'participacionesCentroMedico', 'participacionesCentroMedico.centroMedico'],
     });
+    if (usuario && usuario.roles.includes(UsuarioRol.CENTRO_MEDICO)) {
+      await this.enrichUsuarioConParticipaciones(usuario);
+    }
+    return usuario;
+  }
+
+  /**
+   * Fallback: si participacionesCentroMedico está vacío o sin centroMedico.nombre,
+   * consulta explícitamente UsuarioCentroMedico para usuarios CENTRO_MEDICO.
+   */
+  private async enrichUsuarioConParticipaciones(usuario: Usuario): Promise<void> {
+    const participaciones = usuario.participacionesCentroMedico ?? [];
+    const tieneNombre = participaciones.some((p) => (p as any).centroMedico?.nombre);
+    if (tieneNombre) return;
+
+    const items = await this.participacionRepo.find({
+      where: { usuarioId: usuario.id, estado: EstadoParticipacion.ACTIVO },
+      relations: ['centroMedico'],
+    });
+    if (items.length === 0) return;
+
+    (usuario as any).participacionesCentroMedico = items;
   }
 
 
@@ -146,7 +171,7 @@ export class UsuariosService {
     if (isSuperAdmin) {
       // SUPER_ADMIN ve a todos (con sus trabajadores, centros y participaciones) excepto otros SUPER_ADMIN
       const allUsers = await this.usuarioRepository.find({
-        relations: ['trabajador', 'centroMedico', 'participacionesCentroMedico', 'participacionesCentroMedico.centroMedico'],
+        relations: ['trabajador', 'participacionesCentroMedico', 'participacionesCentroMedico.centroMedico'],
         order: { createdAt: 'DESC' },
       });
       usuarios = allUsers.filter(u => !u.roles.includes(UsuarioRol.SUPER_ADMIN) || u.id === currentUserId);
@@ -154,13 +179,13 @@ export class UsuariosService {
       // ADMIN_EMPRESA ve su empresa + SUPER_ADMINs (para auditoría)
       const empresaUsers = await this.usuarioRepository.find({
         where: { empresaId: currentUserEmpresaId },
-        relations: ['trabajador', 'centroMedico', 'participacionesCentroMedico', 'participacionesCentroMedico.centroMedico'],
+        relations: ['trabajador', 'participacionesCentroMedico', 'participacionesCentroMedico.centroMedico'],
         order: { createdAt: 'DESC' },
       });
 
       const superAdmins = await this.usuarioRepository.find({
         where: { roles: ArrayContains([UsuarioRol.SUPER_ADMIN]) },
-        relations: ['trabajador', 'centroMedico', 'participacionesCentroMedico', 'participacionesCentroMedico.centroMedico'],
+        relations: ['trabajador', 'participacionesCentroMedico', 'participacionesCentroMedico.centroMedico'],
       });
       
       usuarios = [...empresaUsers, ...superAdmins];
@@ -180,11 +205,15 @@ export class UsuariosService {
   async findOne(id: string): Promise<ResponseUsuarioDto> {
     const usuario = await this.usuarioRepository.findOne({
       where: { id },
-      relations: ['trabajador'],
+      relations: ['trabajador', 'participacionesCentroMedico', 'participacionesCentroMedico.centroMedico'],
     });
 
     if (!usuario) {
       throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (usuario.roles.includes(UsuarioRol.CENTRO_MEDICO)) {
+      await this.enrichUsuarioConParticipaciones(usuario);
     }
 
     const dto = ResponseUsuarioDto.fromEntity({
@@ -339,16 +368,12 @@ export class UsuariosService {
       }
     }
 
-    if (dto.centroMedicoId !== undefined) {
-      usuario.centroMedicoId = dto.centroMedicoId || null;
-    }
-
     const updated = await this.usuarioRepository.save(usuario);
 
-    // Recargar con relaciones para obtener el trabajador actualizado
+    // Recargar con relaciones para obtener el trabajador y participaciones actualizados
     const reloaded = await this.usuarioRepository.findOne({
       where: { id: updated.id },
-      relations: ['trabajador'],
+      relations: ['trabajador', 'participacionesCentroMedico', 'participacionesCentroMedico.centroMedico'],
     });
 
     if (!reloaded) {

@@ -52,7 +52,7 @@ export class AuthService {
     }
 
     // REGLA DE BLOQUEO CRÍTICO: Verificar vínculo según el rol
-    // CENTRO_MEDICO: puede tener centro_medico_id (sin trabajador) o trabajador
+    // CENTRO_MEDICO: requiere participación activa en UsuarioCentroMedico (sin trabajador) o trabajador
     // Otros roles operativos: requieren trabajador activo
     const esCentroMedico = usuario.roles.includes(UsuarioRol.CENTRO_MEDICO);
     const rolesOperativos = [
@@ -67,7 +67,6 @@ export class AuthService {
     if (esCentroMedico) {
       const tieneParticipacion = await this.usuarioCentroMedicoService.tieneAccesoCentro(
         usuario.id,
-        usuario.centroMedicoId,
       );
       if (!usuario.trabajador && !tieneParticipacion) {
         throw new UnauthorizedException(

@@ -84,8 +84,8 @@ export class ResponseUsuarioDto {
     dto.trabajadorId = usuario.trabajador?.id ?? null;
     const participaciones = (usuario as any).participacionesCentroMedico as Array<{ centroMedicoId: string; centroMedico?: { nombre: string }; estado: string }> | undefined;
     const participacionActiva = participaciones?.find((p) => p.estado === 'activo');
-    dto.centroMedicoId = (usuario as any).centroMedicoId ?? participacionActiva?.centroMedicoId ?? null;
-    dto.centroMedicoNombre = (usuario as any).centroMedico?.nombre ?? participacionActiva?.centroMedico?.nombre ?? null;
+    dto.centroMedicoId = participacionActiva?.centroMedicoId ?? null;
+    dto.centroMedicoNombre = participacionActiva?.centroMedico?.nombre ?? null;
     dto.participacionesCentroMedico = participaciones
       ?.filter((p) => p.estado === 'activo')
       .map((p) => ({

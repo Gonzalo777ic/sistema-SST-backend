@@ -11,7 +11,6 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Empresa } from '../../empresas/entities/empresa.entity';
-import { CentroMedico } from '../../config-emo/entities/centro-medico.entity';
 import { UsuarioCentroMedico } from '../../usuario-centro-medico/entities/usuario-centro-medico.entity';
 import type { Trabajador } from '../../trabajadores/entities/trabajador.entity';
 
@@ -103,13 +102,10 @@ export class Usuario {
   @JoinColumn({ name: 'trabajador_id' })
   trabajador: Trabajador | null;
 
-  @Column({ name: 'centro_medico_id', type: 'uuid', nullable: true })
-  centroMedicoId: string | null;
-
-  @ManyToOne(() => CentroMedico, { nullable: true })
-  @JoinColumn({ name: 'centro_medico_id' })
-  centroMedico: CentroMedico | null;
-
+  /**
+   * La vinculación Usuario <-> Centro Médico es EXCLUSIVA a través de UsuarioCentroMedico.
+   * Centro Médico 1:N UsuarioCentroMedico 1:1 Usuario.
+   */
   @OneToMany(() => UsuarioCentroMedico, (p) => p.usuario)
   participacionesCentroMedico: UsuarioCentroMedico[];
 

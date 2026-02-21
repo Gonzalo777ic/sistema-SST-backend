@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { ExamenMedico, ResultadoExamen, EstadoExamen } from './entities/examen-medico.entity';
 import { CitaMedica, EstadoCita } from './entities/cita-medica.entity';
 import { ComentarioMedico } from './entities/comentario-medico.entity';
@@ -23,7 +23,10 @@ import { ResponseComentarioMedicoDto } from './dto/response-comentario-medico.dt
 import { CreateHorarioDoctorDto } from './dto/create-horario-doctor.dto';
 import { UpdateHorarioDoctorDto } from './dto/update-horario-doctor.dto';
 import { ResponseHorarioDoctorDto } from './dto/response-horario-doctor.dto';
-import { UsuarioRol } from '../usuarios/entities/usuario.entity';
+import { Usuario, UsuarioRol } from '../usuarios/entities/usuario.entity';
+import { UsuarioCentroMedico } from '../usuario-centro-medico/entities/usuario-centro-medico.entity';
+import { EstadoParticipacion } from '../usuario-centro-medico/entities/usuario-centro-medico.entity';
+import { CentroMedico } from '../config-emo/entities/centro-medico.entity';
 
 @Injectable()
 export class SaludService {
@@ -36,6 +39,12 @@ export class SaludService {
     private readonly comentarioRepository: Repository<ComentarioMedico>,
     @InjectRepository(HorarioDoctor)
     private readonly horarioRepository: Repository<HorarioDoctor>,
+    @InjectRepository(Usuario)
+    private readonly usuarioRepository: Repository<Usuario>,
+    @InjectRepository(UsuarioCentroMedico)
+    private readonly usuarioCentroMedicoRepository: Repository<UsuarioCentroMedico>,
+    @InjectRepository(CentroMedico)
+    private readonly centroMedicoRepository: Repository<CentroMedico>,
   ) {}
 
   private isProfesionalSalud(roles: string[]): boolean {
@@ -87,10 +96,22 @@ export class SaludService {
     return this.findOneExamen(saved.id, user);
   }
 
-  async findAllExamenes(trabajadorId?: string): Promise<ResponseExamenMedicoDto[]> {
+  async findAllExamenes(
+    trabajadorId?: string,
+    centroMedicoId?: string,
+  ): Promise<ResponseExamenMedicoDto[]> {
     const where: any = {};
     if (trabajadorId) {
       where.trabajadorId = trabajadorId;
+    }
+    if (centroMedicoId) {
+      const centro = await this.centroMedicoRepository.findOne({
+        where: { id: centroMedicoId },
+        select: ['nombre'],
+      });
+      if (centro) {
+        where.centroMedico = centro.nombre;
+      }
     }
 
     const examenes = await this.examenRepository.find({
@@ -271,13 +292,33 @@ export class SaludService {
     return this.findOneCita(saved.id);
   }
 
-  async findAllCitas(trabajadorId?: string, doctorId?: string): Promise<ResponseCitaMedicaDto[]> {
+  async findAllCitas(
+    trabajadorId?: string,
+    doctorId?: string,
+    centroMedicoId?: string,
+  ): Promise<ResponseCitaMedicaDto[]> {
     const where: any = {};
     if (trabajadorId) {
       where.trabajadorId = trabajadorId;
     }
     if (doctorId) {
       where.doctorId = doctorId;
+    }
+
+    // Filtrar por centro médico: citas donde el doctor pertenece al centro (vía UsuarioCentroMedico)
+    if (centroMedicoId) {
+      const participaciones = await this.usuarioCentroMedicoRepository.find({
+        where: {
+          centroMedicoId,
+          estado: EstadoParticipacion.ACTIVO,
+        },
+        select: ['usuarioId'],
+      });
+      const doctorIds = [...new Set(participaciones.map((p) => p.usuarioId))];
+      if (doctorIds.length === 0) {
+        return [];
+      }
+      where.doctorId = In(doctorIds);
     }
 
     const citas = await this.citaRepository.find({

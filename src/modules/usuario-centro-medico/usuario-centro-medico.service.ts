@@ -48,12 +48,9 @@ export class UsuarioCentroMedicoService {
 
   /**
    * Obtiene los IDs de centros médicos donde el usuario tiene participación activa.
-   * Incluye fallback a centroMedicoId legado si no hay participaciones.
+   * Fuente única de verdad: tabla usuario_centro_medico con estado ACTIVO.
    */
-  async getCentrosActivosPorUsuario(
-    usuarioId: string,
-    centroMedicoIdLegado?: string | null,
-  ): Promise<string[]> {
+  async getCentrosActivosPorUsuario(usuarioId: string): Promise<string[]> {
     const participaciones = await this.repo.find({
       where: {
         usuarioId,
@@ -61,26 +58,16 @@ export class UsuarioCentroMedicoService {
       },
       relations: ['centroMedico'],
     });
-    const ids = participaciones
+    return participaciones
       .filter((p) => !p.deletedAt)
       .map((p) => p.centroMedicoId);
-
-    if (ids.length > 0) return ids;
-    if (centroMedicoIdLegado) return [centroMedicoIdLegado];
-    return [];
   }
 
   /**
    * Verifica si el usuario tiene acceso activo a al menos un centro médico.
    */
-  async tieneAccesoCentro(
-    usuarioId: string,
-    centroMedicoIdLegado?: string | null,
-  ): Promise<boolean> {
-    const centros = await this.getCentrosActivosPorUsuario(
-      usuarioId,
-      centroMedicoIdLegado,
-    );
+  async tieneAccesoCentro(usuarioId: string): Promise<boolean> {
+    const centros = await this.getCentrosActivosPorUsuario(usuarioId);
     return centros.length > 0;
   }
 

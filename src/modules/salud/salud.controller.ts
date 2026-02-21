@@ -43,8 +43,9 @@ export class SaludController {
   @Get('examenes')
   async findAllExamenes(
     @Query('trabajador_id') trabajadorId?: string,
+    @Query('centro_medico_id') centroMedicoId?: string,
   ): Promise<ResponseExamenMedicoDto[]> {
-    return this.saludService.findAllExamenes(trabajadorId);
+    return this.saludService.findAllExamenes(trabajadorId, centroMedicoId);
   }
 
   @Get('examenes/:id')
@@ -79,8 +80,9 @@ export class SaludController {
   async findAllCitas(
     @Query('trabajador_id') trabajadorId?: string,
     @Query('doctor_id') doctorId?: string,
+    @Query('centro_medico_id') centroMedicoId?: string,
   ): Promise<ResponseCitaMedicaDto[]> {
-    return this.saludService.findAllCitas(trabajadorId, doctorId);
+    return this.saludService.findAllCitas(trabajadorId, doctorId, centroMedicoId);
   }
 
   @Get('citas/:id')

@@ -2,6 +2,9 @@
  * Migración: Crear registros en usuario_centro_medico a partir de usuarios
  * que tienen centro_medico_id. Permite transición al modelo de participación operativa.
  *
+ * OBLIGATORIO ejecutar ANTES de eliminar la columna centro_medico_id.
+ * Luego ejecutar: scripts/drop-centro-medico-id-from-usuarios.ts
+ *
  * Ejecutar: npx ts-node -r tsconfig-paths/register scripts/migrate-centro-medico-to-participacion.ts
  */
 import { DataSource } from 'typeorm';
