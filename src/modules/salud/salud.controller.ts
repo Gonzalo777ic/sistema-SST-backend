@@ -74,6 +74,11 @@ export class SaludController {
     return this.saludService.removeExamen(id);
   }
 
+  @Get('pruebas-medicas')
+  async getPruebasMedicas(): Promise<Array<{ id: string; nombre: string }>> {
+    return this.saludService.findAllPruebasMedicas();
+  }
+
   @Get('examenes/:id/documentos')
   async findDocumentosExamen(@Param('id', ParseUUIDPipe) id: string) {
     return this.saludService.findDocumentosExamen(id);
@@ -84,6 +89,7 @@ export class SaludController {
   async uploadDocumentoExamen(
     @Param('id', ParseUUIDPipe) id: string,
     @UploadedFile() file: Express.Multer.File,
+    @Body('prueba_medica_id') pruebaMedicaId: string,
     @Body('tipo_etiqueta') tipoEtiqueta: string,
     @CurrentUser() user: { id: string; roles: string[] },
   ) {
@@ -94,7 +100,13 @@ export class SaludController {
     }
     const maxSize = 10 * 1024 * 1024; // 10 MB
     if (file.size > maxSize) throw new BadRequestException('El archivo no debe superar 10 MB');
-    return this.saludService.uploadDocumentoExamen(id, file, tipoEtiqueta || '', user);
+    return this.saludService.uploadDocumentoExamen(
+      id,
+      file,
+      pruebaMedicaId || null,
+      tipoEtiqueta || null,
+      user,
+    );
   }
 
   @Delete('examenes/:examenId/documentos/:docId')

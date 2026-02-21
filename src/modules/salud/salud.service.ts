@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { ExamenMedico, ResultadoExamen, EstadoExamen } from './entities/examen-medico.entity';
 import { CitaMedica, EstadoCita } from './entities/cita-medica.entity';
 import { ComentarioMedico } from './entities/comentario-medico.entity';
@@ -28,6 +28,7 @@ import { UsuarioCentroMedico } from '../usuario-centro-medico/entities/usuario-c
 import { EstadoParticipacion } from '../usuario-centro-medico/entities/usuario-centro-medico.entity';
 import { CentroMedico } from '../config-emo/entities/centro-medico.entity';
 import { DocumentoExamenMedico } from './entities/documento-examen-medico.entity';
+import { PruebaMedica } from './entities/prueba-medica.entity';
 import { Trabajador } from '../trabajadores/entities/trabajador.entity';
 import { StorageService } from '../../common/services/storage.service';
 
@@ -38,6 +39,8 @@ export class SaludService {
     private readonly examenRepository: Repository<ExamenMedico>,
     @InjectRepository(DocumentoExamenMedico)
     private readonly documentoExamenRepo: Repository<DocumentoExamenMedico>,
+    @InjectRepository(PruebaMedica)
+    private readonly pruebaMedicaRepository: Repository<PruebaMedica>,
     @InjectRepository(CitaMedica)
     private readonly citaRepository: Repository<CitaMedica>,
     @InjectRepository(ComentarioMedico)
@@ -704,58 +707,146 @@ export class SaludService {
     }
   }
 
-  // ========== DOCUMENTOS EXAMEN (Centro Médico - Etiquetado Flexible) ==========
+  // ========== PRUEBAS MÉDICAS (Maestro dinámico) ==========
+  async findAllPruebasMedicas(): Promise<Array<{ id: string; nombre: string }>> {
+    const pruebas = await this.pruebaMedicaRepository.find({
+      where: { activo: true },
+      order: { nombre: 'ASC' },
+      select: ['id', 'nombre'],
+    });
+    return pruebas.map((p) => ({ id: p.id, nombre: p.nombre }));
+  }
+
+  // ========== DOCUMENTOS EXAMEN (Centro Médico - Etiquetado por PruebaMedica) ==========
   async findDocumentosExamen(examenId: string): Promise<
-    Array<{ id: string; tipo_etiqueta: string; nombre_archivo: string; url: string; created_at: string }>
+    Array<{ id: string; tipo_etiqueta: string; prueba_medica?: { id: string; nombre: string }; nombre_archivo: string; url: string; created_at: string }>
   > {
     const docs = await this.documentoExamenRepo.find({
       where: { examenId },
+      relations: ['pruebaMedica'],
       order: { createdAt: 'DESC' },
     });
     return docs.map((d) => ({
       id: d.id,
-      tipo_etiqueta: d.tipoEtiqueta,
+      tipo_etiqueta: d.tipoEtiqueta ?? (d.pruebaMedica?.nombre ?? 'Sin clasificar'),
+      prueba_medica: d.pruebaMedica ? { id: d.pruebaMedica.id, nombre: d.pruebaMedica.nombre } : undefined,
       nombre_archivo: d.nombreArchivo,
       url: d.url,
       created_at: d.createdAt.toISOString(),
     }));
   }
 
+  /**
+   * Genera nombre estandarizado: APELLIDO_NOMBRE_PRUEBA_MEDICA_NN.ext
+   * Todo en mayúsculas, espacios por guiones bajos.
+   */
+  private generarNombreArchivoEstandar(
+    trabajador: { apellidoPaterno?: string | null; apellidoMaterno?: string | null; nombres?: string | null; nombreCompleto?: string },
+    pruebaSlug: string,
+    numero: number,
+    extension: string,
+  ): string {
+    const slug = (s: string) =>
+      (s || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .replace(/\s+/g, '_')
+        .replace(/[^A-Z0-9_]/g, '') || 'SIN_NOMBRE';
+
+    let nombreParte: string;
+    if (trabajador.apellidoPaterno || trabajador.apellidoMaterno || trabajador.nombres) {
+      const ap = slug(trabajador.apellidoPaterno ?? '');
+      const am = slug(trabajador.apellidoMaterno ?? '');
+      const nom = slug(trabajador.nombres ?? '');
+      nombreParte = [ap, am, nom].filter(Boolean).join('_');
+    } else {
+      nombreParte = slug(trabajador.nombreCompleto ?? 'SIN_NOMBRE');
+    }
+    const numStr = String(numero).padStart(2, '0');
+    return `${nombreParte}_${pruebaSlug}_${numStr}.${extension}`;
+  }
+
   async uploadDocumentoExamen(
     examenId: string,
     file: Express.Multer.File,
-    tipoEtiqueta: string,
+    pruebaMedicaId: string | null,
+    tipoEtiquetaFallback: string | null,
     user?: { id: string; roles: string[] },
-  ): Promise<{ id: string; url: string }> {
+  ): Promise<{ id: string; url: string; nombre_archivo: string }> {
     const examen = await this.examenRepository.findOne({
       where: { id: examenId },
       relations: ['trabajador', 'trabajador.empresa'],
     });
     if (!examen) throw new NotFoundException('Examen no encontrado');
 
-    if (!tipoEtiqueta?.trim()) {
-      throw new BadRequestException('El tipo de examen es obligatorio');
+    if (!pruebaMedicaId?.trim() && !tipoEtiquetaFallback?.trim()) {
+      throw new BadRequestException('Debe seleccionar una prueba médica o indicar el tipo');
     }
 
+    const trabajador = examen.trabajador as {
+      apellidoPaterno?: string | null;
+      apellidoMaterno?: string | null;
+      nombres?: string | null;
+      nombreCompleto?: string;
+      empresa?: { ruc?: string };
+    } | undefined;
+
+    let pruebaSlug: string;
+    if (pruebaMedicaId?.trim()) {
+      const prueba = await this.pruebaMedicaRepository.findOne({
+        where: { id: pruebaMedicaId.trim() },
+        select: ['nombre'],
+      });
+      pruebaSlug = (prueba?.nombre ?? tipoEtiquetaFallback ?? 'OTROS')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .replace(/\s+/g, '_')
+        .replace(/[^A-Z0-9_]/g, '') || 'OTROS';
+    } else {
+      pruebaSlug = (tipoEtiquetaFallback ?? 'OTROS')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .replace(/\s+/g, '_')
+        .replace(/[^A-Z0-9_]/g, '') || 'OTROS';
+    }
+
+    const count = await this.documentoExamenRepo.count({
+      where: pruebaMedicaId?.trim()
+        ? { examenId, pruebaMedicaId: pruebaMedicaId.trim() }
+        : { examenId, pruebaMedicaId: IsNull() },
+    });
+    const numero = count + 1;
+
+    const ext = (file.originalname?.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '') || 'pdf';
+    const nombreArchivo = this.generarNombreArchivoEstandar(
+      trabajador ?? { nombreCompleto: 'SIN_NOMBRE' },
+      pruebaSlug,
+      numero,
+      ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext) ? ext : 'pdf',
+    );
+
     let ruc = 'sst';
-    const trabajador = examen.trabajador as { empresa?: { ruc?: string } } | undefined;
     if (trabajador?.empresa?.ruc) {
       ruc = trabajador.empresa.ruc.replace(/[^a-zA-Z0-9]/g, '_');
     }
 
     const url = await this.storageService.uploadFile(ruc, file.buffer, 'documento_emo', {
       contentType: file.mimetype,
-      filename: file.originalname,
+      filename: nombreArchivo,
     });
 
     const doc = this.documentoExamenRepo.create({
       examenId,
-      tipoEtiqueta: tipoEtiqueta.trim(),
-      nombreArchivo: file.originalname,
+      pruebaMedicaId: pruebaMedicaId?.trim() || null,
+      tipoEtiqueta: tipoEtiquetaFallback?.trim() || null,
+      nombreArchivo,
       url,
     });
     const saved = await this.documentoExamenRepo.save(doc);
-    return { id: saved.id, url };
+    return { id: saved.id, url, nombre_archivo: nombreArchivo };
   }
 
   async removeDocumentoExamen(examenId: string, docId: string): Promise<void> {
