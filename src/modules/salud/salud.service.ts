@@ -27,12 +27,17 @@ import { Usuario, UsuarioRol } from '../usuarios/entities/usuario.entity';
 import { UsuarioCentroMedico } from '../usuario-centro-medico/entities/usuario-centro-medico.entity';
 import { EstadoParticipacion } from '../usuario-centro-medico/entities/usuario-centro-medico.entity';
 import { CentroMedico } from '../config-emo/entities/centro-medico.entity';
+import { DocumentoExamenMedico } from './entities/documento-examen-medico.entity';
+import { Trabajador } from '../trabajadores/entities/trabajador.entity';
+import { StorageService } from '../../common/services/storage.service';
 
 @Injectable()
 export class SaludService {
   constructor(
     @InjectRepository(ExamenMedico)
     private readonly examenRepository: Repository<ExamenMedico>,
+    @InjectRepository(DocumentoExamenMedico)
+    private readonly documentoExamenRepo: Repository<DocumentoExamenMedico>,
     @InjectRepository(CitaMedica)
     private readonly citaRepository: Repository<CitaMedica>,
     @InjectRepository(ComentarioMedico)
@@ -45,6 +50,9 @@ export class SaludService {
     private readonly usuarioCentroMedicoRepository: Repository<UsuarioCentroMedico>,
     @InjectRepository(CentroMedico)
     private readonly centroMedicoRepository: Repository<CentroMedico>,
+    @InjectRepository(Trabajador)
+    private readonly trabajadorRepository: Repository<Trabajador>,
+    private readonly storageService: StorageService,
   ) {}
 
   private isProfesionalSalud(roles: string[]): boolean {
@@ -694,5 +702,76 @@ export class SaludService {
         );
       }
     }
+  }
+
+  // ========== DOCUMENTOS EXAMEN (Centro Médico - Etiquetado Flexible) ==========
+  async findDocumentosExamen(examenId: string): Promise<
+    Array<{ id: string; tipo_etiqueta: string; nombre_archivo: string; url: string; created_at: string }>
+  > {
+    const docs = await this.documentoExamenRepo.find({
+      where: { examenId },
+      order: { createdAt: 'DESC' },
+    });
+    return docs.map((d) => ({
+      id: d.id,
+      tipo_etiqueta: d.tipoEtiqueta,
+      nombre_archivo: d.nombreArchivo,
+      url: d.url,
+      created_at: d.createdAt.toISOString(),
+    }));
+  }
+
+  async uploadDocumentoExamen(
+    examenId: string,
+    file: Express.Multer.File,
+    tipoEtiqueta: string,
+    user?: { id: string; roles: string[] },
+  ): Promise<{ id: string; url: string }> {
+    const examen = await this.examenRepository.findOne({
+      where: { id: examenId },
+      relations: ['trabajador', 'trabajador.empresa'],
+    });
+    if (!examen) throw new NotFoundException('Examen no encontrado');
+
+    if (!tipoEtiqueta?.trim()) {
+      throw new BadRequestException('El tipo de examen es obligatorio');
+    }
+
+    let ruc = 'sst';
+    const trabajador = examen.trabajador as { empresa?: { ruc?: string } } | undefined;
+    if (trabajador?.empresa?.ruc) {
+      ruc = trabajador.empresa.ruc.replace(/[^a-zA-Z0-9]/g, '_');
+    }
+
+    const url = await this.storageService.uploadFile(ruc, file.buffer, 'documento_emo', {
+      contentType: file.mimetype,
+      filename: file.originalname,
+    });
+
+    const doc = this.documentoExamenRepo.create({
+      examenId,
+      tipoEtiqueta: tipoEtiqueta.trim(),
+      nombreArchivo: file.originalname,
+      url,
+    });
+    const saved = await this.documentoExamenRepo.save(doc);
+    return { id: saved.id, url };
+  }
+
+  async removeDocumentoExamen(examenId: string, docId: string): Promise<void> {
+    const doc = await this.documentoExamenRepo.findOne({
+      where: { id: docId, examenId },
+    });
+    if (!doc) throw new NotFoundException('Documento no encontrado');
+    await this.documentoExamenRepo.remove(doc);
+  }
+
+  async notificarResultadosListos(examenId: string): Promise<ResponseExamenMedicoDto> {
+    const examen = await this.examenRepository.findOne({ where: { id: examenId } });
+    if (!examen) throw new NotFoundException('Examen no encontrado');
+    examen.estado = EstadoExamen.Realizado;
+    examen.fechaRealizado = new Date();
+    await this.examenRepository.save(examen);
+    return this.findOneExamen(examenId);
   }
 }

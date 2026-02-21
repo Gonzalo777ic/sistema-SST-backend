@@ -3,7 +3,7 @@ import { Storage } from '@google-cloud/storage';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
-export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'firma_recepcion' | 'firma_capacitador' | 'firma_gerente' | 'firma_medico' | 'sello_medico' | 'pdf_entrega' | 'kardex_pdf' | 'certificado_capacitacion' | 'logo_empresa' | 'imagen_epp' | 'ficha_pdf_epp' | 'foto_trabajador' | 'adjunto_capacitacion' | 'centro_medico_pdf';
+export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'firma_recepcion' | 'firma_capacitador' | 'firma_gerente' | 'firma_medico' | 'sello_medico' | 'pdf_entrega' | 'kardex_pdf' | 'certificado_capacitacion' | 'logo_empresa' | 'imagen_epp' | 'ficha_pdf_epp' | 'foto_trabajador' | 'adjunto_capacitacion' | 'centro_medico_pdf' | 'documento_emo';
 
 @Injectable()
 export class StorageService {
@@ -60,7 +60,7 @@ export class StorageService {
 
     let ext = 'png';
     if (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp' || tipo === 'certificado_capacitacion' || tipo === 'centro_medico_pdf') ext = 'pdf';
-    else if (tipo === 'adjunto_capacitacion' && options?.contentType) {
+    else if ((tipo === 'adjunto_capacitacion' || tipo === 'documento_emo') && options?.contentType) {
       const ct = options.contentType.toLowerCase();
       if (ct.includes('pdf')) ext = 'pdf';
       else if (ct.includes('spreadsheet') || ct.includes('excel')) ext = 'xlsx';
@@ -77,7 +77,7 @@ export class StorageService {
     const bucket = this.storage.bucket(this.bucketName);
     const file = bucket.file(objectPath);
 
-    const contentType = options?.contentType || (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp' || tipo === 'certificado_capacitacion' || tipo === 'centro_medico_pdf' ? 'application/pdf' : tipo === 'adjunto_capacitacion' ? 'application/octet-stream' : 'image/png');
+    const contentType = options?.contentType || (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp' || tipo === 'certificado_capacitacion' || tipo === 'centro_medico_pdf' ? 'application/pdf' : tipo === 'adjunto_capacitacion' || tipo === 'documento_emo' ? 'application/octet-stream' : 'image/png');
 
     await file.save(buffer, {
       contentType,

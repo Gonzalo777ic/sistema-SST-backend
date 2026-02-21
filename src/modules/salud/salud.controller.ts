@@ -9,7 +9,11 @@ import {
   Query,
   ParseUUIDPipe,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { SaludService } from './salud.service';
@@ -68,6 +72,44 @@ export class SaludController {
   @Delete('examenes/:id')
   async removeExamen(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.saludService.removeExamen(id);
+  }
+
+  @Get('examenes/:id/documentos')
+  async findDocumentosExamen(@Param('id', ParseUUIDPipe) id: string) {
+    return this.saludService.findDocumentosExamen(id);
+  }
+
+  @Post('examenes/:id/documentos')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadDocumentoExamen(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('tipo_etiqueta') tipoEtiqueta: string,
+    @CurrentUser() user: { id: string; roles: string[] },
+  ) {
+    if (!file) throw new BadRequestException('Debe seleccionar un archivo');
+    const validMimes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validMimes.includes(file.mimetype)) {
+      throw new BadRequestException('Formatos permitidos: PDF, JPEG, PNG, WebP, GIF');
+    }
+    const maxSize = 10 * 1024 * 1024; // 10 MB
+    if (file.size > maxSize) throw new BadRequestException('El archivo no debe superar 10 MB');
+    return this.saludService.uploadDocumentoExamen(id, file, tipoEtiqueta || '', user);
+  }
+
+  @Delete('examenes/:examenId/documentos/:docId')
+  async removeDocumentoExamen(
+    @Param('examenId', ParseUUIDPipe) examenId: string,
+    @Param('docId', ParseUUIDPipe) docId: string,
+  ) {
+    await this.saludService.removeDocumentoExamen(examenId, docId);
+  }
+
+  @Post('examenes/:id/notificar-resultados')
+  async notificarResultadosListos(
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.saludService.notificarResultadosListos(id);
   }
 
   // ========== CITAS MÉDICAS ==========
