@@ -89,6 +89,18 @@ export class TrabajadoresService {
       provincia: dto.provincia ?? null,
       distrito: dto.distrito ?? null,
       direccion: dto.direccion ?? null,
+      numeroInterior: dto.numero_interior ?? null,
+      urbanizacion: dto.urbanizacion ?? null,
+      resideEnLugarTrabajo: dto.reside_en_lugar_trabajo ?? null,
+      tiempoResidenciaLugarTrabajo: dto.tiempo_residencia_lugar_trabajo ?? null,
+      estadoCivil: dto.estado_civil ?? null,
+      gradoInstruccion: dto.grado_instruccion ?? null,
+      nroHijosVivos: dto.nro_hijos_vivos ?? null,
+      nroDependientes: dto.nro_dependientes ?? null,
+      seguroEssalud: dto.seguro_essalud ?? null,
+      seguroEps: dto.seguro_eps ?? null,
+      seguroSctr: dto.seguro_sctr ?? null,
+      seguroOtro: dto.seguro_otro ?? null,
       modalidadContrato: dto.modalidad_contrato ?? null,
       gerencia: dto.gerencia ?? null,
       puestoCapacitacion: dto.puesto_capacitacion ?? null,
@@ -201,6 +213,18 @@ export class TrabajadoresService {
     if (dto.provincia !== undefined) updateData.provincia = dto.provincia || null;
     if (dto.distrito !== undefined) updateData.distrito = dto.distrito || null;
     if (dto.direccion !== undefined) updateData.direccion = dto.direccion || null;
+    if (dto.numero_interior !== undefined) updateData.numeroInterior = dto.numero_interior || null;
+    if (dto.urbanizacion !== undefined) updateData.urbanizacion = dto.urbanizacion || null;
+    if (dto.reside_en_lugar_trabajo !== undefined) updateData.resideEnLugarTrabajo = dto.reside_en_lugar_trabajo;
+    if (dto.tiempo_residencia_lugar_trabajo !== undefined) updateData.tiempoResidenciaLugarTrabajo = dto.tiempo_residencia_lugar_trabajo || null;
+    if (dto.estado_civil !== undefined) updateData.estadoCivil = dto.estado_civil as any || null;
+    if (dto.grado_instruccion !== undefined) updateData.gradoInstruccion = dto.grado_instruccion as any || null;
+    if (dto.nro_hijos_vivos !== undefined) updateData.nroHijosVivos = dto.nro_hijos_vivos ?? null;
+    if (dto.nro_dependientes !== undefined) updateData.nroDependientes = dto.nro_dependientes ?? null;
+    if (dto.seguro_essalud !== undefined) updateData.seguroEssalud = dto.seguro_essalud;
+    if (dto.seguro_eps !== undefined) updateData.seguroEps = dto.seguro_eps;
+    if (dto.seguro_sctr !== undefined) updateData.seguroSctr = dto.seguro_sctr;
+    if (dto.seguro_otro !== undefined) updateData.seguroOtro = dto.seguro_otro || null;
     if (dto.modalidad_contrato !== undefined) updateData.modalidadContrato = dto.modalidad_contrato || null;
     if (dto.gerencia !== undefined) updateData.gerencia = dto.gerencia || null;
     if (dto.puesto_capacitacion !== undefined) updateData.puestoCapacitacion = dto.puesto_capacitacion || null;

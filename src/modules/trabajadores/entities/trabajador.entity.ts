@@ -44,6 +44,26 @@ export enum Sexo {
   OTRO = 'OTRO',
 }
 
+export enum EstadoCivil {
+  Soltero = 'Soltero',
+  Casado = 'Casado',
+  Conviviente = 'Conviviente',
+  Divorciado = 'Divorciado',
+  Viudo = 'Viudo',
+  Otro = 'Otro',
+}
+
+export enum GradoInstruccion {
+  SinEstudios = 'Sin Estudios',
+  Primaria = 'Primaria',
+  Secundaria = 'Secundaria',
+  Tecnico = 'Técnico',
+  Superior = 'Superior',
+  SuperiorCompleta = 'Superior Completa',
+  Posgrado = 'Posgrado',
+  Otro = 'Otro',
+}
+
 @Entity('trabajadores')
 @Unique(['documentoIdentidad', 'empresaId'])
 export class Trabajador {
@@ -113,6 +133,44 @@ export class Trabajador {
 
   @Column({ type: 'varchar', nullable: true })
   direccion: string | null;
+
+  @Column({ name: 'numero_interior', type: 'varchar', length: 100, nullable: true })
+  numeroInterior: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  urbanizacion: string | null;
+
+  /** Reside en el mismo lugar donde trabaja (ej. campamento minero) */
+  @Column({ name: 'reside_en_lugar_trabajo', type: 'boolean', nullable: true })
+  resideEnLugarTrabajo: boolean | null;
+
+  /** Años de residencia en lugar de trabajo */
+  @Column({ name: 'tiempo_residencia_lugar_trabajo', type: 'varchar', length: 20, nullable: true })
+  tiempoResidenciaLugarTrabajo: string | null;
+
+  @Column({ name: 'estado_civil', type: 'enum', enum: EstadoCivil, nullable: true })
+  estadoCivil: EstadoCivil | null;
+
+  @Column({ name: 'grado_instruccion', type: 'enum', enum: GradoInstruccion, nullable: true })
+  gradoInstruccion: GradoInstruccion | null;
+
+  @Column({ name: 'nro_hijos_vivos', type: 'int', nullable: true })
+  nroHijosVivos: number | null;
+
+  @Column({ name: 'nro_dependientes', type: 'int', nullable: true })
+  nroDependientes: number | null;
+
+  @Column({ name: 'seguro_essalud', type: 'boolean', nullable: true })
+  seguroEssalud: boolean | null;
+
+  @Column({ name: 'seguro_eps', type: 'boolean', nullable: true })
+  seguroEps: boolean | null;
+
+  @Column({ name: 'seguro_sctr', type: 'boolean', nullable: true })
+  seguroSctr: boolean | null;
+
+  @Column({ name: 'seguro_otro', type: 'varchar', length: 200, nullable: true })
+  seguroOtro: string | null;
 
   // Contacto de emergencia
   @Column({ name: 'contacto_emergencia_nombre', type: 'varchar', nullable: true })

@@ -10,6 +10,33 @@ export class ResponseExamenMedicoDto {
   trabajador_nombre: string | null;
   trabajador_documento: string | null;
   trabajador_cargo: string | null;
+  /** Datos de trabajador para Ficha Anexo 02 Sección II */
+  trabajador_filiacion?: {
+    id: string;
+    nombre_completo: string;
+    documento_identidad: string;
+    fecha_nacimiento: string | null;
+    foto_url: string | null;
+    telefono: string | null;
+    email_personal: string | null;
+    direccion: string | null;
+    numero_interior: string | null;
+    urbanizacion: string | null;
+    departamento: string | null;
+    provincia: string | null;
+    distrito: string | null;
+    pais: string | null;
+    reside_en_lugar_trabajo: boolean | null;
+    tiempo_residencia_lugar_trabajo: string | null;
+    estado_civil: string | null;
+    grado_instruccion: string | null;
+    nro_hijos_vivos: number | null;
+    nro_dependientes: number | null;
+    seguro_essalud: boolean | null;
+    seguro_eps: boolean | null;
+    seguro_sctr: boolean | null;
+    seguro_otro: string | null;
+  } | null;
   /** Datos de empresa para Ficha Anexo 02 */
   empresa_id: string | null;
   empresa_nombre: string | null;
@@ -96,10 +123,32 @@ export class ResponseExamenMedicoDto {
     adicionales?: string | null;
     recomendacionesPersonalizadas?: string | null;
     trabajador?: {
+      id: string;
       nombreCompleto: string;
       documentoIdentidad?: string;
       sede?: string | null;
       cargo?: string | null;
+      fechaNacimiento?: Date | string | null;
+      fotoUrl?: string | null;
+      telefono?: string | null;
+      emailPersonal?: string | null;
+      direccion?: string | null;
+      numeroInterior?: string | null;
+      urbanizacion?: string | null;
+      departamento?: string | null;
+      provincia?: string | null;
+      distrito?: string | null;
+      pais?: string | null;
+      resideEnLugarTrabajo?: boolean | null;
+      tiempoResidenciaLugarTrabajo?: string | null;
+      estadoCivil?: string | null;
+      gradoInstruccion?: string | null;
+      nroHijosVivos?: number | null;
+      nroDependientes?: number | null;
+      seguroEssalud?: boolean | null;
+      seguroEps?: boolean | null;
+      seguroSctr?: boolean | null;
+      seguroOtro?: string | null;
       empresa?: {
         id: string;
         nombre: string;
@@ -126,6 +175,42 @@ export class ResponseExamenMedicoDto {
     dto.trabajador_nombre = examen.trabajador?.nombreCompleto || null;
     dto.trabajador_documento = examen.trabajador?.documentoIdentidad ?? null;
     dto.trabajador_cargo = examen.trabajador?.cargo ?? null;
+    const t = examen.trabajador as any;
+    if (t) {
+      const toDateStr = (d: Date | string | null | undefined): string | null => {
+        if (!d) return null;
+        if (typeof d === 'string') return d.split('T')[0];
+        return (d as Date).toISOString().split('T')[0];
+      };
+      dto.trabajador_filiacion = {
+        id: t.id,
+        nombre_completo: t.nombreCompleto || '',
+        documento_identidad: t.documentoIdentidad || '',
+        fecha_nacimiento: toDateStr(t.fechaNacimiento),
+        foto_url: t.fotoUrl ?? null,
+        telefono: t.telefono ?? null,
+        email_personal: t.emailPersonal ?? null,
+        direccion: t.direccion ?? null,
+        numero_interior: t.numeroInterior ?? null,
+        urbanizacion: t.urbanizacion ?? null,
+        departamento: t.departamento ?? null,
+        provincia: t.provincia ?? null,
+        distrito: t.distrito ?? null,
+        pais: t.pais ?? null,
+        reside_en_lugar_trabajo: t.resideEnLugarTrabajo ?? null,
+        tiempo_residencia_lugar_trabajo: t.tiempoResidenciaLugarTrabajo ?? null,
+        estado_civil: t.estadoCivil ?? null,
+        grado_instruccion: t.gradoInstruccion ?? null,
+        nro_hijos_vivos: t.nroHijosVivos ?? null,
+        nro_dependientes: t.nroDependientes ?? null,
+        seguro_essalud: t.seguroEssalud ?? null,
+        seguro_eps: t.seguroEps ?? null,
+        seguro_sctr: t.seguroSctr ?? null,
+        seguro_otro: t.seguroOtro ?? null,
+      };
+    } else {
+      dto.trabajador_filiacion = null;
+    }
     const emp = (examen.trabajador as any)?.empresa;
     dto.empresa_id = emp?.id ?? null;
     dto.empresa_nombre = emp?.nombre ?? null;

@@ -8,8 +8,10 @@ import {
   IsUrl,
   ValidateIf,
   MinLength,
+  IsInt,
+  Min,
 } from 'class-validator';
-import { EstadoTrabajador, GrupoSanguineo, TipoDocumento } from '../entities/trabajador.entity';
+import { EstadoTrabajador, GrupoSanguineo, TipoDocumento, EstadoCivil, GradoInstruccion } from '../entities/trabajador.entity';
 
 export class CreateTrabajadorDto {
   @IsString()
@@ -127,6 +129,56 @@ export class CreateTrabajadorDto {
   @IsOptional()
   @IsString()
   direccion?: string;
+
+  @IsOptional()
+  @IsString()
+  numero_interior?: string;
+
+  @IsOptional()
+  @IsString()
+  urbanizacion?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  reside_en_lugar_trabajo?: boolean;
+
+  @IsOptional()
+  @IsString()
+  tiempo_residencia_lugar_trabajo?: string;
+
+  @IsOptional()
+  @IsEnum(EstadoCivil)
+  estado_civil?: EstadoCivil;
+
+  @IsOptional()
+  @IsEnum(GradoInstruccion)
+  grado_instruccion?: GradoInstruccion;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  nro_hijos_vivos?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  nro_dependientes?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  seguro_essalud?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  seguro_eps?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  seguro_sctr?: boolean;
+
+  @IsOptional()
+  @IsString()
+  seguro_otro?: string;
 
   @IsOptional()
   @IsString()
