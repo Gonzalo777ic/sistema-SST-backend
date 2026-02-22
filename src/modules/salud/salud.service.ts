@@ -162,7 +162,7 @@ export class SaludService {
   ): Promise<ResponseExamenMedicoDto> {
     const examen = await this.examenRepository.findOne({
       where: { id },
-      relations: ['trabajador', 'cargadoPor'],
+      relations: ['trabajador', 'trabajador.empresa', 'cargadoPor'],
     });
 
     if (!examen) {

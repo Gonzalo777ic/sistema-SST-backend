@@ -21,6 +21,22 @@ export class CreateEmpresaDto {
   @IsString({ message: 'La dirección es obligatoria' })
   direccion: string;
 
+  @IsOptional()
+  @IsString()
+  pais?: string;
+
+  @IsOptional()
+  @IsString()
+  departamento?: string;
+
+  @IsOptional()
+  @IsString()
+  provincia?: string;
+
+  @IsOptional()
+  @IsString()
+  distrito?: string;
+
   @IsString({ message: 'La actividad económica es obligatoria' })
   actividad_economica: string;
 

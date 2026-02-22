@@ -3,6 +3,10 @@ export class ResponseEmpresaDto {
   nombre: string;
   ruc: string;
   direccion: string | null;
+  pais: string | null;
+  departamento: string | null;
+  provincia: string | null;
+  distrito: string | null;
   actividad_economica: string | null;
   numero_trabajadores: number;
   logoUrl: string | null;
@@ -16,6 +20,10 @@ export class ResponseEmpresaDto {
     nombre: string;
     ruc: string;
     direccion?: string | null;
+    pais?: string | null;
+    departamento?: string | null;
+    provincia?: string | null;
+    distrito?: string | null;
     actividadEconomica?: string | null;
     logoUrl: string | null;
     activo: boolean;
@@ -28,6 +36,10 @@ export class ResponseEmpresaDto {
     dto.nombre = empresa.nombre;
     dto.ruc = empresa.ruc;
     dto.direccion = (empresa as any).direccion ?? null;
+    dto.pais = (empresa as any).pais ?? null;
+    dto.departamento = (empresa as any).departamento ?? null;
+    dto.provincia = (empresa as any).provincia ?? null;
+    dto.distrito = (empresa as any).distrito ?? null;
     dto.actividad_economica = (empresa as any).actividadEconomica ?? null;
     dto.numero_trabajadores = (empresa as any).numeroTrabajadores ?? 0;
     dto.logoUrl = empresa.logoUrl;

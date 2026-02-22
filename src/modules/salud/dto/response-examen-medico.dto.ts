@@ -9,6 +9,16 @@ export class ResponseExamenMedicoDto {
   trabajador_id: string;
   trabajador_nombre: string | null;
   trabajador_documento: string | null;
+  trabajador_cargo: string | null;
+  /** Datos de empresa para Ficha Anexo 02 */
+  empresa_id: string | null;
+  empresa_nombre: string | null;
+  empresa_direccion: string | null;
+  empresa_actividad_economica: string | null;
+  empresa_departamento: string | null;
+  empresa_provincia: string | null;
+  empresa_distrito: string | null;
+  empresa_pais: string | null;
   proyecto: string | null;
   sede: string | null;
   tipo_examen: TipoExamen;
@@ -85,7 +95,22 @@ export class ResponseExamenMedicoDto {
     perfilEmoId?: string | null;
     adicionales?: string | null;
     recomendacionesPersonalizadas?: string | null;
-    trabajador?: { nombreCompleto: string; documentoIdentidad?: string; sede?: string | null } | null;
+    trabajador?: {
+      nombreCompleto: string;
+      documentoIdentidad?: string;
+      sede?: string | null;
+      cargo?: string | null;
+      empresa?: {
+        id: string;
+        nombre: string;
+        direccion?: string | null;
+        actividadEconomica?: string | null;
+        departamento?: string | null;
+        provincia?: string | null;
+        distrito?: string | null;
+        pais?: string | null;
+      } | null;
+    } | null;
     cargadoPor?: { nombreCompleto?: string; dni?: string } | null;
     createdAt: Date;
     updatedAt: Date;
@@ -100,6 +125,16 @@ export class ResponseExamenMedicoDto {
     dto.trabajador_id = examen.trabajadorId;
     dto.trabajador_nombre = examen.trabajador?.nombreCompleto || null;
     dto.trabajador_documento = examen.trabajador?.documentoIdentidad ?? null;
+    dto.trabajador_cargo = examen.trabajador?.cargo ?? null;
+    const emp = (examen.trabajador as any)?.empresa;
+    dto.empresa_id = emp?.id ?? null;
+    dto.empresa_nombre = emp?.nombre ?? null;
+    dto.empresa_direccion = emp?.direccion ?? null;
+    dto.empresa_actividad_economica = emp?.actividadEconomica ?? null;
+    dto.empresa_departamento = emp?.departamento ?? null;
+    dto.empresa_provincia = emp?.provincia ?? null;
+    dto.empresa_distrito = emp?.distrito ?? null;
+    dto.empresa_pais = emp?.pais ?? null;
     dto.proyecto = examen.proyecto ?? null;
     dto.sede = examen.trabajador?.sede ?? null;
     dto.tipo_examen = examen.tipoExamen;

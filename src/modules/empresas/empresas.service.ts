@@ -59,6 +59,10 @@ export class EmpresasService {
       nombre: dto.nombre,
       ruc: dto.ruc,
       direccion: dto.direccion ?? null,
+      pais: dto.pais ?? null,
+      departamento: dto.departamento ?? null,
+      provincia: dto.provincia ?? null,
+      distrito: dto.distrito ?? null,
       actividadEconomica: dto.actividad_economica ?? null,
       numeroTrabajadores: dto.numero_trabajadores ?? 0,
       logoUrl: dto.logoUrl ?? null,
@@ -150,6 +154,10 @@ export class EmpresasService {
     if (dto.nombre !== undefined) empresa.nombre = dto.nombre;
     if (dto.ruc !== undefined) empresa.ruc = dto.ruc;
     if (dto.direccion !== undefined) empresa.direccion = dto.direccion;
+    if (dto.pais !== undefined) empresa.pais = dto.pais;
+    if (dto.departamento !== undefined) empresa.departamento = dto.departamento;
+    if (dto.provincia !== undefined) empresa.provincia = dto.provincia;
+    if (dto.distrito !== undefined) empresa.distrito = dto.distrito;
     if (dto.actividad_economica !== undefined) empresa.actividadEconomica = dto.actividad_economica;
     if (dto.numero_trabajadores !== undefined) empresa.numeroTrabajadores = dto.numero_trabajadores;
     if (dto.logoUrl !== undefined) {

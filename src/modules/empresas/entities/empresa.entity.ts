@@ -26,6 +26,18 @@ export class Empresa {
   @Column({ type: 'varchar', length: 500, nullable: true })
   direccion: string | null;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  pais: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  departamento: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  provincia: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  distrito: string | null;
+
   @Column({ name: 'actividad_economica', type: 'varchar', length: 500, nullable: true })
   actividadEconomica: string | null;
 
