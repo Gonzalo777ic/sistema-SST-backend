@@ -849,7 +849,9 @@ export class SaludService {
       cie10_description: s.cie10Description,
       especialidad: s.especialidad,
       estado: s.estado,
-      plazo: s.plazo.toISOString().split('T')[0],
+      plazo: s.plazo
+        ? (s.plazo instanceof Date ? s.plazo.toISOString() : String(s.plazo)).split('T')[0]
+        : '',
       motivo: s.motivo,
     }));
   }
