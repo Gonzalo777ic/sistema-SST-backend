@@ -28,6 +28,7 @@ import { PermisosModule } from './modules/permisos/permisos.module';
 import { ComitesModule } from './modules/comites/comites.module';
 import { AccionesCorrectivasModule } from './modules/acciones-correctivas/acciones-correctivas.module';
 import { ReportesModule } from './modules/reportes/reportes.module';
+import { AuditoriaModule } from './modules/auditoria/auditoria.module';
 import { CommonModule } from './common/common.module';
 
 @Module({
@@ -72,6 +73,7 @@ import { CommonModule } from './common/common.module';
     ComitesModule,
     AccionesCorrectivasModule,
     ReportesModule,
+    AuditoriaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

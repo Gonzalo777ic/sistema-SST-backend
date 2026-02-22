@@ -7,12 +7,14 @@ import {
   Body,
   Param,
   Query,
+  Req,
   ParseUUIDPipe,
   UseGuards,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -53,6 +55,35 @@ export class SaludController {
   }
 
   /** IMPORTANTE: Rutas más específicas ANTES de examenes/:id para evitar que :id capture "123/documentos" */
+  @Get('examenes/:id/resultado/url-firmada')
+  async getSignedUrlResultadoExamen(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: { id: string; roles: string[] },
+    @Req() req: unknown,
+  ) {
+    const r = req as { headers?: Record<string, string | string[] | undefined>; socket?: { remoteAddress?: string } };
+    const ip = (r.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? r.socket?.remoteAddress ?? null;
+    return this.saludService.getSignedUrlResultadoExamen(id, user, {
+      ipAddress: ip ?? undefined,
+      userAgent: (r.headers?.['user-agent'] as string) ?? undefined,
+    });
+  }
+
+  @Get('examenes/:examenId/documentos/:docId/url-firmada')
+  async getSignedUrlDocumentoExamen(
+    @Param('examenId', ParseUUIDPipe) examenId: string,
+    @Param('docId', ParseUUIDPipe) docId: string,
+    @CurrentUser() user: { id: string; roles: string[] },
+    @Req() req: unknown,
+  ) {
+    const r = req as { headers?: Record<string, string | string[] | undefined>; socket?: { remoteAddress?: string } };
+    const ip = (r.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? r.socket?.remoteAddress ?? null;
+    return this.saludService.getSignedUrlForDocumentoExamen(examenId, docId, user, {
+      ipAddress: ip ?? undefined,
+      userAgent: (r.headers?.['user-agent'] as string) ?? undefined,
+    });
+  }
+
   @Get('examenes/:id/documentos')
   async findDocumentosExamen(@Param('id', ParseUUIDPipe) id: string) {
     return this.saludService.findDocumentosExamen(id);

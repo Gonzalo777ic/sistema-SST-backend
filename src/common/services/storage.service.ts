@@ -139,8 +139,8 @@ export class StorageService {
   }
 
   /**
-   * Genera una URL firmada para un objeto GCS almacenado en la URL pública.
-   * Útil cuando el bucket no tiene acceso público y los objetos requieren autenticación.
+   * Genera una URL firmada V4 para un objeto GCS (bucket privado).
+   * Requiere service account con key file (GCP_KEY_FILE) para firmar.
    */
   async getSignedUrl(publicUrl: string, expiresInMinutes = 60): Promise<string> {
     await this.ensureInit();
@@ -150,17 +150,21 @@ export class StorageService {
     }
 
     const canonicalUrl = this.getCanonicalUrl(publicUrl);
+    const escapedBucket = this.bucketName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const match = canonicalUrl.match(
-      new RegExp(`https://storage\\.googleapis\\.com/${this.bucketName}/(.+)`),
+      new RegExp(`https://storage\\.googleapis\\.com/${escapedBucket}/(.+)`),
     );
     if (!match) {
-      return publicUrl;
+      throw new Error(
+        `URL no pertenece al bucket configurado (${this.bucketName}). Verifique GCP_BUCKET_NAME.`,
+      );
     }
 
     const objectPath = match[1];
     const file = this.storage.bucket(this.bucketName).file(objectPath);
 
     const [signedUrl] = await file.getSignedUrl({
+      version: 'v4',
       action: 'read',
       expires: Date.now() + expiresInMinutes * 60 * 1000,
     });

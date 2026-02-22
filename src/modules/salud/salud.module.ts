@@ -14,6 +14,7 @@ import { SaludController } from './salud.controller';
 import { SaludService } from './salud.service';
 import { PruebasMedicasSeeder } from './pruebas-medicas.seeder';
 import { CommonModule } from '../../common/common.module';
+import { AuditoriaModule } from '../auditoria/auditoria.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { CommonModule } from '../../common/common.module';
       Trabajador,
     ]),
     CommonModule,
+    AuditoriaModule,
   ],
   controllers: [SaludController],
   providers: [SaludService, PruebasMedicasSeeder],

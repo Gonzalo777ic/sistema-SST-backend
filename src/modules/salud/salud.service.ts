@@ -29,6 +29,7 @@ import { EstadoParticipacion } from '../usuario-centro-medico/entities/usuario-c
 import { CentroMedico } from '../config-emo/entities/centro-medico.entity';
 import { DocumentoExamenMedico } from './entities/documento-examen-medico.entity';
 import { PruebaMedica } from './entities/prueba-medica.entity';
+import { AuditoriaService } from '../auditoria/auditoria.service';
 import { Trabajador } from '../trabajadores/entities/trabajador.entity';
 import { StorageService } from '../../common/services/storage.service';
 
@@ -56,11 +57,24 @@ export class SaludService {
     @InjectRepository(Trabajador)
     private readonly trabajadorRepository: Repository<Trabajador>,
     private readonly storageService: StorageService,
+    private readonly auditoriaService: AuditoriaService,
   ) {}
 
   private isProfesionalSalud(roles: string[]): boolean {
     return roles?.some(
       (r) => r === UsuarioRol.MEDICO || r === UsuarioRol.CENTRO_MEDICO,
+    ) ?? false;
+  }
+
+  /** Roles que pueden ver documentos de exámenes médicos (centro médico, médico, admins) */
+  private puedeVerDocumentosExamen(roles: string[]): boolean {
+    return roles?.some(
+      (r) =>
+        r === UsuarioRol.CENTRO_MEDICO ||
+        r === UsuarioRol.MEDICO ||
+        r === UsuarioRol.SUPER_ADMIN ||
+        r === UsuarioRol.ADMIN_EMPRESA ||
+        r === UsuarioRol.INGENIERO_SST,
     ) ?? false;
   }
 
@@ -913,6 +927,126 @@ export class SaludService {
     });
     if (!doc) throw new NotFoundException('Documento no encontrado');
     await this.documentoExamenRepo.remove(doc);
+  }
+
+  /**
+   * Genera URL firmada para un documento de examen (bucket privado GCS).
+   * Verifica rol del usuario antes de devolver. Expira en 10 minutos.
+   * Registra el acceso en auditoría.
+   */
+  async getSignedUrlForDocumentoExamen(
+    examenId: string,
+    docId: string,
+    user: { id: string; roles: string[] },
+    contexto?: { ipAddress?: string; userAgent?: string },
+  ): Promise<{ url: string }> {
+    if (!this.puedeVerDocumentosExamen(user.roles)) {
+      throw new ForbiddenException('No tiene permiso para ver documentos de este examen');
+    }
+
+    const doc = await this.documentoExamenRepo.findOne({
+      where: { id: docId, examenId },
+      relations: ['pruebaMedica', 'examen', 'examen.trabajador'],
+    });
+    if (!doc) throw new NotFoundException('Documento no encontrado');
+
+    if (!doc.url?.includes('storage.googleapis.com')) {
+      return { url: doc.url };
+    }
+
+    if (!this.storageService.isAvailable()) {
+      throw new BadRequestException(
+        'El almacenamiento GCS no está configurado. Configure GCP_BUCKET_NAME y GCP_KEY_FILE.',
+      );
+    }
+
+    try {
+      const signedUrl = await this.storageService.getSignedUrl(doc.url, 10);
+
+      const examen = doc.examen as ExamenMedico & { trabajador?: { nombreCompleto?: string } };
+      const trabajadorNombre = examen?.trabajador?.nombreCompleto ?? 'Sin nombre';
+      const pruebaNombre = (doc as any).pruebaMedica?.nombre ?? doc.tipoEtiqueta ?? 'Documento';
+
+      this.auditoriaService.registrarAcceso({
+        usuarioId: user.id,
+        usuarioNombre: await this.getUsuarioNombre(user.id),
+        accion: 'Visualización',
+        recursoTipo: 'documento_examen',
+        recursoId: docId,
+        recursoDescripcion: `${pruebaNombre} - ${trabajadorNombre}`,
+        examenId,
+        trabajadorId: (examen as any).trabajadorId,
+        trabajadorNombre,
+        ipAddress: contexto?.ipAddress ?? null,
+        userAgent: contexto?.userAgent ?? null,
+      }).catch(() => {});
+
+      return { url: signedUrl };
+    } catch (err) {
+      throw new BadRequestException(
+        `No se pudo generar la URL de acceso temporal. Verifique que GCP_KEY_FILE apunte a una cuenta de servicio con rol "Storage Object Viewer" en el bucket. ${(err as Error).message}`,
+      );
+    }
+  }
+
+  private async getUsuarioNombre(usuarioId: string): Promise<string> {
+    const u = await this.usuarioRepository.findOne({
+      where: { id: usuarioId },
+      select: ['nombres', 'apellidoPaterno', 'apellidoMaterno', 'dni'],
+    });
+    if (!u) return 'Usuario';
+    const nombre = [u.nombres, u.apellidoPaterno, u.apellidoMaterno].filter(Boolean).join(' ').trim();
+    return nombre || u.dni || 'Usuario';
+  }
+
+  /**
+   * Genera URL firmada para el archivo de resultado del examen (bucket privado GCS).
+   * Registra el acceso en auditoría.
+   */
+  async getSignedUrlResultadoExamen(
+    examenId: string,
+    user: { id: string; roles: string[] },
+    contexto?: { ipAddress?: string; userAgent?: string },
+  ): Promise<{ url: string }> {
+    if (!this.puedeVerDocumentosExamen(user.roles)) {
+      throw new ForbiddenException('No tiene permiso para ver el resultado de este examen');
+    }
+
+    const examen = await this.examenRepository.findOne({
+      where: { id: examenId },
+      relations: ['trabajador'],
+    });
+    if (!examen) throw new NotFoundException('Examen no encontrado');
+    if (!examen.resultadoArchivoUrl) throw new NotFoundException('No hay archivo de resultado');
+
+    if (!examen.resultadoArchivoUrl.includes('storage.googleapis.com')) {
+      return { url: examen.resultadoArchivoUrl };
+    }
+
+    if (!this.storageService.isAvailable()) {
+      return { url: examen.resultadoArchivoUrl };
+    }
+
+    const signedUrl = await this.storageService.getSignedUrl(examen.resultadoArchivoUrl, 10);
+
+    const trabajador = (examen as any).trabajador;
+    const trabajadorNombre = trabajador?.nombreCompleto ?? 'Sin nombre';
+
+    this.auditoriaService.registrarAcceso({
+      usuarioId: user.id,
+      usuarioNombre: await this.getUsuarioNombre(user.id),
+      accion: 'Visualización',
+      recursoTipo: 'resultado_examen',
+      recursoId: examenId,
+      recursoDescripcion: `Resultado - ${trabajadorNombre}`,
+      examenId,
+      trabajadorId: examen.trabajadorId,
+      trabajadorNombre,
+      ipAddress: contexto?.ipAddress ?? null,
+      userAgent: contexto?.userAgent ?? null,
+    }).catch(() => {});
+
+    return { url: signedUrl };
   }
 
   async notificarResultadosListos(
