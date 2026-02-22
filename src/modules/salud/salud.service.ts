@@ -169,6 +169,7 @@ export class SaludService {
       dto.resultado_archivo_existe = !!examen.resultadoArchivoUrl;
       dto.restricciones = null;
       dto.observaciones = null;
+      dto.diagnosticos_cie10 = null;
     }
 
     // Incluir documentos en la respuesta para centro médico/médico (evita ruta separada)
@@ -196,6 +197,7 @@ export class SaludService {
         'resultado',
         'restricciones',
         'observaciones',
+        'diagnosticos_cie10',
         'fecha_realizado',
         'fecha_vencimiento',
         'resultado_archivo_url',

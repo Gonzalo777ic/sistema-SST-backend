@@ -24,6 +24,7 @@ export class ResponseExamenMedicoDto {
   resultado: ResultadoExamen;
   restricciones: string | null;
   observaciones: string | null;
+  diagnosticos_cie10: Array<{ code: string; description: string }> | null;
   resultado_archivo_url: string | null;
   /** Indica si existe archivo EMO (para admin sin acceso a descarga) */
   resultado_archivo_existe?: boolean;
@@ -58,6 +59,7 @@ export class ResponseExamenMedicoDto {
     resultado: ResultadoExamen;
     restricciones: string | null;
     observaciones: string | null;
+    diagnosticosCie10?: Array<{ code: string; description: string }> | null;
     resultadoArchivoUrl: string | null;
     estado: EstadoExamen;
     vistoPorAdmin?: boolean;
@@ -100,6 +102,7 @@ export class ResponseExamenMedicoDto {
     dto.resultado = examen.resultado;
     dto.restricciones = examen.restricciones;
     dto.observaciones = examen.observaciones;
+    dto.diagnosticos_cie10 = examen.diagnosticosCie10 ?? null;
     dto.resultado_archivo_url = examen.resultadoArchivoUrl;
     dto.estado = examen.estado;
     dto.visto_por_admin = examen.vistoPorAdmin ?? false;

@@ -103,6 +103,10 @@ export class ExamenMedico {
   @Column({ type: 'text', nullable: true })
   observaciones: string | null;
 
+  /** Diagnósticos CIE10 del EMO. JSON: [{code, description}] */
+  @Column({ name: 'diagnosticos_cie10', type: 'jsonb', nullable: true })
+  diagnosticosCie10: Array<{ code: string; description: string }> | null;
+
   @Column({ name: 'resultado_archivo_url', type: 'varchar', nullable: true })
   resultadoArchivoUrl: string | null;
 

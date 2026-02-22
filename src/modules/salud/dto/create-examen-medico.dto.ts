@@ -5,6 +5,7 @@ import {
   IsUUID,
   IsDateString,
   IsUrl,
+  IsArray,
 } from 'class-validator';
 import { TipoExamen, ResultadoExamen, EstadoExamen } from '../entities/examen-medico.entity';
 
@@ -67,6 +68,10 @@ export class CreateExamenMedicoDto {
   @IsOptional()
   @IsString()
   observaciones?: string;
+
+  @IsOptional()
+  @IsArray()
+  diagnosticos_cie10?: Array<{ code: string; description: string }>;
 
   @IsOptional()
   @IsUrl()

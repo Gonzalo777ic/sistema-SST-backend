@@ -19,7 +19,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "cleanup:users-trabajadores": "ts-node -r tsconfig-paths/register scripts/cleanup-users-trabajadores.ts",
-    "migrate:estado-examen": "ts-node -r tsconfig-paths/register scripts/migrate-estado-examen.ts"
+"migrate:estado-examen": "ts-node -r tsconfig-paths/register scripts/migrate-estado-examen.ts",
+    "seed:cie10": "ts-node -r tsconfig-paths/register scripts/seed-cie10.ts"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.19.0",
