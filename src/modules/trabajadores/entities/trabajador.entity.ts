@@ -4,6 +4,7 @@ import {
   Column,
   ManyToOne,
   OneToOne,
+  OneToMany,
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
@@ -290,6 +291,9 @@ export class Trabajador {
 
   @OneToOne(() => Usuario, (usuario) => usuario.trabajador, { nullable: true })
   usuario: Usuario | null;
+
+  @OneToMany('AntecedenteOcupacional', 'trabajador')
+  antecedentesOcupacionales: import('../../antecedentes-ocupacionales/entities/antecedente-ocupacional.entity').AntecedenteOcupacional[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

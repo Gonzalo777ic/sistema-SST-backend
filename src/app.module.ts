@@ -8,6 +8,8 @@ import { AreasModule } from './modules/areas/areas.module';
 import { UsuariosModule } from './modules/usuarios/usuarios.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TrabajadoresModule } from './modules/trabajadores/trabajadores.module';
+import { AntecedentesOcupacionalesModule } from './modules/antecedentes-ocupacionales/antecedentes-ocupacionales.module';
+import { SaludTrabajadorModule } from './modules/salud-trabajador/salud-trabajador.module';
 import { AtsModule } from './modules/ats/ats.module';
 import { PetarModule } from './modules/petar/petar.module';
 import { IpercModule } from './modules/iperc/iperc.module';
@@ -53,6 +55,8 @@ import { CommonModule } from './common/common.module';
     AreasModule,
     UsuariosModule,
     TrabajadoresModule,
+    AntecedentesOcupacionalesModule,
+    SaludTrabajadorModule,
     AuthModule,
     AtsModule,
     PetarModule,
