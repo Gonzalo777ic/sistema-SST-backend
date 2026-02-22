@@ -930,6 +930,55 @@ export class SaludService {
   }
 
   /**
+   * Sube la Ficha EMO (Anexo 02 / resultado) como PDF.
+   * Solo profesional de salud. El archivo se guarda como confidencial.
+   */
+  async uploadResultadoExamen(
+    examenId: string,
+    file: Express.Multer.File,
+    user?: { id: string; roles: string[] },
+  ): Promise<{ url: string }> {
+    const examen = await this.examenRepository.findOne({
+      where: { id: examenId },
+      relations: ['trabajador', 'trabajador.empresa'],
+    });
+    if (!examen) throw new NotFoundException('Examen no encontrado');
+
+    if (!user || !this.isProfesionalSalud(user.roles)) {
+      throw new ForbiddenException(
+        'Solo el profesional de salud puede subir la Ficha EMO (Anexo 02).',
+      );
+    }
+
+    if (file.mimetype !== 'application/pdf') {
+      throw new BadRequestException('Solo se permite subir archivos PDF');
+    }
+    const maxSize = 10 * 1024 * 1024; // 10 MB
+    if (file.size > maxSize) {
+      throw new BadRequestException('El archivo no debe superar 10 MB');
+    }
+
+    const trabajador = examen.trabajador as { empresa?: { ruc?: string } } | undefined;
+    let ruc = 'sst';
+    if (trabajador?.empresa?.ruc) {
+      ruc = trabajador.empresa.ruc.replace(/[^a-zA-Z0-9]/g, '_');
+    }
+
+    const ext = (file.originalname?.split('.').pop() || 'pdf').toLowerCase();
+    const nombreArchivo = `ficha_emo_${examenId.slice(0, 8)}_${Date.now()}.${ext === 'pdf' ? 'pdf' : 'pdf'}`;
+
+    const url = await this.storageService.uploadFile(ruc, file.buffer, 'ficha_emo', {
+      contentType: 'application/pdf',
+      filename: nombreArchivo,
+    });
+
+    examen.resultadoArchivoUrl = url;
+    await this.examenRepository.save(examen);
+
+    return { url };
+  }
+
+  /**
    * Genera URL firmada para un documento de examen (bucket privado GCS).
    * Verifica rol del usuario antes de devolver. Expira en 10 minutos.
    * Registra el acceso en auditoría.

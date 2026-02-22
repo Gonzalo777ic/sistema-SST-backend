@@ -171,6 +171,17 @@ export class SaludController {
     await this.saludService.removeDocumentoExamen(examenId, docId);
   }
 
+  @Post('examenes/:id/upload-resultado')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadResultadoExamen(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: { id: string; roles: string[] },
+  ) {
+    if (!file) throw new BadRequestException('Debe seleccionar un archivo PDF');
+    return this.saludService.uploadResultadoExamen(id, file, user);
+  }
+
   @Post('examenes/:id/notificar-resultados')
   async notificarResultadosListos(
     @Param('id', ParseUUIDPipe) id: string,
