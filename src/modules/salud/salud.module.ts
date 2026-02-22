@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ExamenMedico } from './entities/examen-medico.entity';
 import { DocumentoExamenMedico } from './entities/documento-examen-medico.entity';
+import { SeguimientoMedico } from './entities/seguimiento-medico.entity';
 import { PruebaMedica } from './entities/prueba-medica.entity';
 import { CitaMedica } from './entities/cita-medica.entity';
 import { ComentarioMedico } from './entities/comentario-medico.entity';
@@ -21,6 +22,7 @@ import { AuditoriaModule } from '../auditoria/auditoria.module';
     TypeOrmModule.forFeature([
       ExamenMedico,
       DocumentoExamenMedico,
+      SeguimientoMedico,
       PruebaMedica,
       CitaMedica,
       ComentarioMedico,

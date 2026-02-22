@@ -107,6 +107,10 @@ export class ExamenMedico {
   @Column({ name: 'diagnosticos_cie10', type: 'jsonb', nullable: true })
   diagnosticosCie10: Array<{ code: string; description: string }> | null;
 
+  /** Programas de vigilancia médica (ej. Psicología, Nutrición, Auditivos). */
+  @Column({ name: 'programas_vigilancia', type: 'jsonb', nullable: true })
+  programasVigilancia: string[] | null;
+
   @Column({ name: 'resultado_archivo_url', type: 'varchar', nullable: true })
   resultadoArchivoUrl: string | null;
 
@@ -156,6 +160,9 @@ export class ExamenMedico {
     cascade: true,
   })
   comentarios: import('./comentario-medico.entity').ComentarioMedico[];
+
+  @OneToMany('SeguimientoMedico', 'examenMedico')
+  seguimientos: import('./seguimiento-medico.entity').SeguimientoMedico[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

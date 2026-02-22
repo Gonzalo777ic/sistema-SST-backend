@@ -23,11 +23,17 @@ import { ResponseComentarioMedicoDto } from './dto/response-comentario-medico.dt
 import { CreateHorarioDoctorDto } from './dto/create-horario-doctor.dto';
 import { UpdateHorarioDoctorDto } from './dto/update-horario-doctor.dto';
 import { ResponseHorarioDoctorDto } from './dto/response-horario-doctor.dto';
+import { CreateSeguimientoMedicoDto } from './dto/create-seguimiento-medico.dto';
+import { UpdateSeguimientoMedicoDto } from './dto/update-seguimiento-medico.dto';
 import { Usuario, UsuarioRol } from '../usuarios/entities/usuario.entity';
 import { UsuarioCentroMedico } from '../usuario-centro-medico/entities/usuario-centro-medico.entity';
 import { EstadoParticipacion } from '../usuario-centro-medico/entities/usuario-centro-medico.entity';
 import { CentroMedico } from '../config-emo/entities/centro-medico.entity';
 import { DocumentoExamenMedico } from './entities/documento-examen-medico.entity';
+import {
+  SeguimientoMedico,
+  EstadoSeguimiento,
+} from './entities/seguimiento-medico.entity';
 import { PruebaMedica } from './entities/prueba-medica.entity';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { Trabajador } from '../trabajadores/entities/trabajador.entity';
@@ -40,6 +46,8 @@ export class SaludService {
     private readonly examenRepository: Repository<ExamenMedico>,
     @InjectRepository(DocumentoExamenMedico)
     private readonly documentoExamenRepo: Repository<DocumentoExamenMedico>,
+    @InjectRepository(SeguimientoMedico)
+    private readonly seguimientoRepository: Repository<SeguimientoMedico>,
     @InjectRepository(PruebaMedica)
     private readonly pruebaMedicaRepository: Repository<PruebaMedica>,
     @InjectRepository(CitaMedica)
@@ -170,11 +178,13 @@ export class SaludService {
       dto.restricciones = null;
       dto.observaciones = null;
       dto.diagnosticos_cie10 = null;
+      dto.programas_vigilancia = null;
     }
 
-    // Incluir documentos en la respuesta para centro médico/médico (evita ruta separada)
+    // Incluir documentos y seguimientos en la respuesta para centro médico/médico
     if (esProfesionalSalud) {
       dto.documentos = await this.findDocumentosExamen(id);
+      dto.seguimientos = await this.findSeguimientosExamen(id);
     }
 
     return dto;
@@ -198,6 +208,7 @@ export class SaludService {
         'restricciones',
         'observaciones',
         'diagnosticos_cie10',
+        'programas_vigilancia',
         'fecha_realizado',
         'fecha_vencimiento',
         'resultado_archivo_url',
@@ -248,6 +259,10 @@ export class SaludService {
     if (dto.resultado !== undefined) examen.resultado = dto.resultado;
     if (dto.restricciones !== undefined) examen.restricciones = dto.restricciones;
     if (dto.observaciones !== undefined) examen.observaciones = dto.observaciones;
+    if (dto.diagnosticos_cie10 !== undefined)
+      examen.diagnosticosCie10 = dto.diagnosticos_cie10;
+    if (dto.programas_vigilancia !== undefined)
+      examen.programasVigilancia = dto.programas_vigilancia;
     if (dto.resultado_archivo_url !== undefined)
       examen.resultadoArchivoUrl = dto.resultado_archivo_url;
     if (dto.estado !== undefined) examen.estado = dto.estado;
@@ -808,6 +823,106 @@ export class SaludService {
       url: d.url,
       created_at: d.createdAt.toISOString(),
     }));
+  }
+
+  // ========== SEGUIMIENTOS MÉDICOS (Interconsultas y Vigilancia) ==========
+  async findSeguimientosExamen(examenId: string): Promise<
+    Array<{
+      id: string;
+      tipo: string;
+      cie10_code: string;
+      cie10_description: string | null;
+      especialidad: string;
+      estado: string;
+      plazo: string;
+      motivo: string | null;
+    }>
+  > {
+    const items = await this.seguimientoRepository.find({
+      where: { examenMedicoId: examenId },
+      order: { createdAt: 'DESC' },
+    });
+    return items.map((s) => ({
+      id: s.id,
+      tipo: s.tipo,
+      cie10_code: s.cie10Code,
+      cie10_description: s.cie10Description,
+      especialidad: s.especialidad,
+      estado: s.estado,
+      plazo: s.plazo.toISOString().split('T')[0],
+      motivo: s.motivo,
+    }));
+  }
+
+  async createSeguimiento(
+    examenId: string,
+    dto: CreateSeguimientoMedicoDto,
+    user?: { id: string; roles: string[] },
+  ) {
+    const examen = await this.examenRepository.findOne({ where: { id: examenId } });
+    if (!examen) throw new NotFoundException('Examen no encontrado');
+    if (!user || !this.isProfesionalSalud(user.roles)) {
+      throw new ForbiddenException(
+        'Solo el profesional de salud puede agregar interconsultas o vigilancias.',
+      );
+    }
+
+    const seg = this.seguimientoRepository.create({
+      examenMedicoId: examenId,
+      tipo: dto.tipo,
+      cie10Code: dto.cie10_code,
+      cie10Description: dto.cie10_description ?? null,
+      especialidad: dto.especialidad,
+      estado: (dto.estado as EstadoSeguimiento) ?? EstadoSeguimiento.PENDIENTE,
+      plazo: new Date(dto.plazo),
+      motivo: dto.motivo ?? null,
+    });
+    const saved = await this.seguimientoRepository.save(seg);
+    return this.findSeguimientosExamen(examenId);
+  }
+
+  async updateSeguimiento(
+    examenId: string,
+    segId: string,
+    dto: UpdateSeguimientoMedicoDto,
+    user?: { id: string; roles: string[] },
+  ) {
+    const seg = await this.seguimientoRepository.findOne({
+      where: { id: segId, examenMedicoId: examenId },
+    });
+    if (!seg) throw new NotFoundException('Seguimiento no encontrado');
+    if (!user || !this.isProfesionalSalud(user.roles)) {
+      throw new ForbiddenException(
+        'Solo el profesional de salud puede modificar seguimientos.',
+      );
+    }
+
+    if (dto.cie10_code !== undefined) seg.cie10Code = dto.cie10_code;
+    if (dto.cie10_description !== undefined) seg.cie10Description = dto.cie10_description;
+    if (dto.especialidad !== undefined) seg.especialidad = dto.especialidad;
+    if (dto.estado !== undefined) seg.estado = dto.estado;
+    if (dto.plazo !== undefined) seg.plazo = new Date(dto.plazo);
+    if (dto.motivo !== undefined) seg.motivo = dto.motivo;
+
+    await this.seguimientoRepository.save(seg);
+    return this.findSeguimientosExamen(examenId);
+  }
+
+  async removeSeguimiento(
+    examenId: string,
+    segId: string,
+    user?: { id: string; roles: string[] },
+  ): Promise<void> {
+    const seg = await this.seguimientoRepository.findOne({
+      where: { id: segId, examenMedicoId: examenId },
+    });
+    if (!seg) throw new NotFoundException('Seguimiento no encontrado');
+    if (!user || !this.isProfesionalSalud(user.roles)) {
+      throw new ForbiddenException(
+        'Solo el profesional de salud puede eliminar seguimientos.',
+      );
+    }
+    await this.seguimientoRepository.softRemove(seg);
   }
 
   /**

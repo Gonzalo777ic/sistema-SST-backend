@@ -25,6 +25,7 @@ export class ResponseExamenMedicoDto {
   restricciones: string | null;
   observaciones: string | null;
   diagnosticos_cie10: Array<{ code: string; description: string }> | null;
+  programas_vigilancia: string[] | null;
   resultado_archivo_url: string | null;
   /** Indica si existe archivo EMO (para admin sin acceso a descarga) */
   resultado_archivo_existe?: boolean;
@@ -35,6 +36,17 @@ export class ResponseExamenMedicoDto {
   fecha_revision_doctor: string | null;
   cargado_por: string | null;
   cargado_por_id: string;
+  /** Seguimientos (interconsultas y vigilancias) del EMO */
+  seguimientos?: Array<{
+    id: string;
+    tipo: string;
+    cie10_code: string;
+    cie10_description: string | null;
+    especialidad: string;
+    estado: string;
+    plazo: string;
+    motivo: string | null;
+  }>;
   /** Documentos subidos por centro médico (solo cuando aplica) */
   documentos?: Array<{
     id: string;
@@ -60,6 +72,7 @@ export class ResponseExamenMedicoDto {
     restricciones: string | null;
     observaciones: string | null;
     diagnosticosCie10?: Array<{ code: string; description: string }> | null;
+    programasVigilancia?: string[] | null;
     resultadoArchivoUrl: string | null;
     estado: EstadoExamen;
     vistoPorAdmin?: boolean;
@@ -103,6 +116,7 @@ export class ResponseExamenMedicoDto {
     dto.restricciones = examen.restricciones;
     dto.observaciones = examen.observaciones;
     dto.diagnosticos_cie10 = examen.diagnosticosCie10 ?? null;
+    dto.programas_vigilancia = examen.programasVigilancia ?? null;
     dto.resultado_archivo_url = examen.resultadoArchivoUrl;
     dto.estado = examen.estado;
     dto.visto_por_admin = examen.vistoPorAdmin ?? false;

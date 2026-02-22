@@ -31,6 +31,8 @@ import { ResponseComentarioMedicoDto } from './dto/response-comentario-medico.dt
 import { CreateHorarioDoctorDto } from './dto/create-horario-doctor.dto';
 import { UpdateHorarioDoctorDto } from './dto/update-horario-doctor.dto';
 import { ResponseHorarioDoctorDto } from './dto/response-horario-doctor.dto';
+import { CreateSeguimientoMedicoDto } from './dto/create-seguimiento-medico.dto';
+import { UpdateSeguimientoMedicoDto } from './dto/update-seguimiento-medico.dto';
 
 @Controller('salud')
 @UseGuards(JwtAuthGuard)
@@ -188,6 +190,35 @@ export class SaludController {
     @CurrentUser() user: { id: string; roles: string[] },
   ) {
     return this.saludService.notificarResultadosListos(id, user);
+  }
+
+  // ========== SEGUIMIENTOS (Interconsultas y Vigilancia) ==========
+  @Post('examenes/:id/seguimientos')
+  async createSeguimiento(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateSeguimientoMedicoDto,
+    @CurrentUser() user: { id: string; roles: string[] },
+  ) {
+    return this.saludService.createSeguimiento(id, dto, user);
+  }
+
+  @Patch('examenes/:examenId/seguimientos/:segId')
+  async updateSeguimiento(
+    @Param('examenId', ParseUUIDPipe) examenId: string,
+    @Param('segId', ParseUUIDPipe) segId: string,
+    @Body() dto: UpdateSeguimientoMedicoDto,
+    @CurrentUser() user: { id: string; roles: string[] },
+  ) {
+    return this.saludService.updateSeguimiento(examenId, segId, dto, user);
+  }
+
+  @Delete('examenes/:examenId/seguimientos/:segId')
+  async removeSeguimiento(
+    @Param('examenId', ParseUUIDPipe) examenId: string,
+    @Param('segId', ParseUUIDPipe) segId: string,
+    @CurrentUser() user: { id: string; roles: string[] },
+  ) {
+    await this.saludService.removeSeguimiento(examenId, segId, user);
   }
 
   // ========== CITAS MÉDICAS ==========

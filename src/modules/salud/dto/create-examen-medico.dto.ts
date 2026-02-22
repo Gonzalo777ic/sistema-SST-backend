@@ -74,6 +74,11 @@ export class CreateExamenMedicoDto {
   diagnosticos_cie10?: Array<{ code: string; description: string }>;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  programas_vigilancia?: string[];
+
+  @IsOptional()
   @IsUrl()
   resultado_archivo_url?: string;
 
