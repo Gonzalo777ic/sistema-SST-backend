@@ -16,7 +16,9 @@ import { SaludTrabajadorService } from './salud-trabajador.service';
 import { UpdateSaludTrabajadorDto } from './dto/update-salud-trabajador.dto';
 import { ResponseSaludTrabajadorDto } from './dto/response-salud-trabajador.dto';
 import { ResponseHabitoNocivoDto } from './dto/response-habito-nocivo.dto';
+import { ResponseAusentismoMedicoDto } from './dto/response-ausentismo.dto';
 import { UpsertHabitoNocivoItemDto } from './dto/upsert-habito-nocivo.dto';
+import { UpsertAusentismoItemDto } from './dto/upsert-ausentismo.dto';
 
 /**
  * Datos de salud del trabajador (Sección IV: Antecedentes Patológicos y Hábitos Nocivos).
@@ -35,6 +37,8 @@ export class SaludTrabajadorController {
   ): Promise<{
     antecedentes_patologicos: ResponseSaludTrabajadorDto | null;
     habitos_nocivos: ResponseHabitoNocivoDto[];
+    ausentismos: ResponseAusentismoMedicoDto[];
+    nro_hijos_vivos: number | null;
   }> {
     return this.service.findAllByTrabajadorId(trabajadorId);
   }
@@ -45,6 +49,14 @@ export class SaludTrabajadorController {
     @Body() dto: UpdateSaludTrabajadorDto,
   ): Promise<ResponseSaludTrabajadorDto> {
     return this.service.upsertSalud(trabajadorId, dto);
+  }
+
+  @Post('ausentismos/upsert-bulk')
+  async upsertAusentismosBulk(
+    @Param('trabajadorId', ParseUUIDPipe) trabajadorId: string,
+    @Body() body: { items: UpsertAusentismoItemDto[] },
+  ): Promise<ResponseAusentismoMedicoDto[]> {
+    return this.service.upsertAusentismosBulk(trabajadorId, body.items);
   }
 
   @Post('habitos/upsert-bulk')

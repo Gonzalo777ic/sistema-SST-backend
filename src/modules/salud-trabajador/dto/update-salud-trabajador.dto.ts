@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsInt, Min } from 'class-validator';
 
 export class UpdateSaludTrabajadorDto {
   @IsOptional()
@@ -68,4 +68,26 @@ export class UpdateSaludTrabajadorDto {
   @IsOptional()
   @IsString()
   detalle_otros?: string;
+
+  // Sección V - Antecedentes familiares
+  @IsOptional()
+  @IsString()
+  antecedente_padre?: string;
+
+  @IsOptional()
+  @IsString()
+  antecedente_madre?: string;
+
+  @IsOptional()
+  @IsString()
+  antecedente_hermanos?: string;
+
+  @IsOptional()
+  @IsString()
+  antecedente_esposo?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  nro_hijos_fallecidos?: number;
 }

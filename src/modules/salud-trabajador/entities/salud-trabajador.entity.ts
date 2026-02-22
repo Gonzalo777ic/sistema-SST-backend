@@ -80,6 +80,26 @@ export class SaludTrabajador {
   @Column({ name: 'detalle_otros', type: 'text', nullable: true })
   detalleOtros: string | null;
 
+  // Sección V - Antecedentes patológicos familiares
+  @Column({ name: 'antecedente_padre', type: 'text', nullable: true })
+  antecedentePadre: string | null;
+
+  @Column({ name: 'antecedente_madre', type: 'text', nullable: true })
+  antecedenteMadre: string | null;
+
+  @Column({ name: 'antecedente_hermanos', type: 'text', nullable: true })
+  antecedenteHermanos: string | null;
+
+  @Column({ name: 'antecedente_esposo', type: 'text', nullable: true })
+  antecedenteEsposo: string | null;
+
+  @Column({ name: 'nro_hijos_fallecidos', type: 'int', nullable: true })
+  nroHijosFallecidos: number | null;
+
+  /** Tags extraídos de antecedentes familiares para analítica (Diabetes, HTA, etc.) */
+  @Column({ name: 'tags_familiares', type: 'jsonb', nullable: true })
+  tagsFamiliares: string[] | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
