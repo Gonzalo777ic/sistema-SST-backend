@@ -103,13 +103,75 @@ export class ExamenMedico {
   @Column({ type: 'text', nullable: true })
   observaciones: string | null;
 
-  /** Diagnósticos CIE10 del EMO. JSON: [{code, description}] */
+  /** Diagnósticos CIE10 del EMO. tipo: P=Presuntivo, D=Definitivo, R=Repetitivo */
   @Column({ name: 'diagnosticos_cie10', type: 'jsonb', nullable: true })
-  diagnosticosCie10: Array<{ code: string; description: string }> | null;
+  diagnosticosCie10: Array<{ code: string; description: string; tipo?: 'P' | 'D' | 'R' }> | null;
 
   /** Programas de vigilancia médica (ej. Psicología, Nutrición, Auditivos). */
   @Column({ name: 'programas_vigilancia', type: 'jsonb', nullable: true })
   programasVigilancia: string[] | null;
+
+  /**
+   * Datos detallados de la Sección VI (Anexo 02): Evaluación Clínica.
+   * "Foto del momento" por EMO: antropometría, signos vitales, examen físico.
+   * Permite comparativa entre exámenes del mismo trabajador.
+   */
+  @Column({ name: 'evaluacion_clinica', type: 'jsonb', nullable: true })
+  evaluacionClinica: {
+    anamnesis?: string;
+    ectoscopia?: string;
+    estadoMental?: string;
+    antropometria?: {
+      talla: number;
+      peso: number;
+      imc: number;
+      perimetroAbdominal?: number;
+    };
+    funcionesVitales?: {
+      frecuenciaRespiratoria?: number;
+      frecuenciaCardiaca?: number;
+      presionArterial?: string;
+      temperatura?: number;
+      otros?: string;
+    };
+    examenFisico?: Array<{
+      organoSistema: string;
+      sinHallazgo: boolean;
+      hallazgoDetalle: string | null;
+      /** Solo para "Ojos y Anexos" */
+      ojosAnexos?: {
+        agudezaVisualOD?: string;
+        agudezaVisualOI?: string;
+        conCorrectoresOD?: string;
+        conCorrectoresOI?: string;
+        fondoOjo?: string;
+        visionColores?: string;
+        visionProfundidad?: string;
+      };
+      /** Solo para "Aparato Locomotor" */
+      aparatoLocomotor?: {
+        marcha?: string;
+        columna?: string;
+        miembrosSuperiores?: string;
+        miembrosInferiores?: string;
+      };
+    }>;
+    /** VII-XII: Resumen de exámenes auxiliares (conclusiones clínicas) */
+    resumenAuxiliares?: {
+      psicologia?: string;
+      radiografia?: string;
+      laboratorio?: string;
+      audiometria?: string;
+      espirometria?: string;
+      otros?: string;
+    };
+    /** Diagnósticos relacionados al trabajo. tipo: P=Presuntivo, D=Definitivo, R=Repetitivo */
+    diagnosticos_ocupacionales?: Array<{ code: string; description: string; tipo: 'P' | 'D' | 'R' }>;
+    /** Diagnósticos no ocupacionales */
+    otros_diagnosticos?: Array<{ code: string; description: string; tipo: 'P' | 'D' | 'R' }>;
+    /** Recomendaciones médicas del doctor al trabajador (NO instrucciones de cita) */
+    recomendaciones?: string;
+  } | null;
 
   @Column({ name: 'resultado_archivo_url', type: 'varchar', nullable: true })
   resultadoArchivoUrl: string | null;

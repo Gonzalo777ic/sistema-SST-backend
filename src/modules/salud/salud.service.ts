@@ -209,6 +209,7 @@ export class SaludService {
         'observaciones',
         'diagnosticos_cie10',
         'programas_vigilancia',
+        'evaluacion_clinica',
         'fecha_realizado',
         'fecha_vencimiento',
         'resultado_archivo_url',
@@ -263,6 +264,8 @@ export class SaludService {
       examen.diagnosticosCie10 = dto.diagnosticos_cie10;
     if (dto.programas_vigilancia !== undefined)
       examen.programasVigilancia = dto.programas_vigilancia;
+    if (dto.evaluacion_clinica !== undefined)
+      examen.evaluacionClinica = dto.evaluacion_clinica as any;
     if (dto.resultado_archivo_url !== undefined)
       examen.resultadoArchivoUrl = dto.resultado_archivo_url;
     if (dto.estado !== undefined) examen.estado = dto.estado;

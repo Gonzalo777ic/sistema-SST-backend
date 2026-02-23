@@ -71,12 +71,45 @@ export class CreateExamenMedicoDto {
 
   @IsOptional()
   @IsArray()
-  diagnosticos_cie10?: Array<{ code: string; description: string }>;
+  diagnosticos_cie10?: Array<{ code: string; description: string; tipo?: 'P' | 'D' | 'R' }>;
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   programas_vigilancia?: string[];
+
+  @IsOptional()
+  evaluacion_clinica?: {
+    anamnesis?: string;
+    ectoscopia?: string;
+    estadoMental?: string;
+    antropometria?: { talla: number; peso: number; imc: number; perimetroAbdominal?: number };
+    funcionesVitales?: {
+      frecuenciaRespiratoria?: number;
+      frecuenciaCardiaca?: number;
+      presionArterial?: string;
+      temperatura?: number;
+      otros?: string;
+    };
+    examenFisico?: Array<{
+      organoSistema: string;
+      sinHallazgo: boolean;
+      hallazgoDetalle: string | null;
+      ojosAnexos?: Record<string, string>;
+      aparatoLocomotor?: Record<string, string>;
+    }>;
+    resumenAuxiliares?: {
+      psicologia?: string;
+      radiografia?: string;
+      laboratorio?: string;
+      audiometria?: string;
+      espirometria?: string;
+      otros?: string;
+    };
+    diagnosticos_ocupacionales?: Array<{ code: string; description: string; tipo: 'P' | 'D' | 'R' }>;
+    otros_diagnosticos?: Array<{ code: string; description: string; tipo: 'P' | 'D' | 'R' }>;
+    recomendaciones?: string;
+  };
 
   @IsOptional()
   @IsUrl()

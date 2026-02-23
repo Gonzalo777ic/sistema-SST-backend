@@ -61,8 +61,40 @@ export class ResponseExamenMedicoDto {
   resultado: ResultadoExamen;
   restricciones: string | null;
   observaciones: string | null;
-  diagnosticos_cie10: Array<{ code: string; description: string }> | null;
+  diagnosticos_cie10: Array<{ code: string; description: string; tipo?: 'P' | 'D' | 'R' }> | null;
   programas_vigilancia: string[] | null;
+  /** Sección VI: Evaluación clínica (anamnesis, ectoscopía, examen físico) */
+  evaluacion_clinica: {
+    anamnesis?: string;
+    ectoscopia?: string;
+    estadoMental?: string;
+    antropometria?: { talla: number; peso: number; imc: number; perimetroAbdominal?: number };
+    funcionesVitales?: {
+      frecuenciaRespiratoria?: number;
+      frecuenciaCardiaca?: number;
+      presionArterial?: string;
+      temperatura?: number;
+      otros?: string;
+    };
+    examenFisico?: Array<{
+      organoSistema: string;
+      sinHallazgo: boolean;
+      hallazgoDetalle: string | null;
+      ojosAnexos?: Record<string, string>;
+      aparatoLocomotor?: Record<string, string>;
+    }>;
+    resumenAuxiliares?: {
+      psicologia?: string;
+      radiografia?: string;
+      laboratorio?: string;
+      audiometria?: string;
+      espirometria?: string;
+      otros?: string;
+    };
+    diagnosticos_ocupacionales?: Array<{ code: string; description: string; tipo: 'P' | 'D' | 'R' }>;
+    otros_diagnosticos?: Array<{ code: string; description: string; tipo: 'P' | 'D' | 'R' }>;
+    recomendaciones?: string;
+  } | null;
   resultado_archivo_url: string | null;
   /** Indica si existe archivo EMO (para admin sin acceso a descarga) */
   resultado_archivo_existe?: boolean;
@@ -237,6 +269,7 @@ export class ResponseExamenMedicoDto {
     dto.observaciones = examen.observaciones;
     dto.diagnosticos_cie10 = examen.diagnosticosCie10 ?? null;
     dto.programas_vigilancia = examen.programasVigilancia ?? null;
+    dto.evaluacion_clinica = (examen as any).evaluacionClinica ?? null;
     dto.resultado_archivo_url = examen.resultadoArchivoUrl;
     dto.estado = examen.estado;
     dto.visto_por_admin = examen.vistoPorAdmin ?? false;
