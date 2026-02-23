@@ -440,12 +440,35 @@ export class TrabajadoresService {
       }
     }
 
+    let logoDocumentosUrl = trabajador.logoDocumentosUrl;
+    if (dto.logo_documentos_base64 !== undefined) {
+      if (dto.logo_documentos_base64 && dto.logo_documentos_base64.startsWith('data:image/')) {
+        if (this.storageService.isAvailable()) {
+          const base64Data = dto.logo_documentos_base64.replace(/^data:image\/\w+;base64,/, '');
+          const buffer = Buffer.from(base64Data, 'base64');
+          const empresa = trabajador.empresa as any;
+          const rucEmpresa = empresa?.ruc ?? 'sistema';
+          logoDocumentosUrl = await this.storageService.uploadFile(
+            rucEmpresa,
+            buffer,
+            'logo_documentos',
+            { filename: `logo-documentos-${id}.png` },
+          );
+        } else {
+          logoDocumentosUrl = dto.logo_documentos_base64;
+        }
+      } else {
+        logoDocumentosUrl = null;
+      }
+    }
+
     Object.assign(trabajador, {
       cmp: dto.cmp !== undefined ? dto.cmp : trabajador.cmp,
       rne: dto.rne !== undefined ? dto.rne : trabajador.rne,
       firmaDigitalUrl: firmaUrl,
       selloUrl: selloUrl !== undefined ? selloUrl : trabajador.selloUrl,
       tituloSello: dto.titulo_sello !== undefined ? dto.titulo_sello : trabajador.tituloSello,
+      logoDocumentosUrl: logoDocumentosUrl !== undefined ? logoDocumentosUrl : trabajador.logoDocumentosUrl,
       tallaCasco: dto.talla_casco !== undefined ? dto.talla_casco : trabajador.tallaCasco,
       tallaCamisa: dto.talla_camisa !== undefined ? dto.talla_camisa : trabajador.tallaCamisa,
       tallaPantalon: dto.talla_pantalon !== undefined ? dto.talla_pantalon : trabajador.tallaPantalon,

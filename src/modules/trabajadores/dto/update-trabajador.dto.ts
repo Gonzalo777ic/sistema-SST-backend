@@ -88,6 +88,11 @@ export class UpdateMedicoPersonalDataDto {
   @IsString()
   titulo_sello?: string;
 
+  /** Logo para documentos (Cargo, Certificado, Carta). Base64 o URL. Si vacío, se muestra solo texto. */
+  @IsOptional()
+  @IsString()
+  logo_documentos_base64?: string;
+
   @IsOptional()
   @IsString()
   talla_casco?: string;

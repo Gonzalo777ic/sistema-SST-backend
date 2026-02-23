@@ -236,6 +236,10 @@ export class Trabajador {
   @Column({ name: 'titulo_sello', type: 'varchar', length: 100, nullable: true })
   tituloSello: string | null;
 
+  /** Médico Ocupacional: URL del logo para documentos (Cargo, Certificado, Carta). Si vacío, se muestra solo texto. */
+  @Column({ name: 'logo_documentos_url', type: 'varchar', nullable: true })
+  logoDocumentosUrl: string | null;
+
   /** Médico Ocupacional: si true, tiene acceso a todas las empresas del proyecto */
   @Column({ name: 'acceso_todas_empresas', type: 'boolean', default: false })
   accesoTodasEmpresas: boolean;

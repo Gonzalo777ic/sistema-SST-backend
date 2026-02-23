@@ -271,19 +271,26 @@ export class SaludService {
     if (dto.estado !== undefined) examen.estado = dto.estado;
 
     // Cuando el médico ocupacional guarda la aptitud (Apto/No Apto), estado → COMPLETADO
+    // Si resultado es Pendiente (OBSERVADO) y se envía estado Observado, se respeta
     const estadoActual = dto.estado ?? examen.estado;
+    const yaFinalizado = estadoActual === EstadoExamen.Completado || estadoActual === EstadoExamen.Entregado || estadoActual === EstadoExamen.Observado;
     if (
       esProfesionalSalud &&
       user?.id &&
       dto.resultado !== undefined &&
       dto.resultado !== ResultadoExamen.Pendiente &&
-      estadoActual !== EstadoExamen.Completado &&
-      estadoActual !== EstadoExamen.Entregado
+      !yaFinalizado
     ) {
       examen.estado = EstadoExamen.Completado;
       examen.revisadoPorDoctor = true;
       examen.fechaRevisionDoctor = new Date();
       examen.doctorInternoId = user.id;
+    }
+    if (dto.estado === EstadoExamen.Observado) {
+      examen.estado = EstadoExamen.Observado;
+      examen.revisadoPorDoctor = true;
+      examen.fechaRevisionDoctor = new Date();
+      examen.doctorInternoId = user?.id ?? null;
     }
 
     await this.examenRepository.save(examen);

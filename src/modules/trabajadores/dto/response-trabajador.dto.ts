@@ -69,6 +69,7 @@ export class ResponseTrabajadorDto {
   rne: string | null;
   sello_url: string | null;
   titulo_sello: string | null;
+  logo_documentos_url: string | null;
   createdAt: Date;
   updatedAt: Date;
 
@@ -212,6 +213,7 @@ export class ResponseTrabajadorDto {
     dto.rne = (t as any).rne ?? null;
     dto.sello_url = (t as any).selloUrl ?? null;
     dto.titulo_sello = (t as any).tituloSello ?? null;
+    dto.logo_documentos_url = (t as any).logoDocumentosUrl ?? null;
     dto.createdAt = t.createdAt;
     dto.updatedAt = t.updatedAt;
     return dto;

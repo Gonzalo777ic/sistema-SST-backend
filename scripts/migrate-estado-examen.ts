@@ -35,7 +35,7 @@ async function migrate() {
 
   try {
     // 1. Agregar nuevos valores al enum (cada ADD VALUE en transacción separada en PG)
-    const nuevosValores = ['Pruebas Cargadas', 'Completado', 'Entregado', 'Reprogramado', 'Cancelado'];
+    const nuevosValores = ['Pruebas Cargadas', 'Completado', 'Entregado', 'Observado', 'Reprogramado', 'Cancelado'];
     for (const val of nuevosValores) {
       try {
         await qr.query(`ALTER TYPE "${ENUM_NAME}" ADD VALUE IF NOT EXISTS '${val}'`);

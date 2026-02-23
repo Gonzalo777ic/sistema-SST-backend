@@ -38,6 +38,8 @@ export enum EstadoExamen {
   Completado = 'Completado',
   /** El trabajador ya recibió sus resultados y se tiene el cargo firmado (Cierre legal). */
   Entregado = 'Entregado',
+  /** Examen con interconsulta pendiente; aptitud OBSERVADO. */
+  Observado = 'Observado',
   /** Se cambió la fecha original. Sirve para auditoría. */
   Reprogramado = 'Reprogramado',
   /** La cita no se dará (inasistencia o error). */

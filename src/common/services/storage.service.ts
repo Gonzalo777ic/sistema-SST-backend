@@ -3,7 +3,7 @@ import { Storage } from '@google-cloud/storage';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
-export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'firma_recepcion' | 'firma_capacitador' | 'firma_gerente' | 'firma_medico' | 'sello_medico' | 'pdf_entrega' | 'kardex_pdf' | 'certificado_capacitacion' | 'logo_empresa' | 'imagen_epp' | 'ficha_pdf_epp' | 'foto_trabajador' | 'adjunto_capacitacion' | 'centro_medico_pdf' | 'documento_emo' | 'ficha_emo';
+export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'firma_recepcion' | 'firma_capacitador' | 'firma_gerente' | 'firma_medico' | 'sello_medico' | 'logo_documentos' | 'pdf_entrega' | 'kardex_pdf' | 'certificado_capacitacion' | 'logo_empresa' | 'imagen_epp' | 'ficha_pdf_epp' | 'foto_trabajador' | 'adjunto_capacitacion' | 'centro_medico_pdf' | 'documento_emo' | 'ficha_emo';
 
 @Injectable()
 export class StorageService {

@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString, IsInt, Min } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsInt, Min, IsArray } from 'class-validator';
 
 export class UpdateSaludTrabajadorDto {
   @IsOptional()
@@ -90,4 +90,9 @@ export class UpdateSaludTrabajadorDto {
   @IsInt()
   @Min(0)
   nro_hijos_fallecidos?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags_familiares?: string[] | null;
 }

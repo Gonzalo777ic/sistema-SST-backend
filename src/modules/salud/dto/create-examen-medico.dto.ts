@@ -109,6 +109,10 @@ export class CreateExamenMedicoDto {
     diagnosticos_ocupacionales?: Array<{ code: string; description: string; tipo: 'P' | 'D' | 'R' }>;
     otros_diagnosticos?: Array<{ code: string; description: string; tipo: 'P' | 'D' | 'R' }>;
     recomendaciones?: string;
+    /** Borrador de Ficha Anexo 02 (Sección I) - persistido al guardar desde formulario */
+    fichaAnexo02?: Record<string, unknown>;
+    /** Filiación del trabajador (Sección II) - persistido al guardar desde formulario */
+    filiacion?: Record<string, unknown>;
   };
 
   @IsOptional()
