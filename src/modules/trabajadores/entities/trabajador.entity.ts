@@ -13,6 +13,7 @@ import {
 } from 'typeorm';
 import { Empresa } from '../../empresas/entities/empresa.entity';
 import { Area } from '../../empresas/entities/area.entity';
+import { Cargo } from '../../cargos/entities/cargo.entity';
 import { Usuario } from '../../usuarios/entities/usuario.entity';
 
 export enum TipoDocumento {
@@ -181,8 +182,15 @@ export class Trabajador {
   contactoEmergenciaTelefono: string | null;
 
   // Datos laborales
-  @Column({ name: 'cargo', type: 'varchar' })
-  cargo: string;
+  @Column({ name: 'cargo', type: 'varchar', nullable: true })
+  cargo: string | null;
+
+  @Column({ name: 'cargo_id', type: 'uuid', nullable: true })
+  cargoId: string | null;
+
+  @ManyToOne(() => Cargo, { nullable: true })
+  @JoinColumn({ name: 'cargo_id' })
+  cargoRef: Cargo | null;
 
   @Column({ name: 'jefe_directo', type: 'varchar', nullable: true })
   jefeDirecto: string | null;

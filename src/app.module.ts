@@ -32,6 +32,7 @@ import { AccionesCorrectivasModule } from './modules/acciones-correctivas/accion
 import { ReportesModule } from './modules/reportes/reportes.module';
 import { AuditoriaModule } from './modules/auditoria/auditoria.module';
 import { Cie10Module } from './modules/cie10/cie10.module';
+import { CargosModule } from './modules/cargos/cargos.module';
 import { CommonModule } from './common/common.module';
 
 @Module({
@@ -80,6 +81,7 @@ import { CommonModule } from './common/common.module';
     ReportesModule,
     AuditoriaModule,
     Cie10Module,
+    CargosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

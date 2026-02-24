@@ -30,8 +30,13 @@ export class CreateTrabajadorDto {
   @MinLength(1, { message: 'El número de documento es obligatorio' })
   numero_documento: string;
 
+  @IsOptional()
   @IsString()
-  cargo: string;
+  cargo?: string;
+
+  @IsOptional()
+  @IsUUID()
+  cargo_id?: string;
 
   @IsOptional()
   @IsUUID()

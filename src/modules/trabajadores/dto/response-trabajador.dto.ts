@@ -13,7 +13,8 @@ export class ResponseTrabajadorDto {
   tipo_documento: TipoDocumento | null;
   numero_documento: string | null;
   documento_identidad: string;
-  cargo: string;
+  cargo: string | null;
+  cargo_id?: string | null;
   area_id: string | null;
   area_nombre?: string | null;
   telefono: string | null;
@@ -82,7 +83,8 @@ export class ResponseTrabajadorDto {
     tipoDocumento: TipoDocumento | null;
     numeroDocumento: string | null;
     documentoIdentidad: string;
-    cargo: string;
+    cargo: string | null;
+    cargoRef?: { nombre: string } | null;
     areaId: string | null;
     area?: { nombre: string } | null;
     telefono: string | null;
@@ -149,7 +151,8 @@ export class ResponseTrabajadorDto {
     dto.tipo_documento = t.tipoDocumento;
     dto.numero_documento = t.numeroDocumento;
     dto.documento_identidad = t.documentoIdentidad;
-    dto.cargo = t.cargo;
+    dto.cargo = (t as any).cargoRef?.nombre ?? t.cargo ?? null;
+    dto.cargo_id = (t as any).cargoId ?? null;
     dto.area_id = t.areaId ?? null;
     dto.area_nombre = t.area?.nombre ?? null;
     dto.telefono = t.telefono;

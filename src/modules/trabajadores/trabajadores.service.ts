@@ -33,6 +33,9 @@ export class TrabajadoresService {
   }
 
   async create(dto: CreateTrabajadorDto): Promise<ResponseTrabajadorDto> {
+    if (!dto.cargo_id && !dto.cargo?.trim()) {
+      throw new BadRequestException('Debe indicar el cargo (cargo_id o cargo)');
+    }
     const documentoIdentidad = dto.numero_documento;
     const nombreCompleto = this.buildNombreCompleto(
       dto.apellido_paterno,
@@ -62,7 +65,8 @@ export class TrabajadoresService {
       tipoDocumento: dto.tipo_documento,
       numeroDocumento: dto.numero_documento,
       documentoIdentidad,
-      cargo: dto.cargo,
+      cargo: dto.cargo_id ? null : (dto.cargo ?? null),
+      cargoId: dto.cargo_id ?? null,
       areaId: dto.area_id ?? null,
       telefono: dto.telefono ?? null,
       emailPersonal: dto.email ?? null,
@@ -110,7 +114,7 @@ export class TrabajadoresService {
     await this.trabajadorRepository.save(trabajador);
     const saved = await this.trabajadorRepository.findOne({
       where: { id: trabajador.id },
-      relations: ['usuario', 'area', 'empresa'],
+      relations: ['usuario', 'area', 'empresa', 'cargoRef'],
       withDeleted: false,
     });
     return ResponseTrabajadorDto.fromEntity(saved!);
@@ -120,7 +124,7 @@ export class TrabajadoresService {
     const where = empresaId ? { empresaId } : {};
     const trabajadores = await this.trabajadorRepository.find({
       where,
-      relations: ['usuario', 'area', 'empresa'],
+      relations: ['usuario', 'area', 'empresa', 'cargoRef'],
       order: { nombreCompleto: 'ASC' },
       withDeleted: false,
     });
@@ -149,7 +153,7 @@ export class TrabajadoresService {
   async findOne(id: string): Promise<ResponseTrabajadorDto> {
     const trabajador = await this.trabajadorRepository.findOne({
       where: { id },
-      relations: ['usuario', 'area', 'empresa'],
+      relations: ['usuario', 'area', 'empresa', 'cargoRef'],
       withDeleted: false,
     });
 
@@ -167,7 +171,7 @@ export class TrabajadoresService {
   ): Promise<ResponseTrabajadorDto> {
     const trabajadorExistente = await this.trabajadorRepository.findOne({
       where: { id },
-      relations: ['usuario', 'area', 'empresa'],
+      relations: ['usuario', 'area', 'empresa', 'cargoRef'],
       withDeleted: false,
     });
 
@@ -186,7 +190,11 @@ export class TrabajadoresService {
     if (dto.nombres !== undefined) updateData.nombres = dto.nombres;
     if (dto.apellido_paterno !== undefined) updateData.apellidoPaterno = dto.apellido_paterno;
     if (dto.apellido_materno !== undefined) updateData.apellidoMaterno = dto.apellido_materno;
-    if (dto.cargo !== undefined) updateData.cargo = dto.cargo;
+    if (dto.cargo_id !== undefined) {
+      updateData.cargoId = dto.cargo_id || null;
+      updateData.cargo = dto.cargo_id ? null : (dto.cargo ?? trabajadorExistente.cargo);
+    }
+    if (dto.cargo !== undefined && !dto.cargo_id) updateData.cargo = dto.cargo;
     if (dto.area_id !== undefined) {
       updateData.areaId = dto.area_id === null || dto.area_id === '' ? null : dto.area_id;
     }
@@ -286,7 +294,7 @@ export class TrabajadoresService {
 
     const updated = await this.trabajadorRepository.findOne({
       where: { id: saved.id },
-      relations: ['usuario', 'area', 'empresa'],
+      relations: ['usuario', 'area', 'empresa', 'cargoRef'],
       withDeleted: false,
     });
 
@@ -382,7 +390,7 @@ export class TrabajadoresService {
     await this.trabajadorRepository.save(trabajador);
     const updated = await this.trabajadorRepository.findOne({
       where: { id },
-      relations: ['usuario', 'area', 'empresa'],
+      relations: ['usuario', 'area', 'empresa', 'cargoRef'],
       withDeleted: false,
     });
     return ResponseTrabajadorDto.fromEntity(updated!);
@@ -479,7 +487,7 @@ export class TrabajadoresService {
     await this.trabajadorRepository.save(trabajador);
     const updated = await this.trabajadorRepository.findOne({
       where: { id },
-      relations: ['usuario', 'area', 'empresa'],
+      relations: ['usuario', 'area', 'empresa', 'cargoRef'],
       withDeleted: false,
     });
     return ResponseTrabajadorDto.fromEntity(updated!);

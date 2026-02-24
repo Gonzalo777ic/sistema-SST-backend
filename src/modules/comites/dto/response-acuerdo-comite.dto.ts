@@ -30,7 +30,7 @@ export class ResponseAcuerdoComiteDto {
           id: string;
           nombreCompleto: string;
           documentoIdentidad?: string;
-          cargo: string;
+          cargo: string | null;
           area?: { nombre: string } | null;
         };
       }>;
@@ -50,7 +50,7 @@ export class ResponseAcuerdoComiteDto {
         id: ar.responsable.id,
         nombre: ar.responsable.nombreCompleto,
         dni: ar.responsable.documentoIdentidad,
-        puesto: ar.responsable.cargo,
+        puesto: ar.responsable.cargo ?? undefined,
         area: ar.responsable.area && ar.responsable.area.nombre ? ar.responsable.area.nombre : undefined,
       })) || [];
     dto.observaciones = acuerdo.observaciones;
