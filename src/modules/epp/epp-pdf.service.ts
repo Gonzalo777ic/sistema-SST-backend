@@ -172,19 +172,20 @@ export class EppPdfService {
       ];
 
       // Fila de etiquetas
-      const labelH = 15;
-      doc.fontSize(7).font('Helvetica-Bold');
+      const labelH = 24; // <-- AUMENTADO de 15 a 24 para soportar 2 líneas
+      doc.fontSize(6.5).font('Helvetica-Bold'); // <-- Letra ligeramente más pequeña (6.5)
       let currentX = M;
       for (let c = 0; c < 5; c++) {
         doc.rect(currentX, y, colW[c], labelH).stroke();
-        doc.text(labels[c], currentX + 2, y + 4, { width: colW[c] - 4, align: 'center' });
+        // y + 5 o y + 6 para centrar el texto verticalmente en la nueva altura
+        doc.text(labels[c], currentX + 2, y + 5, { width: colW[c] - 4, align: 'center' });
         currentX += colW[c];
       }
       y += labelH;
 
       // Fila de valores
       const valH = 25;
-      doc.font('Helvetica');
+      doc.fontSize(7).font('Helvetica'); // Restauramos tamaño 7 para los datos
       currentX = M;
       for (let c = 0; c < 5; c++) {
         doc.rect(currentX, y, colW[c], valH).stroke();
@@ -473,20 +474,19 @@ export class EppPdfService {
         doc.text('KARDEX DE EPP - REGISTRO HISTÓRICO DE ENTREGAS', M + logoW, y + 25, { width: pageW - logoW, align: 'center' });
         y += headerH;
 
-        // --- FILAS 2 y 3: EMPRESA ---
         const labels = ['RAZON SOCIAL O DENOMINACION SOCIAL', 'RUC', 'DIRECCIÓN', 'ACTIVIDAD ECONÓMICA', 'Nº TRABAJADORES'];
         const vals = [ empresa?.nombre || '-', empresa?.ruc || '-', empresa?.direccion || '-', (empresa?.actividadEconomica || '-').substring(0, 50), String(empresa?.numeroTrabajadores ?? '-') ];
 
-        doc.fontSize(7).font('Helvetica-Bold');
+        doc.fontSize(6.5).font('Helvetica-Bold');
         let currentX = M;
         for (let c = 0; c < 5; c++) {
-          doc.rect(currentX, y, colW[c], 15).stroke();
-          doc.text(labels[c], currentX + 2, y + 4, { width: colW[c] - 4, align: 'center' });
+          doc.rect(currentX, y, colW[c], 24).stroke();
+          doc.text(labels[c], currentX + 2, y + 5, { width: colW[c] - 4, align: 'center' });
           currentX += colW[c];
         }
-        y += 15;
+        y += 24; 
 
-        doc.font('Helvetica');
+        doc.fontSize(7).font('Helvetica');
         currentX = M;
         for (let c = 0; c < 5; c++) {
           doc.rect(currentX, y, colW[c], 25).stroke();
@@ -495,8 +495,6 @@ export class EppPdfService {
         }
         y += 25;
 
-        // --- FILAS 4 y 5: TRABAJADOR Y RESPONSABLE ---
-        // Trabajador
         doc.rect(M, y, 140, rowInfoH).stroke();
         doc.rect(M + 140, y, 220, rowInfoH).stroke();
         doc.rect(M + 360, y, 40, rowInfoH).stroke();
