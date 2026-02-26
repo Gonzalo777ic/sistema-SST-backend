@@ -8,6 +8,7 @@ export enum EstadoVigenciaKardex {
 export class ResponseKardexListItemDto {
   trabajador_id: string;
   trabajador_nombre: string;
+  trabajador_documento: string | null;
   razon_social: string | null;
   unidad: string | null;
   area: string | null;

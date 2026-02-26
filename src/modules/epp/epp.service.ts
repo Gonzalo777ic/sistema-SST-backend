@@ -1244,6 +1244,7 @@ export class EppService {
       result.push({
         trabajador_id: t?.id ?? solicitud.solicitanteId,
         trabajador_nombre: t?.nombreCompleto ?? 'Sin nombre',
+        trabajador_documento: t?.documentoIdentidad ?? null,
         razon_social: emp?.nombre ?? null,
         unidad: t?.unidad ?? null,
         area: area?.nombre ?? null,
