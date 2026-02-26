@@ -171,7 +171,9 @@ export class ExamenMedico {
     diagnosticos_ocupacionales?: Array<{ code: string; description: string; tipo: 'P' | 'D' | 'R' }>;
     /** Diagnósticos no ocupacionales */
     otros_diagnosticos?: Array<{ code: string; description: string; tipo: 'P' | 'D' | 'R' }>;
-    /** Recomendaciones médicas del doctor al trabajador (NO instrucciones de cita) */
+    /** Resumen clínico del médico sobre el hallazgo principal (estado, no orden) */
+    conclusiones?: string;
+    /** Recomendaciones médicas del doctor al trabajador (instrucciones para cuidar su salud) */
     recomendaciones?: string;
   } | null;
 

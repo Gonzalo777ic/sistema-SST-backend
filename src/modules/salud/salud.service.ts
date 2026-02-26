@@ -270,27 +270,18 @@ export class SaludService {
       examen.resultadoArchivoUrl = dto.resultado_archivo_url;
     if (dto.estado !== undefined) examen.estado = dto.estado;
 
-    // Cuando el médico ocupacional guarda la aptitud (Apto/No Apto), estado → COMPLETADO
-    // Si resultado es Pendiente (OBSERVADO) y se envía estado Observado, se respeta
-    const estadoActual = dto.estado ?? examen.estado;
-    const yaFinalizado = estadoActual === EstadoExamen.Completado || estadoActual === EstadoExamen.Entregado || estadoActual === EstadoExamen.Observado;
-    if (
-      esProfesionalSalud &&
-      user?.id &&
-      dto.resultado !== undefined &&
-      dto.resultado !== ResultadoExamen.Pendiente &&
-      !yaFinalizado
-    ) {
-      examen.estado = EstadoExamen.Completado;
-      examen.revisadoPorDoctor = true;
-      examen.fechaRevisionDoctor = new Date();
-      examen.doctorInternoId = user.id;
-    }
+    // El estado solo cambia cuando se envía explícitamente (Terminar EMO → Completado, Marcar Observado → Observado).
+    // Guardar es un checkpoint: no debe auto-pasar a Completado.
     if (dto.estado === EstadoExamen.Observado) {
       examen.estado = EstadoExamen.Observado;
       examen.revisadoPorDoctor = true;
       examen.fechaRevisionDoctor = new Date();
       examen.doctorInternoId = user?.id ?? null;
+    }
+    if (dto.estado === EstadoExamen.Completado && esProfesionalSalud && user?.id) {
+      examen.revisadoPorDoctor = true;
+      examen.fechaRevisionDoctor = new Date();
+      examen.doctorInternoId = user.id;
     }
 
     await this.examenRepository.save(examen);

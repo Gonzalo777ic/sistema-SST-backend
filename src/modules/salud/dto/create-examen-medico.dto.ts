@@ -108,6 +108,9 @@ export class CreateExamenMedicoDto {
     };
     diagnosticos_ocupacionales?: Array<{ code: string; description: string; tipo: 'P' | 'D' | 'R' }>;
     otros_diagnosticos?: Array<{ code: string; description: string; tipo: 'P' | 'D' | 'R' }>;
+    /** Resumen clínico del médico sobre el hallazgo principal (estado, no orden) */
+    conclusiones?: string;
+    /** Instrucciones para el trabajador (qué debe hacer para cuidar su salud) */
     recomendaciones?: string;
     /** Borrador de Ficha Anexo 02 (Sección I) - persistido al guardar desde formulario */
     fichaAnexo02?: Record<string, unknown>;

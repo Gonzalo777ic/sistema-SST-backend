@@ -93,6 +93,7 @@ export class ResponseExamenMedicoDto {
     };
     diagnosticos_ocupacionales?: Array<{ code: string; description: string; tipo: 'P' | 'D' | 'R' }>;
     otros_diagnosticos?: Array<{ code: string; description: string; tipo: 'P' | 'D' | 'R' }>;
+    conclusiones?: string;
     recomendaciones?: string;
   } | null;
   resultado_archivo_url: string | null;
