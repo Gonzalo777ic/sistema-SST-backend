@@ -135,55 +135,34 @@ export class EppPdfService {
       doc.on('error', reject);
       doc.strokeColor('#000000');
 
-      // Encabezado: logo izquierda, título derecha (preserva aspect ratio)
+      let y = M;
+
+      // --- FILA 1: ENCABEZADO (Logo y Título) ---
+      const headerH = 60;
+      const logoW = 140;
+      doc.rect(M, y, logoW, headerH).stroke();
+      doc.rect(M + logoW, y, pageW - logoW, headerH).stroke();
+
       if (logoBuf) {
         try {
-          doc.rect(M, M, logoSize, logoSize).stroke();
-          const logoBox = logoSize - 8;
-          doc.image(logoBuf, M + 4, M + 4, {
-            fit: [logoBox, logoBox],
-            align: 'center',
-            valign: 'center',
-          });
+          doc.image(logoBuf, M + 5, y + 5, { fit: [logoW - 10, headerH - 10], align: 'center', valign: 'center' });
         } catch {
-          doc.rect(M, M, logoSize, logoSize).stroke();
-          doc.fontSize(7).font('Helvetica').text('Logo', M + 10, M + 25);
+          doc.fontSize(7).font('Helvetica').text('Logo', M + 10, y + 25);
         }
-      } else {
-        doc.rect(M, M, logoSize, logoSize).stroke();
-        doc.fontSize(7).font('Helvetica').text('Logo', M + 10, M + 25);
       }
+
       doc.fontSize(11).font('Helvetica-Bold');
       doc.text(
         'REGISTRO DE ENTREGA DE EQUIPO DE PROTECCIÓN PERSONAL Y UNIFORME',
-        M + logoSize + 8,
-        M + 20,
-        { width: pageW - logoSize - 8, align: 'center' }
+        M + logoW, y + 25,
+        { width: pageW - logoW, align: 'center' }
       );
-      doc.font('Helvetica');
+      
+      y += headerH; // Avanzamos sin dejar huecos
 
-      let y = M + logoSize + 16;
-
-      // Grilla datos generales: 5 celdas (2 filas)
-      const colW = [130, 55, 120, 165, 46];
-      const gridW = colW.reduce((a, b) => a + b, 0);
-      const gridX = M + (pageW - gridW) / 2;
-      const rowH = 22;
-      doc.fontSize(7).font('Helvetica-Bold');
-      for (let c = 0; c < 5; c++) {
-        const x = gridX + colW.slice(0, c).reduce((a, b) => a + b, 0);
-        doc.rect(x, y, colW[c], rowH).stroke();
-        const labels = [
-          'RAZON SOCIAL O DENOMINACION SOCIAL',
-          'RUC',
-          'DIRECCIÓN',
-          'ACTIVIDAD ECONÓMICA',
-          'Nº TRABAJADORES',
-        ];
-        doc.text(labels[c], x + 3, y + 5, { width: colW[c] - 6, align: 'center' });
-      }
-      y += rowH;
-      doc.font('Helvetica');
+      // --- FILAS 2 y 3: DATOS DE LA EMPRESA ---
+      const colW = [140, 60, 110, 150, pageW - 460]; // Suman exactamente pageW
+      const labels = ['RAZON SOCIAL O DETERMINACION SOCIAL', 'RUC', 'DIRECCIÓN', 'ACTIVIDAD ECONÓMICA', 'Nº TRABAJADORES'];
       const vals = [
         empresa?.nombre || '-',
         empresa?.ruc || '-',
@@ -191,71 +170,90 @@ export class EppPdfService {
         (empresa?.actividadEconomica || '-').substring(0, 50),
         String(empresa?.numeroTrabajadores ?? '-'),
       ];
+
+      // Fila de etiquetas
+      const labelH = 15;
+      doc.fontSize(7).font('Helvetica-Bold');
+      let currentX = M;
       for (let c = 0; c < 5; c++) {
-        const x = gridX + colW.slice(0, c).reduce((a, b) => a + b, 0);
-        doc.rect(x, y, colW[c], rowH).stroke();
-        doc.text(vals[c], x + 3, y + 5, { width: colW[c] - 6 });
+        doc.rect(currentX, y, colW[c], labelH).stroke();
+        doc.text(labels[c], currentX + 2, y + 4, { width: colW[c] - 4, align: 'center' });
+        currentX += colW[c];
       }
-      y += rowH + 12;
+      y += labelH;
 
-      // Responsable y empleado
-      doc.font('Helvetica-Bold');
-      doc.text('RESPONSABLE DE ENTREGA:', M, y);
+      // Fila de valores
+      const valH = 25;
       doc.font('Helvetica');
-      doc.text(responsableNombre, M + 155, y);
-      y += 14;
-      doc.font('Helvetica-Bold');
-      doc.text('APELLIDOS Y NOMBRES:', M, y);
-      doc.font('Helvetica');
-      doc.text(solicitante?.nombreCompleto || '-', M + 155, y);
-      doc.font('Helvetica-Bold');
-      doc.text('DNI:', M + 350, y);
-      doc.font('Helvetica');
-      doc.text(solicitante?.documentoIdentidad || '-', M + 375, y);
-      y += 20;
+      currentX = M;
+      for (let c = 0; c < 5; c++) {
+        doc.rect(currentX, y, colW[c], valH).stroke();
+        doc.text(vals[c], currentX + 3, y + 5, { width: colW[c] - 6, align: 'center' });
+        currentX += colW[c];
+      }
+      y += valH;
 
-      // Tabla detalle: encabezado con SE ENTREGO: (EPP | UNIFORME)
-      const colWidths = {
-        desc: 130,
-        cant: 38,
-        fecha: 52,
-        area: 75,
-        seEntrego: 38,
-        firmaTrab: 88,
-        firmaResp: 83,
-      };
-      const rowHeight = 58;
-      const tableX = M;
+      // --- FILAS 4 y 5: RESPONSABLE Y TRABAJADOR ---
+      const rowInfoH = 18;
+      
+      // Fila Responsable
+      doc.rect(M, y, 140, rowInfoH).stroke();
+      doc.rect(M + 140, y, pageW - 140, rowInfoH).stroke();
+      doc.font('Helvetica-Bold').text('RESPONSABLE DE ENTREGA:', M + 3, y + 5);
+      doc.font('Helvetica').text(responsableNombre, M + 145, y + 5);
+      y += rowInfoH;
+
+      // Fila Trabajador
+      doc.rect(M, y, 140, rowInfoH).stroke(); // Label Nombre
+      doc.rect(M + 140, y, 220, rowInfoH).stroke(); // Valor Nombre
+      doc.rect(M + 360, y, 40, rowInfoH).stroke(); // Label DNI
+      doc.rect(M + 400, y, pageW - 400, rowInfoH).stroke(); // Valor DNI
+
+      doc.font('Helvetica-Bold').text('APELLIDOS Y NOMBRES:', M + 3, y + 5);
+      doc.font('Helvetica').text(solicitante?.nombreCompleto || '-', M + 145, y + 5);
+      doc.font('Helvetica-Bold').text('DNI:', M + 365, y + 5);
+      doc.font('Helvetica').text(solicitante?.documentoIdentidad || '-', M + 405, y + 5);
+      y += rowInfoH;
+
+      // --- FILA 6: CABECERAS DE LA TABLA ---
+      const colWidths = { desc: 140, cant: 35, fecha: 50, area: 70, epp: 30, unif: 30, firmaTrab: 80, firmaResp: pageW - 435 };
+      const tableHeaderH = 28;
 
       doc.fontSize(7).font('Helvetica-Bold');
-      let x = tableX;
-      doc.rect(x, y, colWidths.desc, 28).stroke();
-      doc.text('DESCRIPCIÓN DE LO ENTREGADO', x + 2, y + 4, { width: colWidths.desc - 4 });
+      let x = M;
+      doc.rect(x, y, colWidths.desc, tableHeaderH).stroke();
+      doc.text('DESCRIPCIÓN DE LO ENTREGADO', x + 2, y + 10, { width: colWidths.desc - 4, align: 'center' });
       x += colWidths.desc;
-      doc.rect(x, y, colWidths.cant, 28).stroke();
-      doc.text('CANTIDAD', x + 2, y + 4, { width: colWidths.cant - 4, align: 'center' });
+      doc.rect(x, y, colWidths.cant, tableHeaderH).stroke();
+      doc.text('CANTIDAD', x + 2, y + 10, { width: colWidths.cant - 4, align: 'center' });
       x += colWidths.cant;
-      doc.rect(x, y, colWidths.fecha, 28).stroke();
-      doc.text('FECHA DE ENTREGA', x + 2, y + 4, { width: colWidths.fecha - 4, align: 'center' });
+      doc.rect(x, y, colWidths.fecha, tableHeaderH).stroke();
+      doc.text('FECHA DE ENTREGA', x + 2, y + 6, { width: colWidths.fecha - 4, align: 'center' });
       x += colWidths.fecha;
-      doc.rect(x, y, colWidths.area, 28).stroke();
-      doc.text('AREA DE TRABAJO', x + 2, y + 4, { width: colWidths.area - 4, align: 'center' });
+      doc.rect(x, y, colWidths.area, tableHeaderH).stroke();
+      doc.text('AREA DE TRABAJO', x + 2, y + 10, { width: colWidths.area - 4, align: 'center' });
       x += colWidths.area;
-      doc.rect(x, y, colWidths.seEntrego * 2, 14).stroke();
-      doc.text('SE ENTREGO:', x + 2, y + 2, { width: colWidths.seEntrego * 2 - 4, align: 'center' });
-      doc.rect(x, y + 14, colWidths.seEntrego, 14).stroke();
-      doc.text('EPP', x + 2, y + 16, { width: colWidths.seEntrego - 4, align: 'center' });
-      doc.rect(x + colWidths.seEntrego, y + 14, colWidths.seEntrego, 14).stroke();
-      doc.text('UNIF.', x + colWidths.seEntrego + 2, y + 16, { width: colWidths.seEntrego - 4, align: 'center' });
-      x += colWidths.seEntrego * 2;
-      doc.rect(x, y, colWidths.firmaTrab, 28).stroke();
-      doc.text('FIRMA DEL TRABAJADOR', x + 2, y + 4, { width: colWidths.firmaTrab - 4, align: 'center' });
+      
+      // Celda dividida para SE ENTREGO
+      doc.rect(x, y, colWidths.epp + colWidths.unif, 14).stroke();
+      doc.text('SE ENTREGO:', x + 2, y + 3, { width: colWidths.epp + colWidths.unif - 4, align: 'center' });
+      doc.rect(x, y + 14, colWidths.epp, 14).stroke();
+      doc.text('EPP', x + 2, y + 16, { width: colWidths.epp - 4, align: 'center' });
+      doc.rect(x + colWidths.epp, y + 14, colWidths.unif, 14).stroke();
+      doc.text('UNIFORME', x + colWidths.epp, y + 16, { width: colWidths.unif, align: 'center' });
+      x += (colWidths.epp + colWidths.unif);
+
+      doc.rect(x, y, colWidths.firmaTrab, tableHeaderH).stroke();
+      doc.text('FIRMA DEL TRABAJADOR', x + 2, y + 6, { width: colWidths.firmaTrab - 4, align: 'center' });
       x += colWidths.firmaTrab;
-      doc.rect(x, y, colWidths.firmaResp, 28).stroke();
-      doc.text('FIRMA DEL RESPONSABLE', x + 2, y + 4, { width: colWidths.firmaResp - 4, align: 'center' });
+      doc.rect(x, y, colWidths.firmaResp, tableHeaderH).stroke();
+      doc.text('FIRMA DEL RESPONSABLE', x + 2, y + 6, { width: colWidths.firmaResp - 4, align: 'center' });
+      
+      y += tableHeaderH;
       doc.font('Helvetica');
 
-      let rowY = y + 28;
+      // --- FILAS DE DATOS ---
+      const rowHeight = 58;
       const imgW = 60;
       const imgH = 32;
 
@@ -264,75 +262,55 @@ export class EppPdfService {
         const desc = `${epp?.nombre || '-'}${epp?.descripcion ? `, ${epp.descripcion}` : ''}`.substring(0, 40);
         const esEpp = epp?.categoria === CategoriaEPP.EPP;
         const horaStr = det.fechaHoraEntrega
-          ? new Date(det.fechaHoraEntrega).toLocaleString('es-PE', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })
+          ? new Date(det.fechaHoraEntrega).toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
           : fechaStr;
-        const hashLine = `${fechaHoraStr.replace(',', '')} - ${hashAuditoria}`;
+        const hashLine = `${horaStr.replace(',', '')} - ${hashAuditoria}`;
 
-        x = tableX;
-        doc.rect(x, rowY, colWidths.desc, rowHeight).stroke();
-        doc.text(desc, x + 3, rowY + 4, { width: colWidths.desc - 6 });
+        x = M;
+        doc.rect(x, y, colWidths.desc, rowHeight).stroke();
+        doc.text(desc, x + 3, y + 4, { width: colWidths.desc - 6 });
         x += colWidths.desc;
-        doc.rect(x, rowY, colWidths.cant, rowHeight).stroke();
-        doc.text(String(det.cantidad), x + 3, rowY + 4, { width: colWidths.cant - 6, align: 'center' });
+        doc.rect(x, y, colWidths.cant, rowHeight).stroke();
+        doc.text(String(det.cantidad), x + 3, y + 25, { width: colWidths.cant - 6, align: 'center' });
         x += colWidths.cant;
-        doc.rect(x, rowY, colWidths.fecha, rowHeight).stroke();
-        doc.text(fechaStr, x + 3, rowY + 4, { width: colWidths.fecha - 6, align: 'center' });
+        doc.rect(x, y, colWidths.fecha, rowHeight).stroke();
+        doc.text(fechaStr, x + 3, y + 25, { width: colWidths.fecha - 6, align: 'center' });
         x += colWidths.fecha;
-        doc.rect(x, rowY, colWidths.area, rowHeight).stroke();
-        doc.text(areaNombre, x + 3, rowY + 4, { width: colWidths.area - 6, align: 'center' });
+        doc.rect(x, y, colWidths.area, rowHeight).stroke();
+        doc.text(areaNombre, x + 3, y + 20, { width: colWidths.area - 6, align: 'center' });
         x += colWidths.area;
-        doc.rect(x, rowY, colWidths.seEntrego, rowHeight).stroke();
-        doc.text(esEpp ? 'X' : '', x + 3, rowY + 4, { width: colWidths.seEntrego - 6, align: 'center' });
-        x += colWidths.seEntrego;
-        doc.rect(x, rowY, colWidths.seEntrego, rowHeight).stroke();
-        doc.text(!esEpp ? 'X' : '', x + 3, rowY + 4, { width: colWidths.seEntrego - 6, align: 'center' });
-        x += colWidths.seEntrego;
+        doc.rect(x, y, colWidths.epp, rowHeight).stroke();
+        doc.text(esEpp ? 'X' : '', x + 3, y + 25, { width: colWidths.epp - 6, align: 'center' });
+        x += colWidths.epp;
+        doc.rect(x, y, colWidths.unif, rowHeight).stroke();
+        doc.text(!esEpp ? 'X' : '', x + 3, y + 25, { width: colWidths.unif - 6, align: 'center' });
+        x += colWidths.unif;
 
         const cellTrabX = x;
         const cellRespX = x + colWidths.firmaTrab;
-        doc.rect(cellTrabX, rowY, colWidths.firmaTrab, rowHeight).stroke();
-        doc.rect(cellRespX, rowY, colWidths.firmaResp, rowHeight).stroke();
+        doc.rect(cellTrabX, y, colWidths.firmaTrab, rowHeight).stroke();
+        doc.rect(cellRespX, y, colWidths.firmaResp, rowHeight).stroke();
 
         const centerTrabX = cellTrabX + (colWidths.firmaTrab - imgW) / 2;
         const centerRespX = cellRespX + (colWidths.firmaResp - imgW) / 2;
         const hashH = 12;
         const imgAreaH = rowHeight - hashH;
-        const centerTrabY = rowY + (imgAreaH - imgH) / 2;
-        const centerRespY = rowY + (rowHeight - imgH) / 2;
+        const centerTrabY = y + (imgAreaH - imgH) / 2;
+        const centerRespY = y + (rowHeight - imgH) / 2;
 
         if (firmaTrabajadorBuf) {
-          try {
-            doc.image(firmaTrabajadorBuf, centerTrabX, centerTrabY, { width: imgW, height: imgH });
-          } catch {
-            doc.text('-', cellTrabX + colWidths.firmaTrab / 2 - 4, rowY + imgAreaH / 2 - 4);
-          }
-        } else {
-          doc.text('-', cellTrabX + colWidths.firmaTrab / 2 - 4, rowY + imgAreaH / 2 - 4);
+          try { doc.image(firmaTrabajadorBuf, centerTrabX, centerTrabY, { width: imgW, height: imgH }); } catch { /* silenciado */ }
         }
+        
         doc.fontSize(6).fillColor('#4b5563');
-        doc.text(hashLine, cellTrabX + 2, rowY + rowHeight - hashH - 1, {
-          width: colWidths.firmaTrab - 4,
-          align: 'center',
-        });
+        doc.text(hashLine, cellTrabX + 2, y + rowHeight - hashH - 1, { width: colWidths.firmaTrab - 4, align: 'center' });
         doc.fillColor('#000000').fontSize(7);
 
         if (firmaResponsableBuf) {
-          try {
-            doc.image(firmaResponsableBuf, centerRespX, centerRespY, { width: imgW, height: imgH });
-          } catch {
-            doc.text('-', cellRespX + colWidths.firmaResp / 2 - 4, rowY + rowHeight / 2 - 4);
-          }
-        } else {
-          doc.text('-', cellRespX + colWidths.firmaResp / 2 - 4, rowY + rowHeight / 2 - 4);
+          try { doc.image(firmaResponsableBuf, centerRespX, centerRespY, { width: imgW, height: imgH }); } catch { /* silenciado */ }
         }
 
-        rowY += rowHeight;
+        y += rowHeight;
       }
 
       doc.end();
@@ -466,195 +444,165 @@ export class EppPdfService {
       doc.on('error', reject);
       doc.strokeColor('#000000');
 
-      // Encabezado: logo + título (preserva aspect ratio)
-      if (logoBuf) {
-        try {
-          doc.rect(M, M, logoSize, logoSize).stroke();
-          const logoBox = logoSize - 8;
-          doc.image(logoBuf, M + 4, M + 4, {
-            fit: [logoBox, logoBox],
-            align: 'center',
-            valign: 'center',
-          });
-        } catch {
-          doc.rect(M, M, logoSize, logoSize).stroke();
-          doc.fontSize(7).font('Helvetica').text('Logo', M + 10, M + 25);
+      let y = M;
+
+      // --- DEFINICIONES DE TABLA ---
+      const headerH = 60;
+      const logoW = 140;
+      const colW = [140, 60, 110, 150, pageW - 460];
+      const colWidths = { desc: 140, cant: 35, fecha: 50, area: 70, epp: 30, unif: 30, firmaTrab: 80, firmaResp: pageW - 435 };
+      const rowInfoH = 18;
+      const tableHeaderH = 28;
+      const rowHeight = 58;
+      const imgW = 60;
+      const imgH = 30;
+      const hashH = 12;
+      const pageBottom = 841.89 - M;
+
+      const drawGridHeaders = () => {
+        // --- FILA 1: ENCABEZADO ---
+        doc.rect(M, y, logoW, headerH).stroke();
+        doc.rect(M + logoW, y, pageW - logoW, headerH).stroke();
+        
+        if (logoBuf) {
+          try { doc.image(logoBuf, M + 5, y + 5, { fit: [logoW - 10, headerH - 10], align: 'center', valign: 'center' }); } 
+          catch { doc.fontSize(7).font('Helvetica').text('Logo', M + 10, y + 25); }
         }
-      } else {
-        doc.rect(M, M, logoSize, logoSize).stroke();
-        doc.fontSize(7).font('Helvetica').text('Logo', M + 10, M + 25);
-      }
-      doc.fontSize(11).font('Helvetica-Bold');
-      doc.text(
-        'KARDEX DE EPP - REGISTRO HISTÓRICO DE ENTREGAS',
-        M + logoSize + 8,
-        M + 20,
-        { width: pageW - logoSize - 8, align: 'center', height: 16 }
-      );
-      doc.font('Helvetica');
 
-      let y = M + logoSize + 16;
+        doc.fontSize(11).font('Helvetica-Bold');
+        doc.text('KARDEX DE EPP - REGISTRO HISTÓRICO DE ENTREGAS', M + logoW, y + 25, { width: pageW - logoW, align: 'center' });
+        y += headerH;
 
-      // Grilla datos generales
-      const colW = [130, 55, 120, 165, 46];
-      const gridW = colW.reduce((a, b) => a + b, 0);
-      const gridX = M + (pageW - gridW) / 2;
-      const rowH = 22;
-      doc.fontSize(7).font('Helvetica-Bold');
-      for (let c = 0; c < 5; c++) {
-        const x = gridX + colW.slice(0, c).reduce((a, b) => a + b, 0);
-        doc.rect(x, y, colW[c], rowH).stroke();
-        const labels = [
-          'RAZON SOCIAL O DENOMINACION SOCIAL',
-          'RUC',
-          'DIRECCIÓN',
-          'ACTIVIDAD ECONÓMICA',
-          'Nº TRABAJADORES',
-        ];
-        doc.text(labels[c], x + 3, y + 5, { width: colW[c] - 6, align: 'center', height: 14 });
-      }
-      y += rowH;
-      doc.font('Helvetica');
-      const vals = [
-        empresa?.nombre || '-',
-        empresa?.ruc || '-',
-        empresa?.direccion || '-',
-        (empresa?.actividadEconomica || '-').substring(0, 50),
-        String(empresa?.numeroTrabajadores ?? '-'),
-      ];
-      for (let c = 0; c < 5; c++) {
-        const x = gridX + colW.slice(0, c).reduce((a, b) => a + b, 0);
-        doc.rect(x, y, colW[c], rowH).stroke();
-        doc.text(vals[c], x + 3, y + 5, { width: colW[c] - 6, height: 14 });
-      }
-      y += rowH + 12;
+        // --- FILAS 2 y 3: EMPRESA ---
+        const labels = ['RAZON SOCIAL O DENOMINACION SOCIAL', 'RUC', 'DIRECCIÓN', 'ACTIVIDAD ECONÓMICA', 'Nº TRABAJADORES'];
+        const vals = [ empresa?.nombre || '-', empresa?.ruc || '-', empresa?.direccion || '-', (empresa?.actividadEconomica || '-').substring(0, 50), String(empresa?.numeroTrabajadores ?? '-') ];
 
-      doc.font('Helvetica-Bold');
-      doc.text('TRABAJADOR:', M, y, { height: 12 });
-      doc.font('Helvetica');
-      doc.text(solicitante?.nombreCompleto || '-', M + 80, y, { width: 180, height: 12 });
-      doc.font('Helvetica-Bold');
-      doc.text('DNI:', M + 280, y, { height: 12 });
-      doc.font('Helvetica');
-      doc.text(solicitante?.documentoIdentidad || '-', M + 305, y, { width: 80, height: 12 });
-      y += 14;
-      doc.font('Helvetica-Bold');
-      doc.text('RESPONSABLE DE ENTREGA:', M, y, { height: 12 });
-      doc.font('Helvetica');
-      doc.text(responsableNombre, M + 155, y, { width: 200, height: 12 });
-      y += 20;
-
-      const tableX = M;
-      const pageH = 841.89;
-      const pageBottom = pageH - M;
-
-      const drawTableHeader = () => {
         doc.fontSize(7).font('Helvetica-Bold');
-        let x = tableX;
-        doc.rect(x, y, colWidths.desc, 28).stroke();
-        doc.text('DESCRIPCIÓN DE LO ENTREGADO', x + 2, y + 4, { width: colWidths.desc - 4, height: 20 });
+        let currentX = M;
+        for (let c = 0; c < 5; c++) {
+          doc.rect(currentX, y, colW[c], 15).stroke();
+          doc.text(labels[c], currentX + 2, y + 4, { width: colW[c] - 4, align: 'center' });
+          currentX += colW[c];
+        }
+        y += 15;
+
+        doc.font('Helvetica');
+        currentX = M;
+        for (let c = 0; c < 5; c++) {
+          doc.rect(currentX, y, colW[c], 25).stroke();
+          doc.text(vals[c], currentX + 3, y + 5, { width: colW[c] - 6, align: 'center' });
+          currentX += colW[c];
+        }
+        y += 25;
+
+        // --- FILAS 4 y 5: TRABAJADOR Y RESPONSABLE ---
+        // Trabajador
+        doc.rect(M, y, 140, rowInfoH).stroke();
+        doc.rect(M + 140, y, 220, rowInfoH).stroke();
+        doc.rect(M + 360, y, 40, rowInfoH).stroke();
+        doc.rect(M + 400, y, pageW - 400, rowInfoH).stroke();
+        doc.font('Helvetica-Bold').text('TRABAJADOR:', M + 3, y + 5);
+        doc.font('Helvetica').text(solicitante?.nombreCompleto || '-', M + 145, y + 5);
+        doc.font('Helvetica-Bold').text('DNI:', M + 365, y + 5);
+        doc.font('Helvetica').text(solicitante?.documentoIdentidad || '-', M + 405, y + 5);
+        y += rowInfoH;
+
+        // Responsable
+        doc.rect(M, y, 140, rowInfoH).stroke();
+        doc.rect(M + 140, y, pageW - 140, rowInfoH).stroke();
+        doc.font('Helvetica-Bold').text('RESPONSABLE DE ENTREGA:', M + 3, y + 5);
+        doc.font('Helvetica').text(responsableNombre, M + 145, y + 5);
+        y += rowInfoH;
+
+        // --- FILA 6: CABECERAS TABLA DETALLE ---
+        doc.fontSize(7).font('Helvetica-Bold');
+        let x = M;
+        doc.rect(x, y, colWidths.desc, tableHeaderH).stroke();
+        doc.text('DESCRIPCIÓN DE LO ENTREGADO', x + 2, y + 10, { width: colWidths.desc - 4, align: 'center' });
         x += colWidths.desc;
-        doc.rect(x, y, colWidths.cant, 28).stroke();
-        doc.text('CANTIDAD', x + 2, y + 4, { width: colWidths.cant - 4, align: 'center', height: 20 });
+        doc.rect(x, y, colWidths.cant, tableHeaderH).stroke();
+        doc.text('CANTIDAD', x + 2, y + 10, { width: colWidths.cant - 4, align: 'center' });
         x += colWidths.cant;
-        doc.rect(x, y, colWidths.fecha, 28).stroke();
-        doc.text('FECHA DE ENTREGA', x + 2, y + 4, { width: colWidths.fecha - 4, align: 'center', height: 20 });
+        doc.rect(x, y, colWidths.fecha, tableHeaderH).stroke();
+        doc.text('FECHA DE ENTREGA', x + 2, y + 6, { width: colWidths.fecha - 4, align: 'center' });
         x += colWidths.fecha;
-        doc.rect(x, y, colWidths.area, 28).stroke();
-        doc.text('AREA DE TRABAJO', x + 2, y + 4, { width: colWidths.area - 4, align: 'center', height: 20 });
+        doc.rect(x, y, colWidths.area, tableHeaderH).stroke();
+        doc.text('AREA DE TRABAJO', x + 2, y + 10, { width: colWidths.area - 4, align: 'center' });
         x += colWidths.area;
-        doc.rect(x, y, colWidths.seEntrego * 2, 14).stroke();
-        doc.text('SE ENTREGO:', x + 2, y + 2, { width: colWidths.seEntrego * 2 - 4, align: 'center', height: 10 });
-        doc.rect(x, y + 14, colWidths.seEntrego, 14).stroke();
-        doc.text('EPP', x + 2, y + 16, { width: colWidths.seEntrego - 4, align: 'center', height: 10 });
-        doc.rect(x + colWidths.seEntrego, y + 14, colWidths.seEntrego, 14).stroke();
-        doc.text('UNIF.', x + colWidths.seEntrego + 2, y + 16, { width: colWidths.seEntrego - 4, align: 'center', height: 10 });
-        x += colWidths.seEntrego * 2;
-        doc.rect(x, y, colWidths.firmaTrab, 28).stroke();
-        doc.text('FIRMA DEL TRABAJADOR', x + 2, y + 4, { width: colWidths.firmaTrab - 4, align: 'center', height: 20 });
+        
+        doc.rect(x, y, colWidths.epp + colWidths.unif, 14).stroke();
+        doc.text('SE ENTREGO:', x + 2, y + 3, { width: colWidths.epp + colWidths.unif - 4, align: 'center' });
+        doc.rect(x, y + 14, colWidths.epp, 14).stroke();
+        doc.text('EPP', x + 2, y + 16, { width: colWidths.epp - 4, align: 'center' });
+        doc.rect(x + colWidths.epp, y + 14, colWidths.unif, 14).stroke();
+        doc.text('UNIF.', x + colWidths.epp, y + 16, { width: colWidths.unif, align: 'center' });
+        x += (colWidths.epp + colWidths.unif);
+
+        doc.rect(x, y, colWidths.firmaTrab, tableHeaderH).stroke();
+        doc.text('FIRMA DEL TRABAJADOR', x + 2, y + 6, { width: colWidths.firmaTrab - 4, align: 'center' });
         x += colWidths.firmaTrab;
-        doc.rect(x, y, colWidths.firmaResp, 28).stroke();
-        doc.text('FIRMA DEL RESPONSABLE', x + 2, y + 4, { width: colWidths.firmaResp - 4, align: 'center', height: 20 });
+        doc.rect(x, y, colWidths.firmaResp, tableHeaderH).stroke();
+        doc.text('FIRMA DEL RESPONSABLE', x + 2, y + 6, { width: colWidths.firmaResp - 4, align: 'center' });
+        
+        y += tableHeaderH;
         doc.font('Helvetica');
       };
 
-      drawTableHeader();
-      let rowY = y + 28;
+      drawGridHeaders();
 
-      let x = tableX;
       for (const it of items) {
-        if (rowY + rowHeight > pageBottom) {
+        if (y + rowHeight > pageBottom) {
           doc.addPage({ size: 'A4', margin: M });
           y = M;
-          rowY = y + 28;
-          drawTableHeader();
+          drawGridHeaders();
         }
 
-        const [firmaTrabBuf, firmaRespBuf] = await Promise.all([
-          fetchFirma(it.firmaTrabajadorUrl),
-          fetchFirma(it.firmaResponsableUrl),
-        ]);
+        const [firmaTrabBuf, firmaRespBuf] = await Promise.all([fetchFirma(it.firmaTrabajadorUrl), fetchFirma(it.firmaResponsableUrl)]);
         const hashLine = `${it.horaStr.replace(',', '')} - ${it.hashAuditoria}`;
 
-        x = tableX;
-        doc.rect(x, rowY, colWidths.desc, rowHeight).stroke();
-        doc.text(it.desc, x + 3, rowY + 4, { width: colWidths.desc - 6, height: rowHeight - 8 });
+        let x = M;
+        doc.rect(x, y, colWidths.desc, rowHeight).stroke();
+        doc.text(it.desc, x + 3, y + 4, { width: colWidths.desc - 6 });
         x += colWidths.desc;
-        doc.rect(x, rowY, colWidths.cant, rowHeight).stroke();
-        doc.text(String(it.cant), x + 3, rowY + 4, { width: colWidths.cant - 6, align: 'center', height: rowHeight - 8 });
+        doc.rect(x, y, colWidths.cant, rowHeight).stroke();
+        doc.text(String(it.cant), x + 3, y + 25, { width: colWidths.cant - 6, align: 'center' });
         x += colWidths.cant;
-        doc.rect(x, rowY, colWidths.fecha, rowHeight).stroke();
-        doc.text(it.fechaStr, x + 3, rowY + 4, { width: colWidths.fecha - 6, align: 'center', height: rowHeight - 8 });
+        doc.rect(x, y, colWidths.fecha, rowHeight).stroke();
+        doc.text(it.fechaStr, x + 3, y + 25, { width: colWidths.fecha - 6, align: 'center' });
         x += colWidths.fecha;
-        doc.rect(x, rowY, colWidths.area, rowHeight).stroke();
-        doc.text(it.areaNombre, x + 3, rowY + 4, { width: colWidths.area - 6, align: 'center', height: rowHeight - 8 });
+        doc.rect(x, y, colWidths.area, rowHeight).stroke();
+        doc.text(it.areaNombre, x + 3, y + 20, { width: colWidths.area - 6, align: 'center' });
         x += colWidths.area;
-        doc.rect(x, rowY, colWidths.seEntrego, rowHeight).stroke();
-        doc.text(it.esEpp ? 'X' : '', x + 3, rowY + 4, { width: colWidths.seEntrego - 6, align: 'center', height: rowHeight - 8 });
-        x += colWidths.seEntrego;
-        doc.rect(x, rowY, colWidths.seEntrego, rowHeight).stroke();
-        doc.text(!it.esEpp ? 'X' : '', x + 3, rowY + 4, { width: colWidths.seEntrego - 6, align: 'center', height: rowHeight - 8 });
-        x += colWidths.seEntrego;
+        doc.rect(x, y, colWidths.epp, rowHeight).stroke();
+        doc.text(it.esEpp ? 'X' : '', x + 3, y + 25, { width: colWidths.epp - 6, align: 'center' });
+        x += colWidths.epp;
+        doc.rect(x, y, colWidths.unif, rowHeight).stroke();
+        doc.text(!it.esEpp ? 'X' : '', x + 3, y + 25, { width: colWidths.unif - 6, align: 'center' });
+        x += colWidths.unif;
 
         const cellTrabX = x;
         const cellRespX = x + colWidths.firmaTrab;
-        doc.rect(cellTrabX, rowY, colWidths.firmaTrab, rowHeight).stroke();
-        doc.rect(cellRespX, rowY, colWidths.firmaResp, rowHeight).stroke();
+        doc.rect(cellTrabX, y, colWidths.firmaTrab, rowHeight).stroke();
+        doc.rect(cellRespX, y, colWidths.firmaResp, rowHeight).stroke();
 
         const centerTrabX = cellTrabX + (colWidths.firmaTrab - imgW) / 2;
         const centerRespX = cellRespX + (colWidths.firmaResp - imgW) / 2;
         const imgAreaH = rowHeight - hashH;
-        const centerTrabY = rowY + (imgAreaH - imgH) / 2;
-        const centerRespY = rowY + (rowHeight - imgH) / 2;
+        const centerTrabY = y + (imgAreaH - imgH) / 2;
+        const centerRespY = y + (rowHeight - imgH) / 2;
 
         if (firmaTrabBuf) {
-          try {
-            doc.image(firmaTrabBuf, centerTrabX, centerTrabY, { width: imgW, height: imgH });
-          } catch {
-            doc.text('-', cellTrabX + colWidths.firmaTrab / 2 - 4, rowY + imgAreaH / 2 - 4, { height: 10 });
-          }
-        } else {
-          doc.text('-', cellTrabX + colWidths.firmaTrab / 2 - 4, rowY + imgAreaH / 2 - 4, { height: 10 });
+          try { doc.image(firmaTrabBuf, centerTrabX, centerTrabY, { width: imgW, height: imgH }); } catch { /* silenciado */ }
         }
         doc.fontSize(6).fillColor('#4b5563');
-        doc.text(hashLine, cellTrabX + 2, rowY + rowHeight - hashH - 1, {
-          width: colWidths.firmaTrab - 4,
-          align: 'center',
-          height: hashH,
-        });
+        doc.text(hashLine, cellTrabX + 2, y + rowHeight - hashH - 1, { width: colWidths.firmaTrab - 4, align: 'center' });
         doc.fillColor('#000000').fontSize(7);
 
         if (firmaRespBuf) {
-          try {
-            doc.image(firmaRespBuf, centerRespX, centerRespY, { width: imgW, height: imgH });
-          } catch {
-            doc.text('-', cellRespX + colWidths.firmaResp / 2 - 4, rowY + rowHeight / 2 - 4, { height: 10 });
-          }
-        } else {
-          doc.text('-', cellRespX + colWidths.firmaResp / 2 - 4, rowY + rowHeight / 2 - 4, { height: 10 });
+          try { doc.image(firmaRespBuf, centerRespX, centerRespY, { width: imgW, height: imgH }); } catch { /* silenciado */ }
         }
 
-        rowY += rowHeight;
+        y += rowHeight;
       }
 
       doc.end();

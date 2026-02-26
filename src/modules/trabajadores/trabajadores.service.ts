@@ -356,11 +356,12 @@ export class TrabajadoresService {
     }
 
     let firmaUrl = trabajador.firmaDigitalUrl;
-    if (dto.firma_digital_url !== undefined) {
-      if (dto.firma_digital_url !== '' && dto.firma_digital_url.startsWith('data:image/')) {
-        validateSignatureOrThrow(dto.firma_digital_url, 'firma digital');
+    const firmaFinal = dto.firma_imagen_base64 || dto.firma_digital_url;
+    if (firmaFinal !== undefined) {
+      if (firmaFinal !== '' && firmaFinal.startsWith('data:image/')) {
+        validateSignatureOrThrow(firmaFinal, 'firma digital');
         if (this.storageService.isAvailable()) {
-          const base64Data = dto.firma_digital_url.replace(/^data:image\/\w+;base64,/, '');
+          const base64Data = firmaFinal.replace(/^data:image\/\w+;base64,/, '');
           const buffer = Buffer.from(base64Data, 'base64');
           const empresa = trabajador.empresa as any;
           const rucEmpresa = empresa?.ruc ?? 'sistema';
@@ -371,21 +372,46 @@ export class TrabajadoresService {
             { filename: `firma-${id}.png` },
           );
         } else {
-          firmaUrl = dto.firma_digital_url;
+          firmaUrl = firmaFinal;
         }
-      } else if (dto.firma_digital_url === '') {
+      } else if (firmaFinal === '') {
         firmaUrl = null;
       }
     }
 
-    Object.assign(trabajador, {
+    const updates: Partial<typeof trabajador> = {
       tallaCasco: dto.talla_casco !== undefined ? dto.talla_casco : trabajador.tallaCasco,
       tallaCamisa: dto.talla_camisa !== undefined ? dto.talla_camisa : trabajador.tallaCamisa,
       tallaPantalon: dto.talla_pantalon !== undefined ? dto.talla_pantalon : trabajador.tallaPantalon,
       tallaCalzado: dto.talla_calzado !== undefined ? parseInt(dto.talla_calzado) : trabajador.tallaCalzado,
       firmaDigitalUrl: firmaUrl,
       perfilCompletado: true,
-    });
+    };
+
+    // Autogestión: datos editables por el trabajador
+    if (dto.telefono !== undefined) updates.telefono = dto.telefono;
+    if (dto.email_personal !== undefined) updates.emailPersonal = dto.email_personal;
+    if (dto.pais !== undefined) updates.pais = dto.pais;
+    if (dto.departamento !== undefined) updates.departamento = dto.departamento;
+    if (dto.provincia !== undefined) updates.provincia = dto.provincia;
+    if (dto.distrito !== undefined) updates.distrito = dto.distrito;
+    if (dto.direccion !== undefined) updates.direccion = dto.direccion;
+    if (dto.numero_interior !== undefined) updates.numeroInterior = dto.numero_interior;
+    if (dto.urbanizacion !== undefined) updates.urbanizacion = dto.urbanizacion;
+    if (dto.estado_civil !== undefined) updates.estadoCivil = dto.estado_civil as any;
+    if (dto.grado_instruccion !== undefined) updates.gradoInstruccion = dto.grado_instruccion as any;
+    if (dto.nro_hijos_vivos !== undefined) updates.nroHijosVivos = dto.nro_hijos_vivos;
+    if (dto.nro_dependientes !== undefined) updates.nroDependientes = dto.nro_dependientes;
+    if (dto.contacto_emergencia_nombre !== undefined) updates.contactoEmergenciaNombre = dto.contacto_emergencia_nombre;
+    if (dto.contacto_emergencia_telefono !== undefined) updates.contactoEmergenciaTelefono = dto.contacto_emergencia_telefono;
+    if (dto.reside_en_lugar_trabajo !== undefined) updates.resideEnLugarTrabajo = dto.reside_en_lugar_trabajo;
+    if (dto.tiempo_residencia_lugar_trabajo !== undefined) updates.tiempoResidenciaLugarTrabajo = dto.tiempo_residencia_lugar_trabajo;
+    if (dto.seguro_essalud !== undefined) updates.seguroEssalud = dto.seguro_essalud;
+    if (dto.seguro_eps !== undefined) updates.seguroEps = dto.seguro_eps;
+    if (dto.seguro_sctr !== undefined) updates.seguroSctr = dto.seguro_sctr;
+    if (dto.seguro_otro !== undefined) updates.seguroOtro = dto.seguro_otro;
+
+    Object.assign(trabajador, updates);
 
     await this.trabajadorRepository.save(trabajador);
     const updated = await this.trabajadorRepository.findOne({

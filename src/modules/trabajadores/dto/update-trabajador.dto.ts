@@ -1,6 +1,6 @@
 import { PartialType, OmitType } from '@nestjs/mapped-types';
 import { CreateTrabajadorDto } from './create-trabajador.dto';
-import { IsOptional, IsString, IsBoolean, IsUUID, ValidateIf } from 'class-validator';
+import { IsOptional, IsString, IsBoolean, IsUUID, ValidateIf, IsInt } from 'class-validator';
 
 export class UpdateTrabajadorDto extends PartialType(
   OmitType(CreateTrabajadorDto, ['talla_calzado', 'empresa_id', 'tipo_documento', 'numero_documento', 'area_id'] as const)
@@ -38,6 +38,7 @@ export class UpdateTrabajadorDto extends PartialType(
 }
 
 export class UpdatePersonalDataDto {
+  // SST / Onboarding
   @IsOptional()
   @IsString()
   talla_casco?: string;
@@ -57,6 +58,100 @@ export class UpdatePersonalDataDto {
   @IsOptional()
   @IsString()
   firma_digital_url?: string;
+
+  /** Base64 de firma por imagen (prevalece sobre dibujo) */
+  @IsOptional()
+  @IsString()
+  firma_imagen_base64?: string;
+
+  // Datos de Contacto
+  @IsOptional()
+  @IsString()
+  telefono?: string;
+
+  @IsOptional()
+  @IsString()
+  email_personal?: string;
+
+  // Ubicación
+  @IsOptional()
+  @IsString()
+  pais?: string;
+
+  @IsOptional()
+  @IsString()
+  departamento?: string;
+
+  @IsOptional()
+  @IsString()
+  provincia?: string;
+
+  @IsOptional()
+  @IsString()
+  distrito?: string;
+
+  @IsOptional()
+  @IsString()
+  direccion?: string;
+
+  @IsOptional()
+  @IsString()
+  numero_interior?: string;
+
+  @IsOptional()
+  @IsString()
+  urbanizacion?: string;
+
+  // Demografía / Familia
+  @IsOptional()
+  @IsString()
+  estado_civil?: string;
+
+  @IsOptional()
+  @IsString()
+  grado_instruccion?: string;
+
+  @IsOptional()
+  @IsInt()
+  nro_hijos_vivos?: number;
+
+  @IsOptional()
+  @IsInt()
+  nro_dependientes?: number;
+
+  // Contacto de Emergencia
+  @IsOptional()
+  @IsString()
+  contacto_emergencia_nombre?: string;
+
+  @IsOptional()
+  @IsString()
+  contacto_emergencia_telefono?: string;
+
+  // Residencia y Seguros (Anexo 02)
+  @IsOptional()
+  @IsBoolean()
+  reside_en_lugar_trabajo?: boolean;
+
+  @IsOptional()
+  @IsString()
+  tiempo_residencia_lugar_trabajo?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  seguro_essalud?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  seguro_eps?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  seguro_sctr?: boolean;
+
+  @IsOptional()
+  @IsString()
+  seguro_otro?: string;
 }
 
 /** DTO para onboarding de Médico Ocupacional */
