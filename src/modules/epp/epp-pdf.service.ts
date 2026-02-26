@@ -259,9 +259,11 @@ export class EppPdfService {
       const imgH = 32;
 
       for (const det of detalles) {
-        const epp = det.epp as any;
-        const desc = `${epp?.nombre || '-'}${epp?.descripcion ? `, ${epp.descripcion}` : ''}`.substring(0, 40);
-        const esEpp = epp?.categoria === CategoriaEPP.EPP;
+        const nombre = (det as any).eppNombreHistorico ?? (det.epp as any)?.nombre ?? '-';
+        const descripcion = (det as any).eppDescripcionHistorica ?? (det.epp as any)?.descripcion;
+        const categoria = (det as any).eppCategoriaHistorica ?? (det.epp as any)?.categoria;
+        const desc = `${nombre}${descripcion ? `, ${descripcion}` : ''}`.substring(0, 40);
+        const esEpp = categoria === CategoriaEPP.EPP;
         const horaStr = det.fechaHoraEntrega
           ? new Date(det.fechaHoraEntrega).toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
           : fechaStr;
@@ -356,9 +358,11 @@ export class EppPdfService {
 
       for (const det of sol.detalles || []) {
         if (det.exceptuado) continue;
-        const epp = det.epp as any;
-        const desc = `${epp?.nombre || '-'}${epp?.descripcion ? `, ${epp.descripcion}` : ''}`.substring(0, 45);
-        const esEpp = epp?.categoria === CategoriaEPP.EPP;
+        const nombre = (det as any).eppNombreHistorico ?? (det.epp as any)?.nombre ?? '-';
+        const descripcion = (det as any).eppDescripcionHistorica ?? (det.epp as any)?.descripcion;
+        const categoria = (det as any).eppCategoriaHistorica ?? (det.epp as any)?.categoria;
+        const desc = `${nombre}${descripcion ? `, ${descripcion}` : ''}`.substring(0, 45);
+        const esEpp = categoria === CategoriaEPP.EPP;
         const fechaEntrega = sol.fechaEntrega ? new Date(sol.fechaEntrega) : new Date();
         const fechaStr = fechaEntrega.toLocaleDateString('es-PE');
         const horaStr = det.fechaHoraEntrega

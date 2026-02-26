@@ -279,6 +279,21 @@ export class Trabajador {
   @Column({ name: 'talla_calzado', type: 'int', nullable: true })
   tallaCalzado: number | null;
 
+  @Column({ name: 'talla_faja', type: 'varchar', nullable: true })
+  tallaFaja: string | null;
+
+  @Column({ name: 'talla_guantes_anticorte', type: 'varchar', nullable: true })
+  tallaGuantesAnticorte: string | null;
+
+  @Column({ name: 'talla_guantes_super_flex', type: 'varchar', nullable: true })
+  tallaGuantesSuperFlex: string | null;
+
+  @Column({ name: 'talla_guantes_nitrilo', type: 'varchar', nullable: true })
+  tallaGuantesNitrilo: string | null;
+
+  @Column({ name: 'talla_overol', type: 'varchar', nullable: true })
+  tallaOverol: string | null;
+
   @Column({ name: 'perfil_completado', type: 'boolean', default: false })
   perfilCompletado: boolean;
 

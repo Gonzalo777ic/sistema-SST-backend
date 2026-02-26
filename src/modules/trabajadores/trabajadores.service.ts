@@ -244,6 +244,11 @@ export class TrabajadoresService {
       const parsed = typeof dto.talla_calzado === 'string' ? parseInt(dto.talla_calzado, 10) : dto.talla_calzado;
       updateData.tallaCalzado = isNaN(parsed as number) ? null : (parsed as number);
     }
+    if (dto.talla_faja !== undefined) updateData.tallaFaja = dto.talla_faja || null;
+    if (dto.talla_guantes_anticorte !== undefined) updateData.tallaGuantesAnticorte = dto.talla_guantes_anticorte || null;
+    if (dto.talla_guantes_super_flex !== undefined) updateData.tallaGuantesSuperFlex = dto.talla_guantes_super_flex || null;
+    if (dto.talla_guantes_nitrilo !== undefined) updateData.tallaGuantesNitrilo = dto.talla_guantes_nitrilo || null;
+    if (dto.talla_overol !== undefined) updateData.tallaOverol = dto.talla_overol || null;
     if (dto.perfil_completado !== undefined) updateData.perfilCompletado = dto.perfil_completado;
 
     if (dto.firma_digital_url !== undefined) {
@@ -384,6 +389,11 @@ export class TrabajadoresService {
       tallaCamisa: dto.talla_camisa !== undefined ? dto.talla_camisa : trabajador.tallaCamisa,
       tallaPantalon: dto.talla_pantalon !== undefined ? dto.talla_pantalon : trabajador.tallaPantalon,
       tallaCalzado: dto.talla_calzado !== undefined ? parseInt(dto.talla_calzado) : trabajador.tallaCalzado,
+      tallaFaja: dto.talla_faja !== undefined ? dto.talla_faja : trabajador.tallaFaja,
+      tallaGuantesAnticorte: dto.talla_guantes_anticorte !== undefined ? dto.talla_guantes_anticorte : trabajador.tallaGuantesAnticorte,
+      tallaGuantesSuperFlex: dto.talla_guantes_super_flex !== undefined ? dto.talla_guantes_super_flex : trabajador.tallaGuantesSuperFlex,
+      tallaGuantesNitrilo: dto.talla_guantes_nitrilo !== undefined ? dto.talla_guantes_nitrilo : trabajador.tallaGuantesNitrilo,
+      tallaOverol: dto.talla_overol !== undefined ? dto.talla_overol : trabajador.tallaOverol,
       firmaDigitalUrl: firmaUrl,
       perfilCompletado: true,
     };
@@ -507,6 +517,11 @@ export class TrabajadoresService {
       tallaCamisa: dto.talla_camisa !== undefined ? dto.talla_camisa : trabajador.tallaCamisa,
       tallaPantalon: dto.talla_pantalon !== undefined ? dto.talla_pantalon : trabajador.tallaPantalon,
       tallaCalzado: dto.talla_calzado !== undefined ? parseInt(dto.talla_calzado) : trabajador.tallaCalzado,
+      tallaFaja: dto.talla_faja !== undefined ? dto.talla_faja : trabajador.tallaFaja,
+      tallaGuantesAnticorte: dto.talla_guantes_anticorte !== undefined ? dto.talla_guantes_anticorte : trabajador.tallaGuantesAnticorte,
+      tallaGuantesSuperFlex: dto.talla_guantes_super_flex !== undefined ? dto.talla_guantes_super_flex : trabajador.tallaGuantesSuperFlex,
+      tallaGuantesNitrilo: dto.talla_guantes_nitrilo !== undefined ? dto.talla_guantes_nitrilo : trabajador.tallaGuantesNitrilo,
+      tallaOverol: dto.talla_overol !== undefined ? dto.talla_overol : trabajador.tallaOverol,
       perfilCompletado: true,
     });
 

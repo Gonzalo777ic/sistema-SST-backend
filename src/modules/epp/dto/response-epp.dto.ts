@@ -12,6 +12,7 @@ export class ResponseEppDto {
   categoria_criticidad: CategoriaCriticidadEPP | null;
   adjunto_pdf_url: string | null;
   empresa_id: string | null;
+  deleted_at: Date | null;
   createdAt: Date;
   updatedAt: Date;
 
@@ -28,6 +29,7 @@ export class ResponseEppDto {
     dto.categoria_criticidad = epp.categoriaCriticidad;
     dto.adjunto_pdf_url = epp.adjuntoPdfUrl;
     dto.empresa_id = epp.empresaId ?? null;
+    dto.deleted_at = epp.deletedAt ?? null;
     dto.createdAt = epp.createdAt;
     dto.updatedAt = epp.updatedAt;
     return dto;

@@ -42,6 +42,35 @@ import { StorageService } from '../../common/services/storage.service';
 import { validateSignatureOrThrow } from '../../common/utils/signature-validation';
 import { UsuariosService } from '../usuarios/usuarios.service';
 
+/** Copia datos del EPP al detalle para consistencia histórica (snapshot) */
+function snapshotEppToDetalle(epp: EPP | null): {
+  eppNombreHistorico: string | null;
+  eppTipoProteccionHistorico: string | null;
+  eppCategoriaHistorica: string | null;
+  eppDescripcionHistorica: string | null;
+  eppVigenciaHistorica: string | null;
+  eppImagenUrlHistorica: string | null;
+} {
+  if (!epp) {
+    return {
+      eppNombreHistorico: null,
+      eppTipoProteccionHistorico: null,
+      eppCategoriaHistorica: null,
+      eppDescripcionHistorica: null,
+      eppVigenciaHistorica: null,
+      eppImagenUrlHistorica: null,
+    };
+  }
+  return {
+    eppNombreHistorico: epp.nombre ?? null,
+    eppTipoProteccionHistorico: epp.tipoProteccion ?? null,
+    eppCategoriaHistorica: epp.categoria ?? null,
+    eppDescripcionHistorica: epp.descripcion ?? null,
+    eppVigenciaHistorica: epp.vigencia ?? null,
+    eppImagenUrlHistorica: epp.imagenUrl ?? null,
+  };
+}
+
 function vigenciaToMonths(vigencia: VigenciaEPP | null): number {
   if (!vigencia) return 0;
   const map: Record<string, number> = {
@@ -149,8 +178,15 @@ export class EppService {
     return this.applySignedUrls(ResponseEppDto.fromEntity(saved));
   }
 
-  async findAllEpp(empresaId?: string, empresaIds?: string[]): Promise<ResponseEppDto[]> {
+  async findAllEpp(
+    empresaId?: string,
+    empresaIds?: string[],
+    includeDeactivated = false,
+  ): Promise<ResponseEppDto[]> {
     const qb = this.eppRepository.createQueryBuilder('e').orderBy('e.nombre', 'ASC');
+    if (includeDeactivated) {
+      qb.withDeleted();
+    }
     if (empresaIds && empresaIds.length > 0) {
       qb.andWhere('(e.empresaId IN (:...empresaIds) OR e.empresaId IS NULL)', { empresaIds });
     } else if (empresaId) {
@@ -173,11 +209,74 @@ export class EppService {
     return this.applySignedUrls(ResponseEppDto.fromEntity(epp));
   }
 
+  async softDeleteEpp(id: string): Promise<void> {
+    const epp = await this.eppRepository.findOne({ where: { id }, withDeleted: true });
+    if (!epp) {
+      throw new NotFoundException(`EPP con ID ${id} no encontrado`);
+    }
+    if (epp.deletedAt) {
+      throw new BadRequestException('Este EPP ya está desactivado');
+    }
+    await this.eppRepository.softDelete(id);
+  }
+
+  async restoreEpp(id: string): Promise<ResponseEppDto> {
+    const epp = await this.eppRepository.findOne({ where: { id }, withDeleted: true });
+    if (!epp) {
+      throw new NotFoundException(`EPP con ID ${id} no encontrado`);
+    }
+    if (!epp.deletedAt) {
+      throw new BadRequestException('Este EPP ya está activo');
+    }
+    await this.eppRepository.restore(id);
+    const restored = await this.eppRepository.findOne({ where: { id } });
+    return this.applySignedUrls(ResponseEppDto.fromEntity(restored!));
+  }
+
+  async eppTieneEntregas(eppId: string): Promise<boolean> {
+    const count = await this.detalleRepository
+      .createQueryBuilder('d')
+      .innerJoin('d.solicitudEpp', 's')
+      .where('d.eppId = :eppId', { eppId })
+      .andWhere('d.exceptuado = false')
+      .andWhere('s.estado = :estado', { estado: EstadoSolicitudEPP.Entregada })
+      .getCount();
+    return count > 0;
+  }
+
   async updateEpp(id: string, dto: UpdateEppDto): Promise<ResponseEppDto> {
     const epp = await this.eppRepository.findOne({ where: { id } });
 
     if (!epp) {
       throw new NotFoundException(`EPP con ID ${id} no encontrado`);
+    }
+
+    // Inmutabilidad condicional: si tiene entregas registradas, no permitir cambiar datos críticos
+    const tieneEntregas = await this.detalleRepository
+      .createQueryBuilder('d')
+      .innerJoin('d.solicitudEpp', 's')
+      .where('d.eppId = :eppId', { eppId: id })
+      .andWhere('d.exceptuado = false')
+      .andWhere('s.estado = :estado', { estado: EstadoSolicitudEPP.Entregada })
+      .getCount()
+      .then((n) => n > 0);
+
+    if (tieneEntregas) {
+      if (dto.nombre !== undefined && dto.nombre !== epp.nombre) {
+        throw new BadRequestException(
+          'No puede cambiar el nombre de un EPP que ya tiene registros de entrega. Desactívelo y cree uno nuevo.',
+        );
+      }
+      if (dto.tipo_proteccion !== undefined && dto.tipo_proteccion !== epp.tipoProteccion) {
+        throw new BadRequestException(
+          'No puede cambiar el tipo de protección de un EPP con entregas registradas. Desactívelo y cree uno nuevo.',
+        );
+      }
+      if (dto.categoria !== undefined && dto.categoria !== epp.categoria) {
+        throw new BadRequestException(
+          'No puede cambiar la categoría de un EPP con entregas registradas. Desactívelo y cree uno nuevo.',
+        );
+      }
     }
 
     if (dto.nombre !== undefined) epp.nombre = dto.nombre;
@@ -186,14 +285,14 @@ export class EppService {
     if (dto.descripcion !== undefined) epp.descripcion = dto.descripcion ?? null;
     if (dto.imagen_url !== undefined) {
       const u = dto.imagen_url;
-      epp.imagenUrl = u != null ? (this.storageService.getCanonicalUrl(u) || u) : null;
+      epp.imagenUrl = u != null && u.trim() !== '' ? (this.storageService.getCanonicalUrl(u) || u) : null;
     }
     if (dto.vigencia !== undefined) epp.vigencia = dto.vigencia ?? null;
     if (dto.costo !== undefined) epp.costo = dto.costo ?? null;
     if (dto.categoria_criticidad !== undefined) epp.categoriaCriticidad = dto.categoria_criticidad ?? null;
     if (dto.adjunto_pdf_url !== undefined) {
       const u = dto.adjunto_pdf_url;
-      epp.adjuntoPdfUrl = u != null ? (this.storageService.getCanonicalUrl(u) || u) : null;
+      epp.adjuntoPdfUrl = u != null && u.trim() !== '' ? (this.storageService.getCanonicalUrl(u) || u) : null;
     }
 
     const saved = await this.eppRepository.save(epp);
@@ -327,15 +426,20 @@ export class EppService {
 
       const saved = await solicitudRepo.save(solicitud);
 
-      const detalles = dto.detalles.map((detalleDto) =>
-        detalleRepo.create({
+      const eppRepo = manager.getRepository(EPP);
+      const detallesToSave: SolicitudEPPDetalle[] = [];
+      for (const detalleDto of dto.detalles) {
+        const epp = await eppRepo.findOne({ where: { id: detalleDto.epp_id } });
+        const snapshot = snapshotEppToDetalle(epp);
+        const detalle = detalleRepo.create({
           solicitudEppId: saved.id,
           eppId: detalleDto.epp_id,
           cantidad: detalleDto.cantidad,
-        }),
-      );
-
-      await detalleRepo.save(detalles);
+          ...snapshot,
+        });
+        detallesToSave.push(detalle);
+      }
+      await detalleRepo.save(detallesToSave);
 
       return saved.id;
     });
@@ -600,12 +704,14 @@ export class EppService {
       throw new BadRequestException('El EPP debe pertenecer a la misma empresa que la solicitud');
     }
 
+    const snapshot = snapshotEppToDetalle(epp);
     const detalle = this.detalleRepository.create({
       solicitudEppId: solicitudId,
       eppId,
       cantidad: Math.max(1, cantidad),
       agregado: true,
       agregadoPorId: usuarioId ?? null,
+      ...snapshot,
     });
 
     await this.detalleRepository.save(detalle);
@@ -754,6 +860,16 @@ export class EppService {
             det.fechaHoraEntrega = solicitud.fechaEntrega || fechaEntrega;
             // Priorizar firma de transacción (capturada en entrega) sobre firma maestra (onboarding)
             det.firmaTrabajadorUrl = solicitud.firmaRecepcionUrl ?? (solicitudConDetalles.solicitante as any)?.firmaDigitalUrl ?? null;
+            // Backfill snapshot si no existe (registros antiguos)
+            if (!det.eppNombreHistorico && det.epp) {
+              const snap = snapshotEppToDetalle(det.epp as EPP);
+              det.eppNombreHistorico = snap.eppNombreHistorico;
+              det.eppTipoProteccionHistorico = snap.eppTipoProteccionHistorico;
+              det.eppCategoriaHistorica = snap.eppCategoriaHistorica;
+              det.eppDescripcionHistorica = snap.eppDescripcionHistorica;
+              det.eppVigenciaHistorica = snap.eppVigenciaHistorica;
+              det.eppImagenUrlHistorica = snap.eppImagenUrlHistorica;
+            }
             await this.detalleRepository.save(det);
           }
         }

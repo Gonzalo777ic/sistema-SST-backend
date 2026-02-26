@@ -31,6 +31,25 @@ export class SolicitudEPPDetalle {
   @JoinColumn({ name: 'epp_id' })
   epp: EPP;
 
+  /** Snapshot histórico: datos del EPP en el momento de la transacción (consistencia temporal) */
+  @Column({ name: 'epp_nombre_historico', type: 'varchar', length: 200, nullable: true })
+  eppNombreHistorico: string | null;
+
+  @Column({ name: 'epp_tipo_proteccion_historico', type: 'varchar', length: 50, nullable: true })
+  eppTipoProteccionHistorico: string | null;
+
+  @Column({ name: 'epp_categoria_historica', type: 'varchar', length: 50, nullable: true })
+  eppCategoriaHistorica: string | null;
+
+  @Column({ name: 'epp_descripcion_historica', type: 'text', nullable: true })
+  eppDescripcionHistorica: string | null;
+
+  @Column({ name: 'epp_vigencia_historica', type: 'varchar', length: 50, nullable: true })
+  eppVigenciaHistorica: string | null;
+
+  @Column({ name: 'epp_imagen_url_historica', type: 'text', nullable: true })
+  eppImagenUrlHistorica: string | null;
+
   @Column({ type: 'int', default: 1 })
   cantidad: number;
 

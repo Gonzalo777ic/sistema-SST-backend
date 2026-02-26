@@ -7,6 +7,7 @@ import { TrabajadorEppFavorito } from './entities/trabajador-epp-favorito.entity
 import { EppController } from './epp.controller';
 import { EppService } from './epp.service';
 import { EppPdfService } from './epp-pdf.service';
+import { EppSeeder } from './epp.seeder';
 import { Trabajador } from '../trabajadores/entities/trabajador.entity';
 import { Empresa } from '../empresas/entities/empresa.entity';
 import { ConfigEppModule } from '../config-epp/config-epp.module';
@@ -19,7 +20,7 @@ import { UsuariosModule } from '../usuarios/usuarios.module';
     UsuariosModule,
   ],
   controllers: [EppController],
-  providers: [EppService, EppPdfService],
+  providers: [EppService, EppPdfService, EppSeeder],
   exports: [EppService],
 })
 export class EppModule {}

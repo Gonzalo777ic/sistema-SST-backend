@@ -20,7 +20,10 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "cleanup:users-trabajadores": "ts-node -r tsconfig-paths/register scripts/cleanup-users-trabajadores.ts",
 "migrate:estado-examen": "ts-node -r tsconfig-paths/register scripts/migrate-estado-examen.ts",
-    "seed:cie10": "ts-node -r tsconfig-paths/register scripts/seed-cie10.ts"
+"seed:cie10": "ts-node -r tsconfig-paths/register scripts/seed-cie10.ts",
+    "seed:epp": "ts-node -r tsconfig-paths/register scripts/seed-epp.ts",
+    "seed:epp:reset": "ts-node -r tsconfig-paths/register scripts/reset-and-seed-epp.ts",
+    "backfill:epp-snapshot": "ts-node -r tsconfig-paths/register scripts/backfill-epp-snapshot.ts"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.19.0",

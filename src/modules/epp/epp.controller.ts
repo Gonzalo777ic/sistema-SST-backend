@@ -103,9 +103,24 @@ export class EppController {
   async findAllEpp(
     @Query('empresa_id') empresaId?: string,
     @Query('empresa_ids') empresaIds?: string,
+    @Query('include_deactivated') includeDeactivated?: string,
   ): Promise<ResponseEppDto[]> {
     const ids = empresaIds ? empresaIds.split(',').filter(Boolean) : undefined;
-    return this.eppService.findAllEpp(empresaId, ids);
+    const include = includeDeactivated === 'true' || includeDeactivated === '1';
+    return this.eppService.findAllEpp(empresaId, ids, include);
+  }
+
+  @Patch('catalogo/:id/desactivar')
+  async desactivarEpp(@Param('id', ParseUUIDPipe) id: string): Promise<{ message: string }> {
+    await this.eppService.softDeleteEpp(id);
+    return { message: 'EPP desactivado correctamente' };
+  }
+
+  @Patch('catalogo/:id/activar')
+  async activarEpp(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ResponseEppDto> {
+    return this.eppService.restoreEpp(id);
   }
 
   @Get('catalogo/:id')
@@ -113,6 +128,14 @@ export class EppController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<ResponseEppDto> {
     return this.eppService.findOneEpp(id);
+  }
+
+  @Get('catalogo/:id/tiene-entregas')
+  async eppTieneEntregas(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ tiene_entregas: boolean }> {
+    const tiene = await this.eppService.eppTieneEntregas(id);
+    return { tiene_entregas: tiene };
   }
 
   @Patch('catalogo/:id')

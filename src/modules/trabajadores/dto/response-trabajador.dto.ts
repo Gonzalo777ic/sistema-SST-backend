@@ -31,6 +31,11 @@ export class ResponseTrabajadorDto {
   talla_camisa: string | null;
   talla_pantalon: string | null;
   talla_calzado: number | null;
+  talla_faja: string | null;
+  talla_guantes_anticorte: string | null;
+  talla_guantes_super_flex: string | null;
+  talla_guantes_nitrilo: string | null;
+  talla_overol: string | null;
   perfil_completado: boolean;
   empresa_id: string;
   empresa_nombre?: string | null;
@@ -172,6 +177,11 @@ export class ResponseTrabajadorDto {
     dto.talla_camisa = t.tallaCamisa;
     dto.talla_pantalon = t.tallaPantalon;
     dto.talla_calzado = t.tallaCalzado;
+    dto.talla_faja = (t as any).tallaFaja ?? null;
+    dto.talla_guantes_anticorte = (t as any).tallaGuantesAnticorte ?? null;
+    dto.talla_guantes_super_flex = (t as any).tallaGuantesSuperFlex ?? null;
+    dto.talla_guantes_nitrilo = (t as any).tallaGuantesNitrilo ?? null;
+    dto.talla_overol = (t as any).tallaOverol ?? null;
     dto.perfil_completado = t.perfilCompletado;
     dto.empresa_id = t.empresaId;
     dto.acceso_todas_empresas = (t as any).accesoTodasEmpresas ?? false;

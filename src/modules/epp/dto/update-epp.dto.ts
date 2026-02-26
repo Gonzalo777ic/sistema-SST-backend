@@ -6,6 +6,7 @@ import {
   IsEnum,
   Min,
   IsUrl,
+  ValidateIf,
 } from 'class-validator';
 import { TipoProteccionEPP, CategoriaEPP, VigenciaEPP, CategoriaCriticidadEPP } from '../entities/epp.entity';
 import { IsNumber } from 'class-validator';
@@ -28,6 +29,7 @@ export class UpdateEppDto extends PartialType(CreateEppDto) {
   descripcion?: string;
 
   @IsOptional()
+  @ValidateIf((o) => o.imagen_url != null && o.imagen_url !== '')
   @IsUrl({}, { message: 'Debe ser una URL válida' })
   imagen_url?: string;
 
@@ -45,6 +47,7 @@ export class UpdateEppDto extends PartialType(CreateEppDto) {
   categoria_criticidad?: CategoriaCriticidadEPP;
 
   @IsOptional()
+  @ValidateIf((o) => o.adjunto_pdf_url != null && o.adjunto_pdf_url !== '')
   @IsUrl({}, { message: 'Debe ser una URL válida' })
   adjunto_pdf_url?: string;
 }

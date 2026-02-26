@@ -29,6 +29,26 @@ export class UpdateTrabajadorDto extends PartialType(
   talla_calzado?: string;
 
   @IsOptional()
+  @IsString()
+  talla_faja?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_guantes_anticorte?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_guantes_super_flex?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_guantes_nitrilo?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_overol?: string;
+
+  @IsOptional()
   @IsBoolean()
   perfil_completado?: boolean;
 
@@ -54,6 +74,26 @@ export class UpdatePersonalDataDto {
   @IsOptional()
   @IsString()
   talla_calzado?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_faja?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_guantes_anticorte?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_guantes_super_flex?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_guantes_nitrilo?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_overol?: string;
 
   @IsOptional()
   @IsString()
@@ -203,4 +243,24 @@ export class UpdateMedicoPersonalDataDto {
   @IsOptional()
   @IsString()
   talla_calzado?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_faja?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_guantes_anticorte?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_guantes_super_flex?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_guantes_nitrilo?: string;
+
+  @IsOptional()
+  @IsString()
+  talla_overol?: string;
 }
