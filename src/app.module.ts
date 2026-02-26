@@ -33,6 +33,7 @@ import { ReportesModule } from './modules/reportes/reportes.module';
 import { AuditoriaModule } from './modules/auditoria/auditoria.module';
 import { Cie10Module } from './modules/cie10/cie10.module';
 import { CargosModule } from './modules/cargos/cargos.module';
+import { DatosReferenciaModule } from './modules/datos-referencia/datos-referencia.module';
 import { CommonModule } from './common/common.module';
 
 @Module({
@@ -82,6 +83,7 @@ import { CommonModule } from './common/common.module';
     AuditoriaModule,
     Cie10Module,
     CargosModule,
+    DatosReferenciaModule,
   ],
   controllers: [AppController],
   providers: [AppService],
