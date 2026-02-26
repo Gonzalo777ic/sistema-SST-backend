@@ -19,8 +19,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "cleanup:users-trabajadores": "ts-node -r tsconfig-paths/register scripts/cleanup-users-trabajadores.ts",
-"migrate:estado-examen": "ts-node -r tsconfig-paths/register scripts/migrate-estado-examen.ts",
-"seed:cie10": "ts-node -r tsconfig-paths/register scripts/seed-cie10.ts",
+    "migrate:estado-examen": "ts-node -r tsconfig-paths/register scripts/migrate-estado-examen.ts",
+    "seed:cie10": "ts-node -r tsconfig-paths/register scripts/seed-cie10.ts",
     "seed:epp": "ts-node -r tsconfig-paths/register scripts/seed-epp.ts",
     "seed:epp:reset": "ts-node -r tsconfig-paths/register scripts/reset-and-seed-epp.ts",
     "backfill:epp-snapshot": "ts-node -r tsconfig-paths/register scripts/backfill-epp-snapshot.ts"
@@ -30,6 +30,7 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/event-emitter": "^3.0.1",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/passport": "^11.0.5",

@@ -41,6 +41,11 @@ import { EppPdfService } from './epp-pdf.service';
 import { StorageService } from '../../common/services/storage.service';
 import { validateSignatureOrThrow } from '../../common/utils/signature-validation';
 import { UsuariosService } from '../usuarios/usuarios.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  EVENTO_NOTIFICACION_CREAR,
+  PayloadNotificacionCrear,
+} from '../notificaciones/notificaciones.service';
 
 /** Copia datos del EPP al detalle para consistencia histórica (snapshot) */
 function snapshotEppToDetalle(epp: EPP | null): {
@@ -110,6 +115,7 @@ export class EppService {
     private readonly eppPdfService: EppPdfService,
     private readonly storageService: StorageService,
     private readonly usuariosService: UsuariosService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // ========== CRUD EPP (Catálogo) ==========
@@ -460,7 +466,41 @@ export class EppService {
       }
     }
 
-    return this.findOne(savedId);
+    const solicitudDto = await this.findOne(savedId);
+    const solicitudConRel = await this.solicitudRepository.findOne({
+      where: { id: savedId },
+      relations: ['solicitante'],
+    });
+    const solicitanteNombre = (solicitudConRel?.solicitante as any)?.nombreCompleto || 'Un trabajador';
+    const codigo = solicitudDto.codigo_correlativo || savedId.slice(0, 8);
+
+    const aprobadores = await this.usuariosService.findUsuariosAprobadoresByEmpresa(dto.empresa_id);
+    const payloadAprobadores: PayloadNotificacionCrear = {
+      usuarioId: '',
+      titulo: 'Nueva solicitud de EPP',
+      mensaje: `${solicitanteNombre} ha solicitado equipos de protección. Código: ${codigo}`,
+      rutaRedireccion: `/epp/${savedId}`,
+      tipo: 'EPP_SOLICITUD',
+    };
+    for (const u of aprobadores) {
+      this.eventEmitter.emit(EVENTO_NOTIFICACION_CREAR, {
+        ...payloadAprobadores,
+        usuarioId: u.id,
+      } as PayloadNotificacionCrear);
+    }
+
+    const usuarioSolicitante = await this.usuariosService.findUsuarioByTrabajadorId(dto.solicitante_id);
+    if (usuarioSolicitante) {
+      this.eventEmitter.emit(EVENTO_NOTIFICACION_CREAR, {
+        usuarioId: usuarioSolicitante.id,
+        titulo: 'Solicitud de EPP recibida',
+        mensaje: `Tu solicitud de EPP (${codigo}) ha sido registrada correctamente.`,
+        rutaRedireccion: `/epp`,
+        tipo: 'EPP_SOLICITUD_CONFIRMADA',
+      } as PayloadNotificacionCrear);
+    }
+
+    return solicitudDto;
   }
 
   async findAll(
@@ -1011,6 +1051,29 @@ export class EppService {
     }
 
     await this.solicitudRepository.save(solicitud);
+
+    if (nuevoEstado === EstadoSolicitudEPP.Aprobada || nuevoEstado === EstadoSolicitudEPP.Entregada) {
+      const usuarioSolicitante = await this.usuariosService.findUsuarioByTrabajadorId(solicitud.solicitanteId);
+      if (usuarioSolicitante) {
+        const codigo = solicitud.codigoCorrelativo || solicitud.id.slice(0, 8);
+        const titulo =
+          nuevoEstado === EstadoSolicitudEPP.Aprobada
+            ? 'Solicitud de EPP aprobada'
+            : 'Solicitud de EPP entregada';
+        const mensaje =
+          nuevoEstado === EstadoSolicitudEPP.Aprobada
+            ? `Tu solicitud de EPP (${codigo}) ha sido aprobada. Puedes acercarte a almacén para la entrega.`
+            : `Tu solicitud de EPP (${codigo}) ha sido entregada correctamente.`;
+        this.eventEmitter.emit(EVENTO_NOTIFICACION_CREAR, {
+          usuarioId: usuarioSolicitante.id,
+          titulo,
+          mensaje,
+          rutaRedireccion: `/epp`,
+          tipo: nuevoEstado === EstadoSolicitudEPP.Aprobada ? 'EPP_APROBADO' : 'EPP_ENTREGADO',
+        } as PayloadNotificacionCrear);
+      }
+    }
+
     return this.findOne(id);
   }
 

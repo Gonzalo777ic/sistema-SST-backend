@@ -510,4 +510,29 @@ export class UsuariosService {
       roles: reloaded.roles as typeof reloaded.roles,
     });
   }
+
+  /** Usuarios que pueden aprobar solicitudes EPP: admins de la empresa + SUPER_ADMIN */
+  async findUsuariosAprobadoresByEmpresa(empresaId: string): Promise<Usuario[]> {
+    const aprobadoresRoles = [
+      UsuarioRol.ADMIN_EMPRESA,
+      UsuarioRol.INGENIERO_SST,
+      UsuarioRol.SUPERVISOR,
+    ];
+    const usuarios = await this.usuarioRepository.find({
+      where: { activo: true },
+    });
+    return usuarios.filter((u) => {
+      if (u.roles.includes(UsuarioRol.SUPER_ADMIN)) return true;
+      if (u.empresaId !== empresaId) return false;
+      return aprobadoresRoles.some((r) => u.roles.includes(r));
+    });
+  }
+
+  /** Usuario vinculado a un trabajador (para notificar al solicitante) */
+  async findUsuarioByTrabajadorId(trabajadorId: string): Promise<Usuario | null> {
+    return this.usuarioRepository
+      .createQueryBuilder('u')
+      .where('u.trabajador_id = :trabajadorId', { trabajadorId })
+      .getOne();
+  }
 }

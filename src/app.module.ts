@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EmpresasModule } from './modules/empresas/empresas.module';
@@ -34,6 +35,7 @@ import { AuditoriaModule } from './modules/auditoria/auditoria.module';
 import { Cie10Module } from './modules/cie10/cie10.module';
 import { CargosModule } from './modules/cargos/cargos.module';
 import { DatosReferenciaModule } from './modules/datos-referencia/datos-referencia.module';
+import { NotificacionesModule } from './modules/notificaciones/notificaciones.module';
 import { CommonModule } from './common/common.module';
 
 @Module({
@@ -42,6 +44,7 @@ import { CommonModule } from './common/common.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    EventEmitterModule.forRoot(),
     CommonModule,
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -84,6 +87,7 @@ import { CommonModule } from './common/common.module';
     Cie10Module,
     CargosModule,
     DatosReferenciaModule,
+    NotificacionesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
