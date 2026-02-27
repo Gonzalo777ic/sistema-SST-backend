@@ -53,6 +53,7 @@ export class ResponseSolicitudEppDto {
   empresa_nombre: string | null;
   unidad: string | null;
   sede: string | null;
+  gerencia: string | null;
   detalles: ResponseSolicitudEppDetalleDto[];
   createdAt: Date;
   updatedAt: Date;
@@ -111,6 +112,7 @@ export class ResponseSolicitudEppDto {
     dto.empresa_nombre = (solicitud.empresa as any)?.nombre || null;
     dto.unidad = (solicitud.solicitante as any)?.unidad || null;
     dto.sede = (solicitud.solicitante as any)?.sede || null;
+    dto.gerencia = (solicitud.solicitante as any)?.gerencia || null;
     dto.detalles = (solicitud.detalles || []).map((detalle: any) => {
       const excPor = detalle.exceptuadoPor as any;
       const agrPor = detalle.agregadoPor as any;

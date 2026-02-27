@@ -11,8 +11,9 @@ export class ResponseKardexListItemDto {
   trabajador_documento: string | null;
   razon_social: string | null;
   unidad: string | null;
-  area: string | null;
   sede: string | null;
+  gerencia: string | null;
+  area: string | null;
   fecha_entrega: string | null;
   estado: EstadoVigenciaKardex;
   categoria_filtro: string | null; // Para filtro por categoría EPP

@@ -19,6 +19,14 @@ export class ConfigEPP {
   @Column({ name: 'umbral_costo', type: 'decimal', precision: 10, scale: 2, default: 50 })
   umbralCosto: number;
 
+  /** Número WhatsApp del encargado de EPP (ej: 51999111222) */
+  @Column({ name: 'whatsapp_numero', type: 'varchar', length: 20, nullable: true })
+  whatsappNumero: string | null;
+
+  /** Nombre del encargado de EPP para mensajes */
+  @Column({ name: 'whatsapp_nombre', type: 'varchar', length: 100, nullable: true })
+  whatsappNombre: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

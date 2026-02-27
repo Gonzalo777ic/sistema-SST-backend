@@ -38,6 +38,12 @@ export class ConfigEppService {
       if (dto.umbral_costo !== undefined) {
         config.umbralCosto = dto.umbral_costo;
       }
+      if (dto.whatsapp_numero !== undefined) {
+        config.whatsappNumero = dto.whatsapp_numero;
+      }
+      if (dto.whatsapp_nombre !== undefined) {
+        config.whatsappNombre = dto.whatsapp_nombre;
+      }
     }
     const saved = await this.configRepository.save(config);
     return ResponseConfigEppDto.fromEntity(saved);

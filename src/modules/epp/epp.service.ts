@@ -1135,6 +1135,7 @@ export class EppService {
       categoria?: string;
       unidad?: string;
       sede?: string;
+      gerencia?: string;
       area_id?: string;
       fecha_desde?: string;
       fecha_hasta?: string;
@@ -1168,6 +1169,9 @@ export class EppService {
     }
     if (filters?.sede) {
       qb.andWhere('t.sede = :sede', { sede: filters.sede });
+    }
+    if (filters?.gerencia) {
+      qb.andWhere('t.gerencia = :gerencia', { gerencia: filters.gerencia });
     }
     if (filters?.area_id) {
       qb.andWhere('t.area_id = :areaId', { areaId: filters.area_id });
@@ -1247,8 +1251,9 @@ export class EppService {
         trabajador_documento: t?.documentoIdentidad ?? null,
         razon_social: emp?.nombre ?? null,
         unidad: t?.unidad ?? null,
-        area: area?.nombre ?? null,
         sede: t?.sede ?? null,
+        gerencia: t?.gerencia ?? null,
+        area: area?.nombre ?? null,
         fecha_entrega: solicitud.fechaEntrega
           ? new Date(solicitud.fechaEntrega).toISOString()
           : null,
