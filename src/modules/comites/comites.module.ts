@@ -11,6 +11,7 @@ import { Trabajador } from '../trabajadores/entities/trabajador.entity';
 import { Empresa } from '../empresas/entities/empresa.entity';
 import { ComitesController } from './comites.controller';
 import { ComitesService } from './comites.service';
+import { UsuariosModule } from '../usuarios/usuarios.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ComitesService } from './comites.service';
       Trabajador,
       Empresa,
     ]),
+    UsuariosModule,
   ],
   controllers: [ComitesController],
   providers: [ComitesService],

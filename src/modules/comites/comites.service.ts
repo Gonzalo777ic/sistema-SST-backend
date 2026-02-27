@@ -29,6 +29,7 @@ import { CreateAcuerdoComiteDto } from './dto/create-acuerdo-comite.dto';
 import { UpdateAcuerdoComiteDto } from './dto/update-acuerdo-comite.dto';
 import { ResponseAcuerdoComiteDto } from './dto/response-acuerdo-comite.dto';
 import { ResponseAgendaReunionDto } from './dto/response-agenda-reunion.dto';
+import { UsuariosService } from '../usuarios/usuarios.service';
 
 @Injectable()
 export class ComitesService {
@@ -51,9 +52,19 @@ export class ComitesService {
     private readonly trabajadorRepository: Repository<Trabajador>,
     @InjectRepository(Empresa)
     private readonly empresaRepository: Repository<Empresa>,
+    private readonly usuariosService: UsuariosService,
   ) {}
 
-  async create(dto: CreateComiteDto): Promise<ResponseComiteDto> {
+  private async getUsuarioNombre(usuarioId: string): Promise<string> {
+    const usuario = await this.usuariosService.findById(usuarioId);
+    if (!usuario) return 'Sistema';
+    const trabajador = usuario.trabajador as { nombreCompleto?: string } | undefined;
+    if (trabajador?.nombreCompleto) return trabajador.nombreCompleto;
+    const parts = [usuario.nombres, usuario.apellidoPaterno, usuario.apellidoMaterno].filter(Boolean);
+    return parts.join(' ') || usuario.dni || 'Sistema';
+  }
+
+  async create(dto: CreateComiteDto, usuarioId?: string): Promise<ResponseComiteDto> {
     // Verificar que la empresa existe
     const empresa = await this.empresaRepository.findOne({
       where: { id: dto.empresa_id },
@@ -63,6 +74,8 @@ export class ComitesService {
       throw new NotFoundException(`Empresa con ID ${dto.empresa_id} no encontrada`);
     }
 
+    const registradoPorNombre = usuarioId ? await this.getUsuarioNombre(usuarioId) : null;
+
     const comite = this.comiteRepository.create({
       empresaId: dto.empresa_id,
       nombre: dto.nombre,
@@ -71,6 +84,8 @@ export class ComitesService {
       descripcion: dto.descripcion ?? null,
       nroMiembros: dto.nro_miembros ?? 0,
       activo: dto.activo ?? true,
+      registradoPorId: usuarioId ?? null,
+      registradoPorNombre,
     });
 
     const saved = await this.comiteRepository.save(comite);
@@ -81,6 +96,7 @@ export class ComitesService {
     const where = empresaId ? { empresaId } : {};
     const comites = await this.comiteRepository.find({
       where,
+      relations: ['miembros', 'miembros.trabajador'],
       order: { createdAt: 'DESC' },
       withDeleted: false,
     });
@@ -90,6 +106,7 @@ export class ComitesService {
   async findOne(id: string): Promise<ResponseComiteDto> {
     const comite = await this.comiteRepository.findOne({
       where: { id },
+      relations: ['miembros', 'miembros.trabajador'],
       withDeleted: false,
     });
 

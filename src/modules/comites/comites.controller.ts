@@ -8,8 +8,11 @@ import {
   Param,
   Query,
   ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { ComitesService } from './comites.service';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CreateComiteDto } from './dto/create-comite.dto';
 import { UpdateComiteDto } from './dto/update-comite.dto';
 import { ResponseComiteDto } from './dto/response-comite.dto';
@@ -25,12 +28,16 @@ import { UpdateAcuerdoComiteDto } from './dto/update-acuerdo-comite.dto';
 import { ResponseAcuerdoComiteDto } from './dto/response-acuerdo-comite.dto';
 
 @Controller('comites')
+@UseGuards(JwtAuthGuard)
 export class ComitesController {
   constructor(private readonly comitesService: ComitesService) {}
 
   @Post()
-  async create(@Body() dto: CreateComiteDto): Promise<ResponseComiteDto> {
-    return this.comitesService.create(dto);
+  async create(
+    @Body() dto: CreateComiteDto,
+    @CurrentUser() user: { id: string },
+  ): Promise<ResponseComiteDto> {
+    return this.comitesService.create(dto, user.id);
   }
 
   @Get()

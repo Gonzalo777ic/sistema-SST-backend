@@ -44,6 +44,12 @@ export class Comite {
   @Column({ type: 'boolean', default: true })
   activo: boolean;
 
+  @Column({ name: 'registrado_por_id', type: 'uuid', nullable: true })
+  registradoPorId: string | null;
+
+  @Column({ name: 'registrado_por_nombre', type: 'varchar', length: 300, nullable: true })
+  registradoPorNombre: string | null;
+
   @OneToMany(() => MiembroComite, (miembro) => miembro.comite)
   miembros: MiembroComite[];
 
