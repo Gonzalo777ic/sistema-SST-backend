@@ -109,15 +109,15 @@ export class AdminSeederService implements OnApplicationBootstrap {
       {
         dni: '11111111',
         email: 'admin@test.com',
-        roles: [UsuarioRol.ADMIN_EMPRESA],
-        nombre: 'Admin Empresa',
+        roles: [UsuarioRol.ADMIN],
+        nombre: 'Admin',
         cargo: 'Administrador',
-        necesitaTrabajador: false, // ADMIN_EMPRESA puede existir sin trabajador
+        necesitaTrabajador: false, // ADMIN puede existir sin trabajador
       },
       {
         dni: '22222222',
         email: 'ingeniero@test.com',
-        roles: [UsuarioRol.INGENIERO_SST],
+        roles: [UsuarioRol.EMPLEADO],
         nombre: 'Ingeniero SST',
         cargo: 'Ingeniero de Seguridad',
         necesitaTrabajador: true,
@@ -125,7 +125,7 @@ export class AdminSeederService implements OnApplicationBootstrap {
       {
         dni: '33333333',
         email: 'supervisor@test.com',
-        roles: [UsuarioRol.SUPERVISOR],
+        roles: [UsuarioRol.EMPLEADO],
         nombre: 'Supervisor',
         cargo: 'Supervisor de Producción',
         necesitaTrabajador: true,

@@ -3,12 +3,14 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Comite } from './entities/comite.entity';
 import { MiembroComite } from './entities/miembro-comite.entity';
 import { DocumentoComite } from './entities/documento-comite.entity';
+import { DocumentoReunion } from './entities/documento-reunion.entity';
 import { ReunionComite } from './entities/reunion-comite.entity';
 import { AcuerdoComite } from './entities/acuerdo-comite.entity';
 import { AgendaReunion } from './entities/agenda-reunion.entity';
@@ -26,12 +28,20 @@ import { ResponseDocumentoComiteDto } from './dto/response-documento-comite.dto'
 import { CreateReunionComiteDto } from './dto/create-reunion-comite.dto';
 import { UpdateReunionComiteDto } from './dto/update-reunion-comite.dto';
 import { ResponseReunionComiteDto } from './dto/response-reunion-comite.dto';
+import { ResponseDocumentoReunionDto } from './dto/response-documento-reunion.dto';
 import { CreateAcuerdoComiteDto } from './dto/create-acuerdo-comite.dto';
 import { UpdateAcuerdoComiteDto } from './dto/update-acuerdo-comite.dto';
 import { ResponseAcuerdoComiteDto } from './dto/response-acuerdo-comite.dto';
 import { ResponseAgendaReunionDto } from './dto/response-agenda-reunion.dto';
+import { UsuarioRol } from '../usuarios/entities/usuario.entity';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { StorageService } from '../../common/services/storage.service';
+
+export type CurrentUserComite = {
+  id: string;
+  roles: UsuarioRol[];
+  trabajadorId?: string | null;
+};
 
 @Injectable()
 export class ComitesService {
@@ -44,6 +54,8 @@ export class ComitesService {
     private readonly documentoComiteRepository: Repository<DocumentoComite>,
     @InjectRepository(ReunionComite)
     private readonly reunionComiteRepository: Repository<ReunionComite>,
+    @InjectRepository(DocumentoReunion)
+    private readonly documentoReunionRepository: Repository<DocumentoReunion>,
     @InjectRepository(AcuerdoComite)
     private readonly acuerdoComiteRepository: Repository<AcuerdoComite>,
     @InjectRepository(AgendaReunion)
@@ -59,12 +71,35 @@ export class ComitesService {
   ) {}
 
   private async getUsuarioNombre(usuarioId: string): Promise<string> {
+    const { nombre } = await this.getUsuarioNombreYRol(usuarioId);
+    return nombre;
+  }
+
+  /** Devuelve nombre completo (nombres + apellidos) y rol del usuario para mostrar en "Registrado por". */
+  private async getUsuarioNombreYRol(usuarioId: string): Promise<{ nombre: string; rol: string }> {
     const usuario = await this.usuariosService.findById(usuarioId);
-    if (!usuario) return 'Sistema';
+    if (!usuario) return { nombre: 'Sistema', rol: '' };
     const trabajador = usuario.trabajador as { nombreCompleto?: string } | undefined;
-    if (trabajador?.nombreCompleto) return trabajador.nombreCompleto;
-    const parts = [usuario.nombres, usuario.apellidoPaterno, usuario.apellidoMaterno].filter(Boolean);
-    return parts.join(' ') || usuario.dni || 'Sistema';
+    const nombre =
+      trabajador?.nombreCompleto?.trim() ||
+      [usuario.nombres, usuario.apellidoPaterno, usuario.apellidoMaterno].filter(Boolean).join(' ').trim() ||
+      usuario.dni ||
+      'Sistema';
+    const rolLabel = this.getRolLabel(usuario.roles?.[0]);
+    return { nombre, rol: rolLabel };
+  }
+
+  private getRolLabel(rol: string | undefined): string {
+    if (!rol) return '';
+    const labels: Record<string, string> = {
+      SUPER_ADMIN: 'Super administrador',
+      ADMIN: 'Admin',
+      EMPLEADO: 'Empleado',
+      AUDITOR: 'Auditor',
+      MEDICO: 'Médico',
+      CENTRO_MEDICO: 'Centro médico',
+    };
+    return labels[rol] || rol;
   }
 
   async create(dto: CreateComiteDto, usuarioId?: string): Promise<ResponseComiteDto> {
@@ -100,7 +135,7 @@ export class ComitesService {
     const where = empresaId ? { empresaId } : {};
     const comites = await this.comiteRepository.find({
       where,
-      relations: ['miembros', 'miembros.trabajador', 'marcoNormativo'],
+      relations: ['miembros', 'miembros.trabajador', 'marcoNormativo', 'empresa'],
       order: { createdAt: 'DESC' },
       withDeleted: false,
     });
@@ -110,7 +145,7 @@ export class ComitesService {
   async findOne(id: string): Promise<ResponseComiteDto> {
     const comite = await this.comiteRepository.findOne({
       where: { id },
-      relations: ['miembros', 'miembros.trabajador', 'marcoNormativo'],
+      relations: ['miembros', 'miembros.trabajador', 'marcoNormativo', 'empresa'],
       withDeleted: false,
     });
 
@@ -360,21 +395,41 @@ export class ComitesService {
     return documentos.map((documento) => ResponseDocumentoComiteDto.fromEntity(documento));
   }
 
-  // Gestión de Reuniones
-  async findAllReuniones(filters?: {
-    comiteId?: string;
-    estado?: string;
-    fechaDesde?: string;
-    fechaHasta?: string;
-    tipoReunion?: string;
-    descripcion?: string;
-  }): Promise<ResponseReunionComiteDto[]> {
+  // Gestión de Reuniones (acceso: SUPER_ADMIN/ADMIN ven todo; resto solo reuniones de comités donde el trabajador es miembro)
+  async findAllReuniones(
+    filters?: {
+      comiteId?: string;
+      estado?: string;
+      fechaDesde?: string;
+      fechaHasta?: string;
+      tipoReunion?: string;
+      descripcion?: string;
+    },
+    currentUser?: CurrentUserComite,
+  ): Promise<ResponseReunionComiteDto[]> {
+    const esAdmin = currentUser?.roles?.includes(UsuarioRol.SUPER_ADMIN) || currentUser?.roles?.includes(UsuarioRol.ADMIN);
+
     const queryBuilder = this.reunionComiteRepository
       .createQueryBuilder('reunion')
       .leftJoinAndSelect('reunion.acuerdos', 'acuerdos')
       .leftJoinAndSelect('reunion.comite', 'comite')
       .leftJoinAndSelect('reunion.agenda', 'agenda')
       .where('reunion.deletedAt IS NULL');
+
+    if (!esAdmin && currentUser?.trabajadorId) {
+      const comitesComoMiembro = await this.miembroComiteRepository.find({
+        where: { trabajadorId: currentUser.trabajadorId },
+        select: ['comiteId'],
+        withDeleted: false,
+      });
+      const comiteIds = comitesComoMiembro.map((m) => m.comiteId);
+      if (comiteIds.length === 0) {
+        return [];
+      }
+      queryBuilder.andWhere('reunion.comiteId IN (:...comiteIds)', { comiteIds });
+    } else if (!esAdmin) {
+      return [];
+    }
 
     if (filters?.comiteId) {
       queryBuilder.andWhere('reunion.comiteId = :comiteId', { comiteId: filters.comiteId });
@@ -414,10 +469,10 @@ export class ComitesService {
     return reuniones.map((reunion) => ResponseReunionComiteDto.fromEntity(reunion));
   }
 
-  async findOneReunion(id: string): Promise<ResponseReunionComiteDto> {
+  async findOneReunion(id: string, currentUser?: CurrentUserComite): Promise<ResponseReunionComiteDto> {
     const reunion = await this.reunionComiteRepository.findOne({
       where: { id },
-      relations: ['acuerdos', 'comite', 'agenda'],
+      relations: ['acuerdos', 'comite', 'agenda', 'documentos'],
       withDeleted: false,
     });
 
@@ -425,65 +480,85 @@ export class ComitesService {
       throw new NotFoundException(`Reunión con ID ${id} no encontrada`);
     }
 
-    return ResponseReunionComiteDto.fromEntity(reunion);
+    const esAdmin = currentUser?.roles?.includes(UsuarioRol.SUPER_ADMIN) || currentUser?.roles?.includes(UsuarioRol.ADMIN);
+    if (!esAdmin && currentUser?.trabajadorId) {
+      const esMiembro = await this.miembroComiteRepository.findOne({
+        where: { comiteId: reunion.comiteId, trabajadorId: currentUser.trabajadorId },
+        withDeleted: false,
+      });
+      if (!esMiembro) {
+        throw new ForbiddenException('No tiene acceso a esta reunión. Solo los miembros del comité pueden verla.');
+      }
+    } else if (!esAdmin) {
+      throw new ForbiddenException('No tiene acceso a esta reunión.');
+    }
+
+    // Reuniones antiguas sin registrado_por_id: asignar primer SUPER_ADMIN y persistir para próximas cargas
+    if (!reunion.registradoPorId) {
+      const admin = await this.usuariosService.findFirstSuperAdmin();
+      if (admin) {
+        const { nombre } = await this.getUsuarioNombreYRol(admin.id);
+        reunion.registradoPorId = admin.id;
+        reunion.registradoPorNombre = nombre;
+        await this.reunionComiteRepository.save(reunion);
+      }
+    }
+
+    const dto = ResponseReunionComiteDto.fromEntity(reunion);
+    if (reunion.registradoPorId) {
+      const { nombre, rol } = await this.getUsuarioNombreYRol(reunion.registradoPorId);
+      dto.registrado_por = nombre;
+      dto.registrado_por_rol = rol;
+    }
+    return dto;
   }
 
-  async createReunion(dto: CreateReunionComiteDto): Promise<ResponseReunionComiteDto[]> {
-    // Verificar que todos los comités existen
-    const comites = await this.comiteRepository.find({
-      where: dto.comites_ids.map((id) => ({ id })),
+  async createReunion(dto: CreateReunionComiteDto, usuarioId?: string): Promise<ResponseReunionComiteDto[]> {
+    const comite = await this.comiteRepository.findOne({
+      where: { id: dto.comite_id },
       withDeleted: false,
     });
 
-    if (comites.length !== dto.comites_ids.length) {
-      const foundIds = comites.map((c) => c.id);
-      const missingIds = dto.comites_ids.filter((id) => !foundIds.includes(id));
-      throw new NotFoundException(
-        `Los siguientes comités no fueron encontrados: ${missingIds.join(', ')}`
+    if (!comite) {
+      throw new NotFoundException(`Comité con ID ${dto.comite_id} no encontrado`);
+    }
+
+    const registradoPorNombre = usuarioId ? await this.getUsuarioNombre(usuarioId) : null;
+
+    const reunion = this.reunionComiteRepository.create({
+      comiteId: dto.comite_id,
+      sesion: dto.sesion,
+      fechaRealizacion: new Date(dto.fecha_realizacion),
+      horaRegistro: dto.hora_registro || null,
+      lugar: dto.lugar || null,
+      descripcion: dto.descripcion || null,
+      estado: dto.estado || ('PENDIENTE' as any),
+      tipoReunion: dto.tipo_reunion || ('ORDINARIA' as any),
+      enviarAlerta: dto.enviar_alerta || false,
+      registradoPorId: usuarioId ?? null,
+      registradoPorNombre,
+    });
+
+    const saved = await this.reunionComiteRepository.save(reunion);
+
+    if (dto.agenda && dto.agenda.length > 0) {
+      const agendaItems = dto.agenda.map((descripcion, index) =>
+        this.agendaReunionRepository.create({
+          reunionId: saved.id,
+          descripcion: descripcion.trim(),
+          orden: index,
+        })
       );
+      await this.agendaReunionRepository.save(agendaItems);
     }
 
-    const reunionesCreadas: ResponseReunionComiteDto[] = [];
+    const reunionCompleta = await this.reunionComiteRepository.findOne({
+      where: { id: saved.id },
+      relations: ['acuerdos', 'comite', 'agenda', 'documentos'],
+      withDeleted: false,
+    });
 
-    // Crear una reunión para cada comité seleccionado
-    for (const comiteId of dto.comites_ids) {
-      const reunion = this.reunionComiteRepository.create({
-        comiteId,
-        sesion: dto.sesion,
-        fechaRealizacion: new Date(dto.fecha_realizacion),
-        horaRegistro: dto.hora_registro || null,
-        lugar: dto.lugar || null,
-        descripcion: dto.descripcion || null,
-        estado: dto.estado || 'PENDIENTE' as any,
-        tipoReunion: dto.tipo_reunion || 'ORDINARIA' as any,
-        enviarAlerta: dto.enviar_alerta || false,
-      });
-
-      const saved = await this.reunionComiteRepository.save(reunion);
-
-      // Crear los items de agenda si existen
-      if (dto.agenda && dto.agenda.length > 0) {
-        const agendaItems = dto.agenda.map((descripcion, index) =>
-          this.agendaReunionRepository.create({
-            reunionId: saved.id,
-            descripcion: descripcion.trim(),
-            orden: index,
-          })
-        );
-        await this.agendaReunionRepository.save(agendaItems);
-      }
-
-      // Obtener la reunión completa con relaciones
-      const reunionCompleta = await this.reunionComiteRepository.findOne({
-        where: { id: saved.id },
-        relations: ['acuerdos', 'comite', 'agenda'],
-        withDeleted: false,
-      });
-
-      reunionesCreadas.push(ResponseReunionComiteDto.fromEntity(reunionCompleta!));
-    }
-
-    return reunionesCreadas;
+    return [ResponseReunionComiteDto.fromEntity(reunionCompleta!)];
   }
 
   async updateReunion(
@@ -508,6 +583,12 @@ export class ComitesService {
       estado: dto.estado ?? reunion.estado,
       tipoReunion: dto.tipo_reunion ?? reunion.tipoReunion,
       enviarAlerta: dto.enviar_alerta !== undefined ? dto.enviar_alerta : reunion.enviarAlerta,
+      numeroReunion: dto.numero_reunion !== undefined ? dto.numero_reunion : reunion.numeroReunion,
+      proximaReunion: dto.proxima_reunion !== undefined ? dto.proxima_reunion : reunion.proximaReunion,
+      duracion: dto.duracion !== undefined ? dto.duracion : reunion.duracion,
+      desarrollo: dto.desarrollo !== undefined ? dto.desarrollo : reunion.desarrollo,
+      acuerdoInformativo: dto.acuerdo_informativo !== undefined ? dto.acuerdo_informativo : reunion.acuerdoInformativo,
+      acuerdoInformativoTexto: dto.acuerdo_informativo_texto !== undefined ? dto.acuerdo_informativo_texto : reunion.acuerdoInformativoTexto,
     });
 
     await this.reunionComiteRepository.save(reunion);
@@ -532,11 +613,64 @@ export class ComitesService {
 
     const updated = await this.reunionComiteRepository.findOne({
       where: { id },
-      relations: ['acuerdos', 'comite', 'agenda'],
+      relations: ['acuerdos', 'comite', 'agenda', 'documentos'],
       withDeleted: false,
     });
 
     return ResponseReunionComiteDto.fromEntity(updated!);
+  }
+
+  async listarDocumentosReunion(reunionId: string): Promise<ResponseDocumentoReunionDto[]> {
+    const docs = await this.documentoReunionRepository.find({
+      where: { reunionId },
+      order: { fechaRegistro: 'DESC' },
+      withDeleted: false,
+    });
+    return docs.map((d) => ResponseDocumentoReunionDto.fromEntity(d));
+  }
+
+  async agregarDocumentoReunion(
+    reunionId: string,
+    titulo: string,
+    file: Express.Multer.File,
+    usuarioId?: string,
+  ): Promise<ResponseDocumentoReunionDto> {
+    const reunion = await this.reunionComiteRepository.findOne({
+      where: { id: reunionId },
+      relations: ['comite', 'comite.empresa'],
+      withDeleted: false,
+    });
+    if (!reunion) {
+      throw new NotFoundException(`Reunión con ID ${reunionId} no encontrada`);
+    }
+    const ruc = reunion.comite?.empresa?.ruc || 'default';
+    const url = await this.storageService.uploadFile(
+      ruc,
+      file.buffer,
+      'documento_reunion',
+      { contentType: file.mimetype },
+    );
+    const registradoPorNombre = usuarioId ? await this.getUsuarioNombre(usuarioId) : null;
+    const doc = this.documentoReunionRepository.create({
+      reunionId,
+      titulo: titulo.trim(),
+      url,
+      registradoPorId: usuarioId ?? null,
+      registradoPorNombre,
+    });
+    const saved = await this.documentoReunionRepository.save(doc);
+    return ResponseDocumentoReunionDto.fromEntity(saved);
+  }
+
+  async removeDocumentoReunion(reunionId: string, documentoId: string): Promise<void> {
+    const doc = await this.documentoReunionRepository.findOne({
+      where: { id: documentoId, reunionId },
+      withDeleted: false,
+    });
+    if (!doc) {
+      throw new NotFoundException('Documento no encontrado');
+    }
+    await this.documentoReunionRepository.softDelete(doc.id);
   }
 
   async removeReunion(id: string): Promise<void> {

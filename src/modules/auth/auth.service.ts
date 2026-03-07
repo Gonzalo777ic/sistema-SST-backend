@@ -57,9 +57,7 @@ export class AuthService {
     const esCentroMedico = usuario.roles.includes(UsuarioRol.CENTRO_MEDICO);
     const rolesOperativos = [
       UsuarioRol.EMPLEADO,
-      UsuarioRol.SUPERVISOR,
       UsuarioRol.MEDICO,
-      UsuarioRol.INGENIERO_SST,
       UsuarioRol.AUDITOR,
     ];
     const esRolOperativo = usuario.roles.some((rol) => rolesOperativos.includes(rol));
@@ -90,7 +88,7 @@ export class AuthService {
         );
       }
     } else {
-      // Para roles administrativos (SUPER_ADMIN, ADMIN_EMPRESA) con trabajador vinculado, también verificar estado
+      // Para roles administrativos (SUPER_ADMIN, ADMIN) con trabajador vinculado, también verificar estado
       if (usuario.trabajador && usuario.trabajador.estado !== EstadoTrabajador.Activo) {
         throw new UnauthorizedException(
           'Acceso denegado: Su vínculo laboral no está activo',

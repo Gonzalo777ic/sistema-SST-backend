@@ -25,7 +25,7 @@ export class AreasController {
   constructor(private readonly areasService: AreasService) {}
 
   @Post()
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async create(@Body() dto: CreateAreaDto): Promise<ResponseAreaDto> {
     return this.areasService.create(dto);
   }
@@ -45,7 +45,7 @@ export class AreasController {
   }
 
   @Patch(':id')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateAreaDto,
@@ -54,7 +54,7 @@ export class AreasController {
   }
 
   @Delete(':id')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.areasService.remove(id);
   }

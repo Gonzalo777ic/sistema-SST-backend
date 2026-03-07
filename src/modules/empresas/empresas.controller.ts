@@ -207,7 +207,7 @@ export class EmpresasController {
 
   @Get(':empresaId/gerentes/candidatos')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async buscarCandidatosGerente(
     @Param('empresaId', ParseUUIDPipe) empresaId: string,
     @Query('q') q?: string,
@@ -217,21 +217,21 @@ export class EmpresasController {
 
   @Get(':empresaId/gerentes')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async listarGerentes(@Param('empresaId', ParseUUIDPipe) empresaId: string) {
     return this.firmasGerenteService.findByEmpresa(empresaId);
   }
 
   @Post('gerentes')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async crearGerente(@Body() dto: CreateFirmaGerenteDto) {
     return this.firmasGerenteService.create(dto);
   }
 
   @Patch('gerentes/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async actualizarGerente(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateFirmaGerenteDto,
@@ -241,14 +241,14 @@ export class EmpresasController {
 
   @Patch('gerentes/:id/desactivar')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async desactivarGerente(@Param('id', ParseUUIDPipe) id: string) {
     return this.firmasGerenteService.desactivar(id);
   }
 
   @Patch('gerentes/:id/reactivar')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async reactivarGerente(@Param('id', ParseUUIDPipe) id: string) {
     return this.firmasGerenteService.reactivar(id);
   }

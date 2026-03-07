@@ -41,14 +41,14 @@ export class CargosController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async create(@Body() dto: CreateCargoDto): Promise<ResponseCargoDto> {
     return this.cargosService.create(dto);
   }
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCargoDto,
@@ -58,7 +58,7 @@ export class CargosController {
 
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.cargosService.remove(id);
   }

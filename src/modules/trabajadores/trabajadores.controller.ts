@@ -51,6 +51,14 @@ export class TrabajadoresController {
     return this.trabajadoresService.buscar(empresaId || undefined, q || '');
   }
 
+  @Get('para-comite')
+  async findParaComite(@Query('empresa_id') empresaId: string): Promise<ResponseTrabajadorDto[]> {
+    if (!empresaId) {
+      throw new BadRequestException('El parámetro empresa_id es requerido');
+    }
+    return this.trabajadoresService.findParaComite(empresaId);
+  }
+
   @Post('validar-importacion')
   @UseInterceptors(FileInterceptor('file'))
   async validarImportacion(

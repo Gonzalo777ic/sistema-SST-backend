@@ -26,13 +26,13 @@ export class ConfigEmoController {
   constructor(private readonly configEmoService: ConfigEmoService) {}
 
   @Get('perfiles')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async findAllPerfiles() {
     return this.configEmoService.findAllPerfiles();
   }
 
   @Post('perfiles')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async createPerfil(
     @Body() dto: CreatePerfilEmoDto,
     @CurrentUser() user: { id: string },
@@ -41,13 +41,13 @@ export class ConfigEmoController {
   }
 
   @Get('perfiles/:id')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async findOnePerfil(@Param('id', ParseUUIDPipe) id: string) {
     return this.configEmoService.findOnePerfil(id);
   }
 
   @Patch('perfiles/:id')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async updatePerfil(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: { nombre?: string; descripcion?: string; costo_unitario?: number },
@@ -56,19 +56,19 @@ export class ConfigEmoController {
   }
 
   @Get('centros')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async findAllCentros() {
     return this.configEmoService.findAllCentros();
   }
 
   @Post('centros')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async createCentro(@Body() dto: CreateCentroMedicoDto) {
     return this.configEmoService.createCentro(dto);
   }
 
   @Patch('centros/:id')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async updateCentro(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: Partial<CreateCentroMedicoDto>,
@@ -77,25 +77,25 @@ export class ConfigEmoController {
   }
 
   @Delete('centros/:id')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async removeCentro(@Param('id', ParseUUIDPipe) id: string) {
     return this.configEmoService.softDeleteCentro(id);
   }
 
   @Get('resultados')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async findAllResultados() {
     return this.configEmoService.findAllResultados();
   }
 
   @Post('resultados')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async createResultado(@Body() dto: CreateResultadoAdicionalDto) {
     return this.configEmoService.createResultado(dto);
   }
 
   @Patch('resultados/:id')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async updateResultado(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateResultadoAdicionalDto,
@@ -104,19 +104,19 @@ export class ConfigEmoController {
   }
 
   @Delete('resultados/:id')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async removeResultado(@Param('id', ParseUUIDPipe) id: string) {
     return this.configEmoService.softDeleteResultado(id);
   }
 
   @Get('recomendaciones')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async getRecomendaciones() {
     return { recomendaciones: await this.configEmoService.getRecomendaciones() };
   }
 
   @Patch('recomendaciones')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async updateRecomendaciones(@Body() body: { recomendaciones: string }) {
     const texto = await this.configEmoService.updateRecomendaciones(
       body.recomendaciones ?? '',
@@ -125,7 +125,7 @@ export class ConfigEmoController {
   }
 
   @Get('diferidos')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async findAllDiferidos(@Query('q') q?: string) {
     return this.configEmoService.findAllDiferidos(q);
   }

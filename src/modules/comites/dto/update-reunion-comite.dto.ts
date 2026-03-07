@@ -45,4 +45,28 @@ export class UpdateReunionComiteDto {
   @IsArray()
   @IsString({ each: true })
   agenda?: string[];
+
+  @IsOptional()
+  @IsString()
+  numero_reunion?: string;
+
+  @IsOptional()
+  @IsString()
+  proxima_reunion?: string;
+
+  @IsOptional()
+  @IsString()
+  duracion?: string; // HH:mm
+
+  @IsOptional()
+  @IsString()
+  desarrollo?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  acuerdo_informativo?: boolean;
+
+  @IsOptional()
+  @IsString()
+  acuerdo_informativo_texto?: string;
 }

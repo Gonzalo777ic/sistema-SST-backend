@@ -65,7 +65,7 @@ export class FirmasGerenteService {
         '(u.nombres ILIKE :term OR u.apellidoPaterno ILIKE :term OR u.apellidoMaterno ILIKE :term OR u.dni ILIKE :term)',
         { term: pattern },
       )
-      .andWhere("'SUPER_ADMIN' = ANY(u.roles) OR 'ADMIN_EMPRESA' = ANY(u.roles)")
+      .andWhere("'SUPER_ADMIN' = ANY(u.roles) OR 'ADMIN' = ANY(u.roles)")
       .andWhere(
         "(u.nombres IS NOT NULL AND u.nombres != '' AND u.apellidoPaterno IS NOT NULL AND u.apellidoPaterno != '')",
       )

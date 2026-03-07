@@ -151,6 +151,35 @@ export class TrabajadoresService {
     return Promise.all(dtos.map((d) => this.enrichFotoUrl(d)));
   }
 
+  /**
+   * Trabajadores elegibles para comité: con usuario vinculado y que no sean
+   * médico, centro médico ni auditor. Ordenados por apellido alfabéticamente.
+   */
+  async findParaComite(empresaId: string): Promise<ResponseTrabajadorDto[]> {
+    const ROLES_EXCLUIDOS = [UsuarioRol.MEDICO, UsuarioRol.CENTRO_MEDICO, UsuarioRol.AUDITOR];
+    const trabajadores = await this.trabajadorRepository.find({
+      where: { empresaId },
+      relations: ['usuario', 'area', 'empresa', 'cargoRef'],
+      withDeleted: false,
+    });
+    const filtrados = trabajadores.filter((t) => {
+      if (!t.usuario) return false;
+      const tieneRolExcluido = t.usuario.roles?.some((r) => ROLES_EXCLUIDOS.includes(r));
+      return !tieneRolExcluido;
+    });
+    filtrados.sort((a, b) => {
+      const apA = (a.apellidoPaterno || '').toLowerCase();
+      const apB = (b.apellidoPaterno || '').toLowerCase();
+      if (apA !== apB) return apA.localeCompare(apB);
+      const amA = (a.apellidoMaterno || '').toLowerCase();
+      const amB = (b.apellidoMaterno || '').toLowerCase();
+      if (amA !== amB) return amA.localeCompare(amB);
+      return (a.nombres || '').toLowerCase().localeCompare((b.nombres || '').toLowerCase());
+    });
+    const dtos = filtrados.map((t) => ResponseTrabajadorDto.fromEntity(t));
+    return Promise.all(dtos.map((d) => this.enrichFotoUrl(d)));
+  }
+
   private async enrichFotoUrl(dto: ResponseTrabajadorDto): Promise<ResponseTrabajadorDto> {
     if (dto.foto_url && dto.foto_url.includes('storage.googleapis.com') && this.storageService.isAvailable()) {
       try {

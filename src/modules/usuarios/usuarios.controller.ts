@@ -32,12 +32,12 @@ export class UsuariosController {
     @CurrentUser() currentUser: { id: string; dni: string; roles: UsuarioRol[]; empresaId?: string | null },
   ): Promise<ResponseUsuarioDto> {
     // Solo SUPER_ADMIN puede crear usuarios desde este endpoint
-    // ADMIN_EMPRESA no puede crear usuarios aquí (debe usar el flujo de Trabajadores)
+    // ADMIN no puede crear usuarios aquí (debe usar el flujo de Trabajadores)
     return this.usuariosService.create(dto, currentUser);
   }
 
   @Get()
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async findAll(
     @CurrentUser() currentUser: { id: string; dni: string; roles: UsuarioRol[]; empresaId?: string | null },
   ): Promise<ResponseUsuarioDto[]> {
@@ -49,7 +49,7 @@ export class UsuariosController {
   }
 
   @Get('dni/:dni')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async findByDni(
     @Param('dni') dni: string,
   ): Promise<ResponseUsuarioDto | null> {
@@ -75,13 +75,13 @@ export class UsuariosController {
     
     // Para otros usuarios, verificar permisos
     const isSuperAdmin = currentUser.roles.includes(UsuarioRol.SUPER_ADMIN);
-    const isAdminEmpresa = currentUser.roles.includes(UsuarioRol.ADMIN_EMPRESA);
+    const isAdminEmpresa = currentUser.roles.includes(UsuarioRol.ADMIN);
     
     if (!isSuperAdmin && !isAdminEmpresa) {
       throw new ForbiddenException('No tienes permisos para acceder a este perfil');
     }
     
-    // ADMIN_EMPRESA solo puede ver usuarios de su empresa
+    // ADMIN solo puede ver usuarios de su empresa
     if (isAdminEmpresa && !isSuperAdmin) {
       const usuario = await this.usuariosService.findOne(id);
       if (usuario.empresaId !== currentUser.empresaId) {
@@ -101,14 +101,14 @@ export class UsuariosController {
   }
 
   @Patch(':id')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUsuarioDto,
     @CurrentUser() currentUser: { id: string; dni: string; roles: UsuarioRol[]; empresaId?: string | null },
   ): Promise<ResponseUsuarioDto> {
-    // ADMIN_EMPRESA no puede modificar roles ni activar/desactivar usuarios (excepto para sí mismo)
-    const isAdminEmpresa = currentUser.roles.includes(UsuarioRol.ADMIN_EMPRESA) && !currentUser.roles.includes(UsuarioRol.SUPER_ADMIN);
+    // ADMIN no puede modificar roles ni activar/desactivar usuarios (excepto para sí mismo)
+    const isAdminEmpresa = currentUser.roles.includes(UsuarioRol.ADMIN) && !currentUser.roles.includes(UsuarioRol.SUPER_ADMIN);
     if (isAdminEmpresa && id !== currentUser.id) {
       if (dto.roles !== undefined || dto.activo !== undefined) {
         throw new ForbiddenException('No tienes permisos para modificar roles o estado de otros usuarios');
@@ -133,7 +133,7 @@ export class UsuariosController {
   }
 
   @Post(':id/reset-password')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async resetPassword(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {

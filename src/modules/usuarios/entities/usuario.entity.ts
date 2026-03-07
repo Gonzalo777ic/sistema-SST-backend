@@ -20,14 +20,13 @@ export enum AuthProvider {
   MICROSOFT = 'MICROSOFT',
 }
 
+/** Roles de primer nivel. La participación en comité SST (presidente, secretario, miembro) es de segunda dimensión en MiembroComite. */
 export enum UsuarioRol {
   SUPER_ADMIN = 'SUPER_ADMIN',
-  ADMIN_EMPRESA = 'ADMIN_EMPRESA',
-  INGENIERO_SST = 'INGENIERO_SST',
-  SUPERVISOR = 'SUPERVISOR',
-  MEDICO = 'MEDICO',
+  ADMIN = 'ADMIN',
   EMPLEADO = 'EMPLEADO',
   AUDITOR = 'AUDITOR',
+  MEDICO = 'MEDICO',
   CENTRO_MEDICO = 'CENTRO_MEDICO',
 }
 

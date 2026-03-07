@@ -28,6 +28,7 @@ import { ResponseDocumentoComiteDto } from './dto/response-documento-comite.dto'
 import { CreateReunionComiteDto } from './dto/create-reunion-comite.dto';
 import { UpdateReunionComiteDto } from './dto/update-reunion-comite.dto';
 import { ResponseReunionComiteDto } from './dto/response-reunion-comite.dto';
+import { ResponseDocumentoReunionDto } from './dto/response-documento-reunion.dto';
 import { CreateAcuerdoComiteDto } from './dto/create-acuerdo-comite.dto';
 import { UpdateAcuerdoComiteDto } from './dto/update-acuerdo-comite.dto';
 import { ResponseAcuerdoComiteDto } from './dto/response-acuerdo-comite.dto';
@@ -52,7 +53,7 @@ export class ComitesController {
     return this.comitesService.findAll(empresaId);
   }
 
-  // Endpoints para gestión de reuniones (rutas estáticas antes de :id)
+  // Endpoints para gestión de reuniones (rutas estáticas antes de :id). Acceso por MiembroComite para no-admin.
   @Get('reuniones')
   async findAllReuniones(
     @Query('comite_id') comiteId?: string,
@@ -61,29 +62,38 @@ export class ComitesController {
     @Query('fecha_hasta') fechaHasta?: string,
     @Query('tipo_reunion') tipoReunion?: string,
     @Query('descripcion') descripcion?: string,
+    @CurrentUser() user?: { id: string; roles: string[]; trabajadorId?: string | null },
   ): Promise<ResponseReunionComiteDto[]> {
-    return this.comitesService.findAllReuniones({
-      comiteId,
-      estado,
-      fechaDesde,
-      fechaHasta,
-      tipoReunion,
-      descripcion,
-    });
+    return this.comitesService.findAllReuniones(
+      {
+        comiteId,
+        estado,
+        fechaDesde,
+        fechaHasta,
+        tipoReunion,
+        descripcion,
+      },
+      user ? { id: user.id, roles: user.roles as any, trabajadorId: user.trabajadorId ?? null } : undefined,
+    );
   }
 
   @Get('reuniones/:id')
   async findOneReunion(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user?: { id: string; roles: string[]; trabajadorId?: string | null },
   ): Promise<ResponseReunionComiteDto> {
-    return this.comitesService.findOneReunion(id);
+    return this.comitesService.findOneReunion(
+      id,
+      user ? { id: user.id, roles: user.roles as any, trabajadorId: user.trabajadorId ?? null } : undefined,
+    );
   }
 
   @Post('reuniones')
   async createReunion(
     @Body() dto: CreateReunionComiteDto,
+    @CurrentUser() user: { id: string },
   ): Promise<ResponseReunionComiteDto[]> {
-    return this.comitesService.createReunion(dto);
+    return this.comitesService.createReunion(dto, user.id);
   }
 
   @Patch('reuniones/:id')
@@ -97,6 +107,50 @@ export class ComitesController {
   @Delete('reuniones/:id')
   async removeReunion(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.comitesService.removeReunion(id);
+  }
+
+  @Get('reuniones/:id/documentos')
+  async listarDocumentosReunion(
+    @Param('id', ParseUUIDPipe) reunionId: string,
+  ): Promise<ResponseDocumentoReunionDto[]> {
+    return this.comitesService.listarDocumentosReunion(reunionId);
+  }
+
+  @Post('reuniones/:id/documentos')
+  @UseInterceptors(FileInterceptor('file'))
+  async agregarDocumentoReunion(
+    @Param('id', ParseUUIDPipe) reunionId: string,
+    @Body('titulo') titulo: string,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: { id: string },
+  ): Promise<ResponseDocumentoReunionDto> {
+    if (!titulo?.trim()) {
+      throw new BadRequestException('El título es obligatorio');
+    }
+    if (!file) {
+      throw new BadRequestException('Debe seleccionar un archivo');
+    }
+    const allowedMimes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    if (!allowedMimes.includes(file.mimetype)) {
+      throw new BadRequestException('Formatos aceptados: PDF, DOC, DOCX');
+    }
+    const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+    if (file.size > MAX_SIZE) {
+      throw new BadRequestException('El archivo no debe superar 10 MB');
+    }
+    return this.comitesService.agregarDocumentoReunion(reunionId, titulo.trim(), file, user.id);
+  }
+
+  @Delete('reuniones/:id/documentos/:docId')
+  async removeDocumentoReunion(
+    @Param('id', ParseUUIDPipe) reunionId: string,
+    @Param('docId', ParseUUIDPipe) docId: string,
+  ): Promise<void> {
+    return this.comitesService.removeDocumentoReunion(reunionId, docId);
   }
 
   // Endpoints para gestión de acuerdos (rutas estáticas antes de :id)

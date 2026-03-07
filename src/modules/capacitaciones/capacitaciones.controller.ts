@@ -35,7 +35,7 @@ export class CapacitacionesController {
   constructor(private readonly capacitacionesService: CapacitacionesService) {}
 
   @Post()
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async create(
     @Body() dto: CreateCapacitacionDto,
     @CurrentUser() currentUser: { id: string; empresaId?: string | null },
@@ -74,7 +74,7 @@ export class CapacitacionesController {
   }
 
   @Post('evaluaciones-favoritas')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async crearEvaluacionFavorita(
     @Body() dto: CreateEvaluacionFavoritaDto,
     @CurrentUser() currentUser: { id: string; empresaId?: string | null },
@@ -83,7 +83,7 @@ export class CapacitacionesController {
   }
 
   @Delete('evaluaciones-favoritas/:id')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async eliminarEvaluacionFavorita(@Param('id', ParseUUIDPipe) id: string) {
     await this.capacitacionesService.eliminarEvaluacionFavorita(id);
     return { message: 'Evaluación favorita eliminada' };
@@ -181,7 +181,7 @@ export class CapacitacionesController {
   }
 
   @Post(':id/examenes')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async crearExamen(
     @Param('id', ParseUUIDPipe) capacitacionId: string,
     @Body() dto: CreateExamenCapacitacionDto,
@@ -198,7 +198,7 @@ export class CapacitacionesController {
   }
 
   @Post(':id/participantes')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async agregarParticipante(
     @Param('id', ParseUUIDPipe) capacitacionId: string,
     @Body('trabajador_id') trabajadorId: string,
@@ -228,7 +228,7 @@ export class CapacitacionesController {
   }
 
   @Delete(':id/participantes/:trabajadorId')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async retirarParticipante(
     @Param('id', ParseUUIDPipe) capacitacionId: string,
     @Param('trabajadorId', ParseUUIDPipe) trabajadorId: string,
@@ -267,7 +267,7 @@ export class CapacitacionesController {
   }
 
   @Post(':id/adjuntos')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   @UseInterceptors(FileInterceptor('file'))
   async crearAdjunto(
     @Param('id', ParseUUIDPipe) capacitacionId: string,
@@ -302,7 +302,7 @@ export class CapacitacionesController {
   }
 
   @Delete('adjuntos/:adjuntoId')
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async eliminarAdjunto(@Param('adjuntoId', ParseUUIDPipe) adjuntoId: string) {
     await this.capacitacionesService.eliminarAdjunto(adjuntoId);
     return { message: 'Adjunto eliminado' };

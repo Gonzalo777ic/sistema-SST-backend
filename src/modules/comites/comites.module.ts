@@ -4,6 +4,7 @@ import { Comite } from './entities/comite.entity';
 import { MiembroComite } from './entities/miembro-comite.entity';
 import { DocumentoComite } from './entities/documento-comite.entity';
 import { ReunionComite } from './entities/reunion-comite.entity';
+import { DocumentoReunion } from './entities/documento-reunion.entity';
 import { AcuerdoComite } from './entities/acuerdo-comite.entity';
 import { AgendaReunion } from './entities/agenda-reunion.entity';
 import { AcuerdoResponsable } from './entities/acuerdo-responsable.entity';
@@ -21,6 +22,7 @@ import { CommonModule } from '../../common/common.module';
       MiembroComite,
       DocumentoComite,
       ReunionComite,
+      DocumentoReunion,
       AcuerdoComite,
       AgendaReunion,
       AcuerdoResponsable,

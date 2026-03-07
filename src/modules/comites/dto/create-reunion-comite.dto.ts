@@ -6,16 +6,12 @@ import {
   IsDateString,
   IsArray,
   IsBoolean,
-  ArrayMinSize,
 } from 'class-validator';
 import { EstadoReunion, TipoReunion } from '../entities/reunion-comite.entity';
-import { Type } from 'class-transformer';
 
 export class CreateReunionComiteDto {
-  @IsArray()
-  @ArrayMinSize(1, { message: 'Debe seleccionar al menos un comité' })
-  @IsUUID(undefined, { each: true })
-  comites_ids: string[];
+  @IsUUID(undefined, { message: 'Debe seleccionar un comité' })
+  comite_id: string;
 
   @IsString()
   sesion: string;

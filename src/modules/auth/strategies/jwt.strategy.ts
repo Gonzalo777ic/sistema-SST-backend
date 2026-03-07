@@ -40,9 +40,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     const esCentroMedico = usuario.roles.includes(UsuarioRol.CENTRO_MEDICO);
     const rolesOperativosSinCentro = [
       UsuarioRol.EMPLEADO,
-      UsuarioRol.SUPERVISOR,
       UsuarioRol.MEDICO,
-      UsuarioRol.INGENIERO_SST,
       UsuarioRol.AUDITOR,
     ];
     const esRolOperativoOtro = usuario.roles.some((rol) => rolesOperativosSinCentro.includes(rol));
@@ -75,7 +73,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         );
       }
     } else {
-      // Para roles administrativos (SUPER_ADMIN, ADMIN_EMPRESA) con trabajador vinculado, también verificar estado
+      // Para roles administrativos (SUPER_ADMIN, ADMIN) con trabajador vinculado, también verificar estado
       if (usuario.trabajador && usuario.trabajador.estado !== EstadoTrabajador.Activo) {
         throw new UnauthorizedException(
           'Acceso denegado: Su vínculo laboral no está activo',

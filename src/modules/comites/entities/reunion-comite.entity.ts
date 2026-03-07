@@ -12,6 +12,7 @@ import {
 import { Comite } from './comite.entity';
 import { AcuerdoComite } from './acuerdo-comite.entity';
 import { AgendaReunion } from './agenda-reunion.entity';
+import { DocumentoReunion } from './documento-reunion.entity';
 
 export enum EstadoReunion {
   PENDIENTE = 'PENDIENTE',
@@ -69,11 +70,38 @@ export class ReunionComite {
   @Column({ name: 'enviar_alerta', type: 'boolean', default: false })
   enviarAlerta: boolean;
 
+  @Column({ name: 'numero_reunion', type: 'varchar', nullable: true })
+  numeroReunion: string | null;
+
+  @Column({ name: 'proxima_reunion', type: 'text', nullable: true })
+  proximaReunion: string | null;
+
+  @Column({ name: 'duracion', type: 'varchar', length: 5, nullable: true })
+  duracion: string | null; // HH:mm
+
+  @Column({ type: 'text', nullable: true })
+  desarrollo: string | null;
+
+  @Column({ name: 'acuerdo_informativo', type: 'boolean', default: false })
+  acuerdoInformativo: boolean;
+
+  @Column({ name: 'acuerdo_informativo_texto', type: 'text', nullable: true })
+  acuerdoInformativoTexto: string | null;
+
+  @Column({ name: 'registrado_por_id', type: 'uuid', nullable: true })
+  registradoPorId: string | null;
+
+  @Column({ name: 'registrado_por_nombre', type: 'varchar', length: 300, nullable: true })
+  registradoPorNombre: string | null;
+
   @OneToMany(() => AcuerdoComite, (acuerdo) => acuerdo.reunion)
   acuerdos: AcuerdoComite[];
 
   @OneToMany(() => AgendaReunion, (agenda) => agenda.reunion)
   agenda: AgendaReunion[];
+
+  @OneToMany(() => DocumentoReunion, (doc) => doc.reunion)
+  documentos: DocumentoReunion[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

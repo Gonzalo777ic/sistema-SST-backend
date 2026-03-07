@@ -3,6 +3,7 @@ import { RolComite } from '../entities/miembro-comite.entity';
 import { safeDateToString, safeDateTimeToDate } from './date-utils';
 
 type ComiteConMiembros = Comite & {
+  empresa?: { nombre: string } | null;
   miembros?: Array<{
     rolComite: RolComite;
     trabajador?: { nombreCompleto: string } | null;
@@ -13,6 +14,7 @@ type ComiteConMiembros = Comite & {
 export class ResponseComiteDto {
   id: string;
   empresa_id: string;
+  empresa_nombre: string | null;
   nombre: string;
   fecha_inicio: string;
   fecha_fin: string;
@@ -30,6 +32,7 @@ export class ResponseComiteDto {
     const dto = new ResponseComiteDto();
     dto.id = comite.id;
     dto.empresa_id = comite.empresaId;
+    dto.empresa_nombre = comite.empresa?.nombre ?? null;
     dto.nombre = comite.nombre;
     // Fechas de tipo 'date' (solo fecha, sin hora)
     dto.fecha_inicio = safeDateToString(comite.fechaInicio) || '';

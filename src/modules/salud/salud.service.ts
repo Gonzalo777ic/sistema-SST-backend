@@ -81,8 +81,8 @@ export class SaludService {
         r === UsuarioRol.CENTRO_MEDICO ||
         r === UsuarioRol.MEDICO ||
         r === UsuarioRol.SUPER_ADMIN ||
-        r === UsuarioRol.ADMIN_EMPRESA ||
-        r === UsuarioRol.INGENIERO_SST,
+        r === UsuarioRol.ADMIN ||
+        r === UsuarioRol.EMPLEADO,
     ) ?? false;
   }
 

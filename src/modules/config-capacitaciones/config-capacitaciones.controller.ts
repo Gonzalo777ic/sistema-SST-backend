@@ -18,7 +18,7 @@ export class ConfigCapacitacionesController {
   }
 
   @Patch()
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA, UsuarioRol.INGENIERO_SST)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN, UsuarioRol.EMPLEADO)
   async updateConfig(@Body() dto: UpdateConfigCapacitacionDto): Promise<ResponseConfigCapacitacionDto> {
     return this.configService.updateConfig(dto);
   }

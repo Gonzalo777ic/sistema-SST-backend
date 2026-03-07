@@ -42,14 +42,14 @@ export class DatosReferenciaController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async create(@Body() dto: CreateDatoReferenciaDto): Promise<ResponseDatoReferenciaDto> {
     return this.service.create(dto);
   }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateDatoReferenciaDto,
@@ -59,7 +59,7 @@ export class DatosReferenciaController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN_EMPRESA)
+  @Roles(UsuarioRol.SUPER_ADMIN, UsuarioRol.ADMIN)
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.service.remove(id);
   }

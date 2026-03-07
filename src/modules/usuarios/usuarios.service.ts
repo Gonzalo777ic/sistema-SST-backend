@@ -43,9 +43,9 @@ export class UsuariosService {
       );
     }
 
-    // BLOQUEO: ADMIN_EMPRESA no puede crear usuarios desde este endpoint
+    // BLOQUEO: ADMIN no puede crear usuarios desde este endpoint
     // Debe usar el flujo de Trabajadores para crear usuarios operativos
-    const isAdminEmpresa = !!currentUser?.roles.includes(UsuarioRol.ADMIN_EMPRESA) && !currentUser?.roles.includes(UsuarioRol.SUPER_ADMIN);
+    const isAdminEmpresa = !!currentUser?.roles.includes(UsuarioRol.ADMIN) && !currentUser?.roles.includes(UsuarioRol.SUPER_ADMIN);
     
     if (isAdminEmpresa) {
       throw new ForbiddenException(
@@ -156,13 +156,22 @@ export class UsuariosService {
     });
   }
 
+  /** Primer usuario con rol SUPER_ADMIN (para rellenar "registrado por" en reuniones antiguas). */
+  async findFirstSuperAdmin(): Promise<Usuario | null> {
+    return this.usuarioRepository.findOne({
+      where: { roles: ArrayContains([UsuarioRol.SUPER_ADMIN]) },
+      relations: ['trabajador'],
+      withDeleted: false,
+    });
+  }
+
   async findAll(
     currentUserId?: string, 
     currentUserRoles?: UsuarioRol[], 
     currentUserEmpresaId?: string | null
   ): Promise<ResponseUsuarioDto[]> {
     const isSuperAdmin = currentUserRoles?.includes(UsuarioRol.SUPER_ADMIN);
-    const isAdminEmpresa = currentUserRoles?.includes(UsuarioRol.ADMIN_EMPRESA) && !isSuperAdmin;
+    const isAdminEmpresa = currentUserRoles?.includes(UsuarioRol.ADMIN) && !isSuperAdmin;
     
     if (!isSuperAdmin && !isAdminEmpresa) return [];
     
@@ -176,7 +185,7 @@ export class UsuariosService {
       });
       usuarios = allUsers.filter(u => !u.roles.includes(UsuarioRol.SUPER_ADMIN) || u.id === currentUserId);
     } else if (isAdminEmpresa && currentUserEmpresaId) {
-      // ADMIN_EMPRESA ve su empresa + SUPER_ADMINs (para auditoría)
+      // ADMIN ve su empresa + SUPER_ADMINs (para auditoría)
       const empresaUsers = await this.usuarioRepository.find({
         where: { empresaId: currentUserEmpresaId },
         relations: ['trabajador', 'participacionesCentroMedico', 'participacionesCentroMedico.centroMedico'],
@@ -250,16 +259,16 @@ export class UsuariosService {
 
     const isCurrentlySuperAdmin = usuario.roles.includes(UsuarioRol.SUPER_ADMIN);
     const isCurrentUserSuperAdmin = currentUserRoles?.includes(UsuarioRol.SUPER_ADMIN);
-    const isCurrentUserAdminEmpresa = currentUserRoles?.includes(UsuarioRol.ADMIN_EMPRESA) && !isCurrentUserSuperAdmin;
+    const isCurrentUserAdminEmpresa = currentUserRoles?.includes(UsuarioRol.ADMIN) && !isCurrentUserSuperAdmin;
     
-    // JERARQUÍA DE ROLES: ADMIN_EMPRESA NUNCA puede modificar o eliminar SUPER_ADMIN
+    // JERARQUÍA DE ROLES: ADMIN NUNCA puede modificar o eliminar SUPER_ADMIN
     if (isCurrentlySuperAdmin && isCurrentUserAdminEmpresa) {
       throw new ForbiddenException(
         'No tienes permisos para modificar usuarios con rol SUPER_ADMIN',
       );
     }
     
-    // ADMIN_EMPRESA solo puede modificar usuarios de su empresa
+    // ADMIN solo puede modificar usuarios de su empresa
     if (isCurrentUserAdminEmpresa && currentUserEmpresaId) {
       if (usuario.empresaId !== currentUserEmpresaId && !isCurrentlySuperAdmin) {
         throw new ForbiddenException(
@@ -345,7 +354,7 @@ export class UsuariosService {
 
     // Permitir actualización de trabajadorId
     if (dto.trabajadorId !== undefined) {
-      // Validación especial para ADMIN_EMPRESA: solo puede vincularse a trabajador de su empresa
+      // Validación especial para ADMIN: solo puede vincularse a trabajador de su empresa
       if (isCurrentUserAdminEmpresa && currentUserEmpresaId && dto.trabajadorId) {
         // Verificar que el trabajador pertenezca a la misma empresa
         const trabajadorRepo = this.usuarioRepository.manager.getRepository('Trabajador');
@@ -513,11 +522,7 @@ export class UsuariosService {
 
   /** Usuarios que pueden aprobar solicitudes EPP: admins de la empresa + SUPER_ADMIN */
   async findUsuariosAprobadoresByEmpresa(empresaId: string): Promise<Usuario[]> {
-    const aprobadoresRoles = [
-      UsuarioRol.ADMIN_EMPRESA,
-      UsuarioRol.INGENIERO_SST,
-      UsuarioRol.SUPERVISOR,
-    ];
+    const aprobadoresRoles = [UsuarioRol.ADMIN];
     const usuarios = await this.usuarioRepository.find({
       where: { activo: true },
     });
