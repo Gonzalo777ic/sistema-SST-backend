@@ -29,6 +29,7 @@ import { ContratistasModule } from './modules/contratistas/contratistas.module';
 import { RiesgosModule } from './modules/riesgos/riesgos.module';
 import { PermisosModule } from './modules/permisos/permisos.module';
 import { ComitesModule } from './modules/comites/comites.module';
+import { MarcosNormativosModule } from './modules/marcos-normativos/marcos-normativos.module';
 import { AccionesCorrectivasModule } from './modules/acciones-correctivas/acciones-correctivas.module';
 import { ReportesModule } from './modules/reportes/reportes.module';
 import { AuditoriaModule } from './modules/auditoria/auditoria.module';
@@ -81,6 +82,7 @@ import { CommonModule } from './common/common.module';
     RiesgosModule,
     PermisosModule,
     ComitesModule,
+    MarcosNormativosModule,
     AccionesCorrectivasModule,
     ReportesModule,
     AuditoriaModule,

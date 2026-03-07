@@ -12,6 +12,7 @@ import { Empresa } from '../empresas/entities/empresa.entity';
 import { ComitesController } from './comites.controller';
 import { ComitesService } from './comites.service';
 import { UsuariosModule } from '../usuarios/usuarios.module';
+import { CommonModule } from '../../common/common.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { UsuariosModule } from '../usuarios/usuarios.module';
       Empresa,
     ]),
     UsuariosModule,
+    CommonModule,
   ],
   controllers: [ComitesController],
   providers: [ComitesService],

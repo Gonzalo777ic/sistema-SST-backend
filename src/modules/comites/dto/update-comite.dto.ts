@@ -4,6 +4,7 @@ import {
   IsDateString,
   IsInt,
   IsBoolean,
+  IsUUID,
   Min,
 } from 'class-validator';
 
@@ -32,4 +33,8 @@ export class UpdateComiteDto {
   @IsOptional()
   @IsBoolean()
   activo?: boolean;
+
+  @IsOptional()
+  @IsUUID()
+  marco_normativo_id?: string;
 }

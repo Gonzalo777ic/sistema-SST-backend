@@ -1,5 +1,5 @@
 import { DocumentoComite } from '../entities/documento-comite.entity';
-import { safeDateToString, safeDateTimeToDate } from './date-utils';
+import { safeDateTimeToDate } from './date-utils';
 
 export class ResponseDocumentoComiteDto {
   id: string;
@@ -16,8 +16,9 @@ export class ResponseDocumentoComiteDto {
     dto.comite_id = documento.comiteId;
     dto.titulo = documento.titulo;
     dto.url = documento.url;
-    // Fecha de registro es de tipo 'date' (solo fecha, sin hora)
-    dto.fecha_registro = safeDateToString(documento.fechaRegistro) || '';
+    // Fecha de registro es timestamp (fecha y hora) - se asigna automáticamente al subir
+    const dt = safeDateTimeToDate(documento.fechaRegistro);
+    dto.fecha_registro = dt ? dt.toISOString() : '';
     // Fechas de tipo 'datetime' (con hora) - convertir a Date de forma segura
     dto.createdAt = safeDateTimeToDate(documento.createdAt) || new Date();
     dto.updatedAt = safeDateTimeToDate(documento.updatedAt) || new Date();

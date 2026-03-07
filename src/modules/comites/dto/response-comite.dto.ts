@@ -7,6 +7,7 @@ type ComiteConMiembros = Comite & {
     rolComite: RolComite;
     trabajador?: { nombreCompleto: string } | null;
   }>;
+  marcoNormativo?: { id: string; nombre: string } | null;
 };
 
 export class ResponseComiteDto {
@@ -20,6 +21,8 @@ export class ResponseComiteDto {
   activo: boolean;
   presidente_nombre: string | null;
   registrado_por: string | null;
+  marco_normativo_id: string | null;
+  marco_normativo_nombre: string | null;
   createdAt: Date;
   updatedAt: Date;
 
@@ -38,6 +41,8 @@ export class ResponseComiteDto {
     const presidente = comite.miembros?.find((m) => m.rolComite === RolComite.PRESIDENTE);
     dto.presidente_nombre = presidente?.trabajador?.nombreCompleto ?? null;
     dto.registrado_por = comite.registradoPorNombre ?? null;
+    dto.marco_normativo_id = comite.marcoNormativoId ?? null;
+    dto.marco_normativo_nombre = comite.marcoNormativo?.nombre ?? null;
     // Fechas de tipo 'datetime' (con hora) - convertir a Date de forma segura
     dto.createdAt = safeDateTimeToDate(comite.createdAt) || new Date();
     dto.updatedAt = safeDateTimeToDate(comite.updatedAt) || new Date();

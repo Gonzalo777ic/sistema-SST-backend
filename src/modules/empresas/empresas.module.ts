@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { MarcosNormativosModule } from '../marcos-normativos/marcos-normativos.module';
 import { Empresa } from './entities/empresa.entity';
 import { Area } from './entities/area.entity';
 import { Unidad } from './entities/unidad.entity';
@@ -15,6 +16,7 @@ import { Trabajador } from '../trabajadores/entities/trabajador.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Empresa, Area, Unidad, Sede, Gerencia, FirmaGerente, Usuario, Trabajador]),
+    MarcosNormativosModule,
   ],
   controllers: [EmpresasController],
   providers: [EmpresasService, FirmasGerenteService],

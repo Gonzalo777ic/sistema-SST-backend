@@ -22,6 +22,7 @@ import { UpdateSedeDto } from './dto/update-sede.dto';
 import { CreateGerenciaDto } from './dto/create-gerencia.dto';
 import { UpdateGerenciaDto } from './dto/update-gerencia.dto';
 import { StorageService } from '../../common/services/storage.service';
+import { MarcosNormativosService } from '../marcos-normativos/marcos-normativos.service';
 
 export interface EstructuraItem {
   id: string;
@@ -44,6 +45,7 @@ export class EmpresasService {
     @InjectRepository(Gerencia)
     private readonly gerenciaRepository: Repository<Gerencia>,
     private readonly storageService: StorageService,
+    private readonly marcosNormativosService: MarcosNormativosService,
   ) {}
 
   async create(dto: CreateEmpresaDto): Promise<ResponseEmpresaDto> {
@@ -71,6 +73,7 @@ export class EmpresasService {
 
     const saved = await this.empresaRepository.save(empresa);
     await this.inicializarEstructuraOrganizacional(saved.id);
+    await this.marcosNormativosService.crearMarcosPredeterminados(saved.id);
     const empresaConRelaciones = await this.empresaRepository.findOne({
       where: { id: saved.id },
       relations: ['areas'],
@@ -175,6 +178,26 @@ export class EmpresasService {
     if (result.affected === 0) {
       throw new NotFoundException(`Empresa con ID ${id} no encontrada`);
     }
+  }
+
+  async desactivar(id: string): Promise<ResponseEmpresaDto> {
+    const empresa = await this.empresaRepository.findOne({ where: { id } });
+    if (!empresa) {
+      throw new NotFoundException(`Empresa con ID ${id} no encontrada`);
+    }
+    empresa.activo = false;
+    const saved = await this.empresaRepository.save(empresa);
+    return ResponseEmpresaDto.fromEntity(saved);
+  }
+
+  async activar(id: string): Promise<ResponseEmpresaDto> {
+    const empresa = await this.empresaRepository.findOne({ where: { id } });
+    if (!empresa) {
+      throw new NotFoundException(`Empresa con ID ${id} no encontrada`);
+    }
+    empresa.activo = true;
+    const saved = await this.empresaRepository.save(empresa);
+    return ResponseEmpresaDto.fromEntity(saved);
   }
 
   async createArea(empresaId: string, dto: CreateAreaDto): Promise<{ id: string; nombre: string }> {

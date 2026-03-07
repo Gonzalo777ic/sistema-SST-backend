@@ -9,7 +9,11 @@ import {
   Query,
   ParseUUIDPipe,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ComitesService } from './comites.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -17,6 +21,7 @@ import { CreateComiteDto } from './dto/create-comite.dto';
 import { UpdateComiteDto } from './dto/update-comite.dto';
 import { ResponseComiteDto } from './dto/response-comite.dto';
 import { CreateMiembroComiteDto } from './dto/create-miembro-comite.dto';
+import { UpdateMiembroComiteDto } from './dto/update-miembro-comite.dto';
 import { ResponseMiembroComiteDto } from './dto/response-miembro-comite.dto';
 import { CreateDocumentoComiteDto } from './dto/create-documento-comite.dto';
 import { ResponseDocumentoComiteDto } from './dto/response-documento-comite.dto';
@@ -178,6 +183,14 @@ export class ComitesController {
     return this.comitesService.listarMiembros(comiteId);
   }
 
+  @Patch('miembros/:miembroId')
+  async actualizarMiembro(
+    @Param('miembroId', ParseUUIDPipe) miembroId: string,
+    @Body() dto: UpdateMiembroComiteDto,
+  ): Promise<ResponseMiembroComiteDto> {
+    return this.comitesService.actualizarMiembro(miembroId, dto);
+  }
+
   @Delete('miembros/:miembroId')
   async quitarMiembro(
     @Param('miembroId', ParseUUIDPipe) miembroId: string,
@@ -187,11 +200,27 @@ export class ComitesController {
 
   // Endpoints para gestión de documentos
   @Post(':id/documentos')
+  @UseInterceptors(FileInterceptor('file'))
   async agregarDocumento(
     @Param('id', ParseUUIDPipe) comiteId: string,
-    @Body() dto: CreateDocumentoComiteDto,
+    @Body('titulo') titulo: string,
+    @UploadedFile() file: Express.Multer.File,
   ): Promise<ResponseDocumentoComiteDto> {
-    return this.comitesService.agregarDocumento(comiteId, dto);
+    if (!titulo?.trim()) {
+      throw new BadRequestException('El título es obligatorio');
+    }
+    if (!file) {
+      throw new BadRequestException('Debe seleccionar un archivo');
+    }
+    const allowedMimes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!allowedMimes.includes(file.mimetype)) {
+      throw new BadRequestException('Formatos aceptados: PDF, DOC, DOCX');
+    }
+    const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+    if (file.size > MAX_SIZE) {
+      throw new BadRequestException('El archivo no debe superar 10 MB');
+    }
+    return this.comitesService.agregarDocumento(comiteId, titulo.trim(), file);
   }
 
   @Get(':id/documentos')

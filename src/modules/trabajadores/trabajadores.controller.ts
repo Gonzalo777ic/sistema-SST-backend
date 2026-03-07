@@ -17,6 +17,7 @@ import { TrabajadoresService } from './trabajadores.service';
 import { CreateTrabajadorDto } from './dto/create-trabajador.dto';
 import { UpdateTrabajadorDto, UpdatePersonalDataDto, UpdateMedicoPersonalDataDto } from './dto/update-trabajador.dto';
 import { ResponseTrabajadorDto } from './dto/response-trabajador.dto';
+import { ProcesarImportacionDto } from './dto/procesar-importacion.dto';
 
 @Controller('trabajadores')
 export class TrabajadoresController {
@@ -48,6 +49,22 @@ export class TrabajadoresController {
     @Query('q') q?: string,
   ): Promise<ResponseTrabajadorDto[]> {
     return this.trabajadoresService.buscar(empresaId || undefined, q || '');
+  }
+
+  @Post('validar-importacion')
+  @UseInterceptors(FileInterceptor('file'))
+  async validarImportacion(
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Debe subir un archivo Excel o CSV');
+    }
+    return this.trabajadoresService.validarImportacion(file);
+  }
+
+  @Post('procesar-importacion')
+  async procesarImportacion(@Body() dto: ProcesarImportacionDto) {
+    return this.trabajadoresService.procesarImportacion(dto);
   }
 
   @Get(':id')

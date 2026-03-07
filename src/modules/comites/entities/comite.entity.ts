@@ -13,6 +13,7 @@ import { Empresa } from '../../empresas/entities/empresa.entity';
 import { MiembroComite } from './miembro-comite.entity';
 import { DocumentoComite } from './documento-comite.entity';
 import { ReunionComite } from './reunion-comite.entity';
+import { MarcoNormativo } from '../../marcos-normativos/entities/marco-normativo.entity';
 
 @Entity('comites')
 export class Comite {
@@ -49,6 +50,13 @@ export class Comite {
 
   @Column({ name: 'registrado_por_nombre', type: 'varchar', length: 300, nullable: true })
   registradoPorNombre: string | null;
+
+  @Column({ name: 'marco_normativo_id', type: 'uuid', nullable: true })
+  marcoNormativoId: string | null;
+
+  @ManyToOne(() => MarcoNormativo, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'marco_normativo_id' })
+  marcoNormativo: MarcoNormativo | null;
 
   @OneToMany(() => MiembroComite, (miembro) => miembro.comite)
   miembros: MiembroComite[];

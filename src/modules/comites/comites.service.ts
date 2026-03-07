@@ -19,6 +19,7 @@ import { CreateComiteDto } from './dto/create-comite.dto';
 import { UpdateComiteDto } from './dto/update-comite.dto';
 import { ResponseComiteDto } from './dto/response-comite.dto';
 import { CreateMiembroComiteDto } from './dto/create-miembro-comite.dto';
+import { UpdateMiembroComiteDto } from './dto/update-miembro-comite.dto';
 import { ResponseMiembroComiteDto } from './dto/response-miembro-comite.dto';
 import { CreateDocumentoComiteDto } from './dto/create-documento-comite.dto';
 import { ResponseDocumentoComiteDto } from './dto/response-documento-comite.dto';
@@ -30,6 +31,7 @@ import { UpdateAcuerdoComiteDto } from './dto/update-acuerdo-comite.dto';
 import { ResponseAcuerdoComiteDto } from './dto/response-acuerdo-comite.dto';
 import { ResponseAgendaReunionDto } from './dto/response-agenda-reunion.dto';
 import { UsuariosService } from '../usuarios/usuarios.service';
+import { StorageService } from '../../common/services/storage.service';
 
 @Injectable()
 export class ComitesService {
@@ -53,6 +55,7 @@ export class ComitesService {
     @InjectRepository(Empresa)
     private readonly empresaRepository: Repository<Empresa>,
     private readonly usuariosService: UsuariosService,
+    private readonly storageService: StorageService,
   ) {}
 
   private async getUsuarioNombre(usuarioId: string): Promise<string> {
@@ -86,6 +89,7 @@ export class ComitesService {
       activo: dto.activo ?? true,
       registradoPorId: usuarioId ?? null,
       registradoPorNombre,
+      marcoNormativoId: dto.marco_normativo_id ?? null,
     });
 
     const saved = await this.comiteRepository.save(comite);
@@ -96,7 +100,7 @@ export class ComitesService {
     const where = empresaId ? { empresaId } : {};
     const comites = await this.comiteRepository.find({
       where,
-      relations: ['miembros', 'miembros.trabajador'],
+      relations: ['miembros', 'miembros.trabajador', 'marcoNormativo'],
       order: { createdAt: 'DESC' },
       withDeleted: false,
     });
@@ -106,7 +110,7 @@ export class ComitesService {
   async findOne(id: string): Promise<ResponseComiteDto> {
     const comite = await this.comiteRepository.findOne({
       where: { id },
-      relations: ['miembros', 'miembros.trabajador'],
+      relations: ['miembros', 'miembros.trabajador', 'marcoNormativo'],
       withDeleted: false,
     });
 
@@ -134,6 +138,7 @@ export class ComitesService {
       descripcion: dto.descripcion !== undefined ? dto.descripcion : comite.descripcion,
       nroMiembros: dto.nro_miembros !== undefined ? dto.nro_miembros : comite.nroMiembros,
       activo: dto.activo !== undefined ? dto.activo : comite.activo,
+      marcoNormativoId: dto.marco_normativo_id !== undefined ? dto.marco_normativo_id : comite.marcoNormativoId,
     });
 
     await this.comiteRepository.save(comite);
@@ -230,6 +235,25 @@ export class ComitesService {
     return ResponseMiembroComiteDto.fromEntity(miembroConTrabajador!);
   }
 
+  async actualizarMiembro(
+    miembroId: string,
+    dto: UpdateMiembroComiteDto,
+  ): Promise<ResponseMiembroComiteDto> {
+    const miembro = await this.miembroComiteRepository.findOne({
+      where: { id: miembroId },
+      relations: ['trabajador', 'trabajador.cargoRef'],
+      withDeleted: false,
+    });
+    if (!miembro) {
+      throw new NotFoundException(`Miembro con ID ${miembroId} no encontrado`);
+    }
+    if (dto.tipo_miembro !== undefined) miembro.tipoMiembro = dto.tipo_miembro;
+    if (dto.rol_comite !== undefined) miembro.rolComite = dto.rol_comite;
+    if (dto.representacion !== undefined) miembro.representacion = dto.representacion;
+    await this.miembroComiteRepository.save(miembro);
+    return ResponseMiembroComiteDto.fromEntity(miembro);
+  }
+
   async quitarMiembro(miembroId: string): Promise<void> {
     const miembro = await this.miembroComiteRepository.findOne({
       where: { id: miembroId },
@@ -273,7 +297,7 @@ export class ComitesService {
 
     const miembros = await this.miembroComiteRepository.find({
       where: { comiteId: comiteId },
-      relations: ['trabajador'],
+      relations: ['trabajador', 'trabajador.cargoRef'],
       order: { createdAt: 'ASC' },
       withDeleted: false,
     });
@@ -284,11 +308,12 @@ export class ComitesService {
   // Gestión de Documentos
   async agregarDocumento(
     comiteId: string,
-    dto: CreateDocumentoComiteDto,
+    titulo: string,
+    file: Express.Multer.File,
   ): Promise<ResponseDocumentoComiteDto> {
-    // Verificar que el comité existe
     const comite = await this.comiteRepository.findOne({
       where: { id: comiteId },
+      relations: ['empresa'],
       withDeleted: false,
     });
 
@@ -296,11 +321,19 @@ export class ComitesService {
       throw new NotFoundException(`Comité con ID ${comiteId} no encontrado`);
     }
 
+    const ruc = comite.empresa?.ruc || 'default';
+    const url = await this.storageService.uploadFile(
+      ruc,
+      file.buffer,
+      'documento_comite',
+      { contentType: file.mimetype },
+    );
+
     const documento = this.documentoComiteRepository.create({
-      comiteId: comiteId,
-      titulo: dto.titulo,
-      url: dto.url,
-      fechaRegistro: dto.fecha_registro ? new Date(dto.fecha_registro) : new Date(),
+      comiteId,
+      titulo,
+      url,
+      fechaRegistro: new Date(), // Fecha y hora actual del servidor, no modificable por el cliente
     });
 
     const saved = await this.documentoComiteRepository.save(documento);

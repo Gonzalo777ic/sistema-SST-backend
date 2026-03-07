@@ -23,7 +23,10 @@
     "seed:cie10": "ts-node -r tsconfig-paths/register scripts/seed-cie10.ts",
     "seed:epp": "ts-node -r tsconfig-paths/register scripts/seed-epp.ts",
     "seed:epp:reset": "ts-node -r tsconfig-paths/register scripts/reset-and-seed-epp.ts",
-    "backfill:epp-snapshot": "ts-node -r tsconfig-paths/register scripts/backfill-epp-snapshot.ts"
+    "backfill:epp-snapshot": "ts-node -r tsconfig-paths/register scripts/backfill-epp-snapshot.ts",
+    "migrate:marcos-pivot": "ts-node -r tsconfig-paths/register scripts/migrate-marcos-pivot.ts",
+    "migrate:documentos-activo": "ts-node -r tsconfig-paths/register scripts/migrate-documentos-activo.ts",
+    "seed:marcos-empresas-existentes": "ts-node -r tsconfig-paths/register scripts/seed-marcos-empresas-existentes.ts"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.19.0",
@@ -47,7 +50,8 @@
     "pg": "^8.18.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "typeorm": "^0.3.28"
+    "typeorm": "^0.3.28",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

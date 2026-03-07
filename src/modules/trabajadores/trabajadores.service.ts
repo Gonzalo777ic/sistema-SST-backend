@@ -5,14 +5,34 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
+import * as XLSX from 'xlsx';
 import { Trabajador, EstadoTrabajador, TipoDocumento } from './entities/trabajador.entity';
 import { Usuario } from '../usuarios/entities/usuario.entity';
+import { UsuarioRol } from '../usuarios/entities/usuario.entity';
+import { AuthProvider } from '../usuarios/entities/usuario.entity';
 import { CreateTrabajadorDto } from './dto/create-trabajador.dto';
 import { UpdateTrabajadorDto, UpdatePersonalDataDto, UpdateMedicoPersonalDataDto } from './dto/update-trabajador.dto';
 import { ResponseTrabajadorDto } from './dto/response-trabajador.dto';
+import { ProcesarImportacionDto, FilaImportacionDto } from './dto/procesar-importacion.dto';
 import { StorageService } from '../../common/services/storage.service';
 import { validateSignatureOrThrow } from '../../common/utils/signature-validation';
+import { EmpresasService } from '../empresas/empresas.service';
+
+export interface FilaValidacionResult {
+  data: FilaImportacionDto;
+  valido: boolean;
+  errores: string[];
+}
+
+function normalizarTipoDoc(val: string): TipoDocumento | null {
+  const v = (val || '').trim().toUpperCase();
+  if (v === 'DNI' || v.startsWith('DNI')) return TipoDocumento.DNI;
+  if (v.includes('CARNE') || v.includes('EXTRANJERIA') || v.includes('CE')) return TipoDocumento.CARNE_EXTRANJERIA;
+  if (v.includes('PASAPORTE') || v.includes('PAS')) return TipoDocumento.PASAPORTE;
+  return null;
+}
 
 @Injectable()
 export class TrabajadoresService {
@@ -22,6 +42,8 @@ export class TrabajadoresService {
     @InjectRepository(Usuario)
     private readonly usuarioRepository: Repository<Usuario>,
     private readonly storageService: StorageService,
+    private readonly empresasService: EmpresasService,
+    private readonly dataSource: DataSource,
   ) {}
 
   private buildNombreCompleto(
@@ -33,9 +55,6 @@ export class TrabajadoresService {
   }
 
   async create(dto: CreateTrabajadorDto): Promise<ResponseTrabajadorDto> {
-    if (!dto.cargo_id && !dto.cargo?.trim()) {
-      throw new BadRequestException('Debe indicar el cargo (cargo_id o cargo)');
-    }
     const documentoIdentidad = dto.numero_documento;
     const nombreCompleto = this.buildNombreCompleto(
       dto.apellido_paterno,
@@ -71,7 +90,7 @@ export class TrabajadoresService {
       telefono: dto.telefono ?? null,
       emailPersonal: dto.email ?? null,
       emailCorporativo: dto.email_corporativo ?? null,
-      fechaIngreso: new Date(dto.fecha_ingreso),
+      fechaIngreso: dto.fecha_ingreso ? new Date(dto.fecha_ingreso) : new Date(),
       estado: dto.estado ?? EstadoTrabajador.Activo,
       grupoSanguineo: dto.grupo_sanguineo ?? null,
       contactoEmergenciaNombre: dto.contacto_emergencia_nombre ?? null,
@@ -201,7 +220,7 @@ export class TrabajadoresService {
     if (dto.telefono !== undefined) updateData.telefono = dto.telefono || null;
     if (dto.email !== undefined) updateData.emailPersonal = dto.email || null;
     if (dto.email_corporativo !== undefined) updateData.emailCorporativo = dto.email_corporativo || null;
-    if (dto.fecha_ingreso !== undefined) updateData.fechaIngreso = new Date(dto.fecha_ingreso);
+    if (dto.fecha_ingreso !== undefined && dto.fecha_ingreso?.trim()) updateData.fechaIngreso = new Date(dto.fecha_ingreso);
     if (dto.estado !== undefined) updateData.estado = dto.estado;
     if (dto.grupo_sanguineo !== undefined) updateData.grupoSanguineo = dto.grupo_sanguineo || null;
     if (dto.contacto_emergencia_nombre !== undefined) updateData.contactoEmergenciaNombre = dto.contacto_emergencia_nombre || null;
@@ -609,4 +628,202 @@ export class TrabajadoresService {
     const trabajadores = await qb.getMany();
     return trabajadores.map((t) => ResponseTrabajadorDto.fromEntity(t));
   }
+
+  async validarImportacion(
+    file: Express.Multer.File,
+  ): Promise<{ filas: FilaValidacionResult[] }> {
+    if (!file?.buffer) {
+      throw new BadRequestException('Debe subir un archivo Excel o CSV');
+    }
+
+    // 1. Obtener todas las empresas para mapear por nombre (sin distinguir mayúsculas)
+    // Asumiendo que tu empresasService tiene un método findAll()
+    const todasLasEmpresas = await this.empresasService.findAll(); 
+    const empresasMap = new Map(
+      todasLasEmpresas.map((e) => [e.nombre.trim().toUpperCase(), e.id])
+    );
+
+    let rows: Record<string, unknown>[];
+    const ext = (file.originalname || '').toLowerCase();
+
+    if (ext.endsWith('.csv')) {
+      const text = file.buffer.toString('utf-8');
+      const wb = XLSX.read(text, { type: 'string', raw: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
+    } else {
+      const wb = XLSX.read(file.buffer, { type: 'buffer' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
+    }
+
+    if (!rows.length) {
+      throw new BadRequestException('El archivo no contiene filas de datos');
+    }
+
+    const filas: FilaValidacionResult[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const get = (key: string) => String(row[key] ?? '').trim();
+
+      // 2. Extraer datos del Excel (Ahora usamos la columna 'Empresa')
+      const data: FilaImportacionDto = {
+        tipo_doc: get('Tipo de Doc'),
+        nro_doc: get('Nro Doc'),
+        nombre: get('Nombre'),
+        apellido_paterno: get('Apellido Paterno'),
+        apellido_materno: get('Apellido Materno'),
+        empresa: get('Empresa'),
+      };
+
+      const errores: string[] = [];
+
+      if (!data.tipo_doc) errores.push('Tipo de Doc es obligatorio');
+      else {
+        const tipo = normalizarTipoDoc(data.tipo_doc);
+        if (!tipo) errores.push('Tipo de Doc debe ser DNI, Carné Extranjería o Pasaporte');
+      }
+
+      if (!data.nro_doc) errores.push('Nro Doc es obligatorio');
+      else {
+        const tipo = normalizarTipoDoc(data.tipo_doc);
+        if (tipo === TipoDocumento.DNI && !/^\d{8}$/.test(data.nro_doc.replace(/\D/g, ''))) {
+          errores.push('Nro Doc (DNI) debe tener 8 dígitos');
+        }
+      }
+
+      if (!data.nombre) errores.push('Nombre es obligatorio');
+      if (!data.apellido_paterno) errores.push('Apellido Paterno es obligatorio');
+      
+      // 3. Validación de la Empresa extraída del Excel
+      let rowEmpresaId: string | undefined = undefined;
+      if (!data.empresa) {
+        errores.push('Empresa es obligatoria');
+      } else {
+        rowEmpresaId = empresasMap.get(data.empresa.toUpperCase());
+        if (!rowEmpresaId) {
+          errores.push(`La empresa '${data.empresa}' no existe en el sistema`);
+        }
+      }
+
+      // 4. Validación de DNI duplicado (solo si la empresa existe)
+      if (rowEmpresaId && data.nro_doc && !errores.some((e) => e.includes('Nro Doc'))) {
+        const tipo = normalizarTipoDoc(data.tipo_doc);
+        const docNorm = tipo === TipoDocumento.DNI
+          ? data.nro_doc.replace(/\D/g, '').slice(0, 8)
+          : data.nro_doc.replace(/[^A-Za-z0-9]/g, '').slice(0, 12);
+          
+        if (docNorm) {
+          const existing = await this.trabajadorRepository.findOne({
+            where: { documentoIdentidad: docNorm, empresaId: rowEmpresaId },
+            withDeleted: false,
+          });
+          if (existing) {
+            errores.push('El Nro Doc ya existe en esta empresa');
+          }
+        }
+      }
+
+      filas.push({
+        data,
+        valido: errores.length === 0,
+        errores,
+      });
+    }
+
+    return { filas };
+  }
+
+  async procesarImportacion(dto: ProcesarImportacionDto): Promise<{ importados: number }> {
+    // 1. Filtramos validando la columna 'empresa' en vez de 'unidad'
+    const filasValidas = dto.filas.filter(
+      (f) =>
+        f.tipo_doc?.trim() &&
+        f.nro_doc?.trim() &&
+        f.nombre?.trim() &&
+        f.apellido_paterno?.trim() &&
+        f.empresa?.trim(),
+    );
+
+    if (filasValidas.length === 0) {
+      throw new BadRequestException('No hay filas válidas para importar');
+    }
+
+    // 2. Cargamos todas las empresas de la base de datos para mapear sus IDs
+    const todasLasEmpresas = await this.empresasService.findAll();
+    const empresasMap = new Map(
+      todasLasEmpresas.map((e) => [e.nombre.trim().toUpperCase(), e.id])
+    );
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      let importados = 0;
+
+      for (const f of filasValidas) {
+        // 3. Buscamos el ID real de la empresa según el nombre que vino en el Excel
+        const empresaId = empresasMap.get(f.empresa.trim().toUpperCase());
+        if (!empresaId) continue; // Si por alguna razón no se encuentra, se ignora
+
+        const tipoDoc = normalizarTipoDoc(f.tipo_doc) || TipoDocumento.DNI;
+        const docIdentidad =
+          tipoDoc === TipoDocumento.DNI
+            ? f.nro_doc.replace(/\D/g, '').slice(0, 8)
+            : f.nro_doc.replace(/[^A-Za-z0-9]/g, '').slice(0, 12);
+            
+        const nombreCompleto = [f.apellido_paterno, f.apellido_materno, f.nombre].filter(Boolean).join(' ');
+
+        // 4. Creamos el trabajador limpiamente (sin unidad, área ni sede)
+        const trabajador = queryRunner.manager.create(Trabajador, {
+          nombres: f.nombre,
+          apellidoPaterno: f.apellido_paterno,
+          apellidoMaterno: f.apellido_materno,
+          nombreCompleto,
+          tipoDocumento: tipoDoc,
+          numeroDocumento: docIdentidad,
+          documentoIdentidad: docIdentidad,
+          empresaId: empresaId,
+          estado: EstadoTrabajador.Activo,
+          // CAMBIO AQUÍ: Usa el nombre exacto que la DB reclama (fecha_ingreso)
+          fechaIngreso: new Date().toISOString(),
+        } as any);
+
+        const saved = await queryRunner.manager.save(Trabajador, trabajador);
+        importados++;
+
+        // 5. Creación del usuario con el empresaId correcto
+        if (dto.crearUsuarios) {
+          const existingUser = await queryRunner.manager.findOne(Usuario, {
+            where: { dni: docIdentidad },
+          });
+          if (!existingUser) {
+            const passwordHash = await bcrypt.hash(docIdentidad, 10);
+            const usuario = queryRunner.manager.create(Usuario, {
+              dni: docIdentidad,
+              passwordHash,
+              authProvider: AuthProvider.LOCAL,
+              roles: [UsuarioRol.EMPLEADO],
+              empresaId: empresaId,
+              trabajador: { id: saved.id } as any,
+              activo: true,
+              debeCambiarPassword: true,
+            });
+            await queryRunner.manager.save(Usuario, usuario);
+          }
+        }
+      }
+
+      await queryRunner.commitTransaction();
+      return { importados };
+    } catch (e) {
+      await queryRunner.rollbackTransaction();
+      throw e;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
 }

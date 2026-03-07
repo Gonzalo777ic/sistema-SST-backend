@@ -33,4 +33,8 @@ export class CreateComiteDto {
   @IsOptional()
   @IsBoolean()
   activo?: boolean;
+
+  @IsOptional()
+  @IsUUID()
+  marco_normativo_id?: string;
 }

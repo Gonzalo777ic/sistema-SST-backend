@@ -54,9 +54,9 @@ export class CreateTrabajadorDto {
   @IsString()
   email_corporativo?: string;
 
-  @IsString()
+  @IsOptional()
   @IsDateString()
-  fecha_ingreso: string;
+  fecha_ingreso?: string;
 
   @IsOptional()
   @IsEnum(EstadoTrabajador)

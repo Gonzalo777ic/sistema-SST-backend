@@ -81,9 +81,14 @@ export class EmpresasController {
     return this.empresasService.update(id, dto);
   }
 
-  @Delete(':id')
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.empresasService.remove(id);
+  @Patch(':id/desactivar')
+  async desactivar(@Param('id', ParseUUIDPipe) id: string): Promise<ResponseEmpresaDto> {
+    return this.empresasService.desactivar(id);
+  }
+
+  @Patch(':id/activar')
+  async activar(@Param('id', ParseUUIDPipe) id: string): Promise<ResponseEmpresaDto> {
+    return this.empresasService.activar(id);
   }
 
   @Get(':empresaId/areas')

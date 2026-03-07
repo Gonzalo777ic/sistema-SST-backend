@@ -3,7 +3,7 @@ import { Storage } from '@google-cloud/storage';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
-export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'firma_recepcion' | 'firma_capacitador' | 'firma_gerente' | 'firma_medico' | 'sello_medico' | 'logo_documentos' | 'pdf_entrega' | 'kardex_pdf' | 'certificado_capacitacion' | 'logo_empresa' | 'imagen_epp' | 'ficha_pdf_epp' | 'foto_trabajador' | 'adjunto_capacitacion' | 'centro_medico_pdf' | 'documento_emo' | 'ficha_emo';
+export type StorageTipo = 'firma_trabajador' | 'firma_usuario' | 'firma_recepcion' | 'firma_capacitador' | 'firma_gerente' | 'firma_medico' | 'sello_medico' | 'logo_documentos' | 'pdf_entrega' | 'kardex_pdf' | 'certificado_capacitacion' | 'logo_empresa' | 'imagen_epp' | 'ficha_pdf_epp' | 'foto_trabajador' | 'adjunto_capacitacion' | 'centro_medico_pdf' | 'documento_emo' | 'ficha_emo' | 'documento_normativo' | 'documento_comite';
 
 @Injectable()
 export class StorageService {
@@ -59,12 +59,12 @@ export class StorageService {
     }
 
     let ext = 'png';
-    if (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp' || tipo === 'certificado_capacitacion' || tipo === 'centro_medico_pdf' || tipo === 'ficha_emo') ext = 'pdf';
-    else if ((tipo === 'adjunto_capacitacion' || tipo === 'documento_emo') && options?.contentType) {
+    if (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp' || tipo === 'certificado_capacitacion' || tipo === 'centro_medico_pdf' || tipo === 'ficha_emo' || tipo === 'documento_normativo') ext = 'pdf';
+    else if ((tipo === 'adjunto_capacitacion' || tipo === 'documento_emo' || tipo === 'documento_comite') && options?.contentType) {
       const ct = options.contentType.toLowerCase();
       if (ct.includes('pdf')) ext = 'pdf';
       else if (ct.includes('spreadsheet') || ct.includes('excel')) ext = 'xlsx';
-      else if (ct.includes('wordprocessing') || ct.includes('msword')) ext = 'docx';
+      else if (ct.includes('wordprocessing') || ct.includes('msword')) ext = ct.includes('openxml') ? 'docx' : 'doc';
       else if (ct.includes('jpeg') || ct.includes('jpg')) ext = 'jpg';
       else if (ct.includes('png')) ext = 'png';
     } else if (options?.contentType) {
@@ -77,7 +77,7 @@ export class StorageService {
     const bucket = this.storage.bucket(this.bucketName);
     const file = bucket.file(objectPath);
 
-    const contentType = options?.contentType || (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp' || tipo === 'certificado_capacitacion' || tipo === 'centro_medico_pdf' || tipo === 'ficha_emo' ? 'application/pdf' : tipo === 'adjunto_capacitacion' || tipo === 'documento_emo' ? 'application/octet-stream' : 'image/png');
+    const contentType = options?.contentType || (tipo === 'pdf_entrega' || tipo === 'kardex_pdf' || tipo === 'ficha_pdf_epp' || tipo === 'certificado_capacitacion' || tipo === 'centro_medico_pdf' || tipo === 'ficha_emo' || tipo === 'documento_normativo' || tipo === 'documento_comite' ? 'application/pdf' : tipo === 'adjunto_capacitacion' || tipo === 'documento_emo' ? 'application/octet-stream' : 'image/png');
 
     await file.save(buffer, {
       contentType,

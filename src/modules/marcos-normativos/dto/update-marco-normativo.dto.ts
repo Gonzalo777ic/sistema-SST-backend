@@ -1,0 +1,15 @@
+import { IsString, IsOptional, IsBoolean } from 'class-validator';
+
+export class UpdateMarcoNormativoDto {
+  @IsOptional()
+  @IsString()
+  nombre?: string;
+
+  @IsOptional()
+  @IsString()
+  descripcion?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  activo?: boolean;
+}

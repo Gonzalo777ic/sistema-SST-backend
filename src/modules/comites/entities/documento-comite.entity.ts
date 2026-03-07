@@ -28,7 +28,7 @@ export class DocumentoComite {
   @Column({ type: 'varchar' })
   url: string;
 
-  @Column({ name: 'fecha_registro', type: 'date', default: () => 'CURRENT_DATE' })
+  @Column({ name: 'fecha_registro', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   fechaRegistro: Date;
 
   @CreateDateColumn({ name: 'created_at' })
